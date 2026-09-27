@@ -5,3 +5,5 @@ node_modules/
 out/
 # Adapter build output inside projects.
 .tulpar/
+# Local secrets (keys, tokens). Never committed; see .env.example.
+.env

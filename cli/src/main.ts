@@ -13,12 +13,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { loadDotEnv } from "./env.ts";
 import { drift } from "./drift.ts";
 import { generateCommand } from "./generate.ts";
 import { match } from "./match.ts";
 import { verifyCommand } from "./verify.ts";
 import {
   AdapterHost,
+  parseFigmaUrl,
   FigmaClient,
   RateLimitError,
   extractLibrary,
@@ -30,6 +32,8 @@ import {
   type Library,
   type RoundTripReport,
 } from "@tulpar/core";
+
+loadDotEnv();
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
@@ -43,6 +47,7 @@ const { positionals, values } = parseArgs({
     theme: { type: "string" },
     from: { type: "string" },
     name: { type: "string" },
+    figma: { type: "string" },
     image: { type: "string" },
     attempts: { type: "string" },
     to: { type: "string" },
@@ -71,10 +76,17 @@ switch (command) {
     if (!target) usage();
     process.exitCode = await match(target, values.out, values.evaluate);
     break;
-  case "generate":
-    if (!target || !values.frame || !values.name) usage();
-    process.exitCode = (await generateCommand(target, { frame: values.frame, name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }) })).code;
+  case "generate": {
+    const ref = values.figma ? parseFigmaUrl(values.figma) : undefined;
+    if (values.figma && !ref?.nodeId) {
+      console.error("That Figma link has no frame in it: in Figma, right-click the frame → Copy link to selection.");
+      process.exit(2);
+    }
+    const frame = ref?.nodeId ?? values.frame;
+    if (!target || !frame || !values.name) usage();
+    process.exitCode = (await generateCommand(target, { frame, ...(ref && { fileKey: ref.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }), name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }) })).code;
     break;
+  }
   case "drift":
     if (!target || !values.from || !values.to) usage();
     process.exitCode = await drift(target, values.from, values.to, values.out);
@@ -103,7 +115,7 @@ function usage(): never {
       "       tulpar match <projectDir> [--evaluate]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
-      "       tulpar generate <projectDir> --frame <nodeId> --name <ComponentName> [--image design.png] [--attempts 3]",
+      "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId>) --name <ComponentName> [--image design.png] [--attempts 3]",
     ].join("\n"),
   );
   process.exit(2);

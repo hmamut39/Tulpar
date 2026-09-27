@@ -24,3 +24,4 @@ export { buildBrief, type Brief, type BriefInput, type Conventions, type Instanc
 export { tokenHints, type TokenHint } from "./generate/tokens-hint.ts";
 export { generate, type Attempt, type GeneratedFile, type GenerateOptions, type GenerationEvent, type GenerationResult } from "./generate/generate.ts";
 export { ScriptedLlm } from "./generate/scripted.ts";
+export { parseFigmaUrl, type FigmaRef } from "./figma/url.ts";

@@ -21,15 +21,57 @@ import {
 } from "@tulpar/core";
 import type { Project } from "./project.ts";
 
-/** The frame's design, from the local Figma cache only; never spends API budget. */
-export async function loadDesign(project: Project, frame: string, cacheDir: string): Promise<DesignTree> {
-  const fileKey = project.config.figma?.fileKey;
-  if (!fileKey) throw new Error('tulpar.json has no "figma.fileKey".');
-  const client = new FigmaClient({ token: process.env.FIGMA_TOKEN ?? "", cacheDir });
+/** Which Figma frame to use, and how it may be fetched. */
+export interface FrameInput {
+  /** Node id, e.g. "3906:50588". */
+  frame: string;
+  /** The Figma file; defaults to the project's figma.fileKey. */
+  fileKey?: string;
+  /** A Figma token that may be used to fetch the frame when it isn't cached (e.g. the web user's own). */
+  figmaToken?: string;
+}
+
+/** The frame's design: from the local cache, or fetched once with the given token and cached. */
+export async function loadDesign(project: Project, input: FrameInput, cacheDir: string): Promise<DesignTree> {
+  const fileKey = input.fileKey ?? project.config.figma?.fileKey;
+  if (!fileKey) throw new Error('No Figma file: pass a Figma link, or set "figma.fileKey" in tulpar.json.');
+  const client = new FigmaClient({ token: input.figmaToken ?? "", cacheDir });
   client.offline = true;
-  const found = await client.findCached(fileKey, frame);
-  if (!found) throw new Error(`Frame ${frame} is not in the local Figma cache. Fetch it first: tulpar model ${fileKey} ${frame}`);
+  let found = await client.findCached(fileKey, input.frame);
+  if (!found && input.figmaToken) {
+    client.offline = false;
+    const res = await client.nodes(fileKey, [input.frame]);
+    const entry = res.nodes[input.frame];
+    if (entry) found = { entry, version: res.version };
+  }
+  if (!found) {
+    throw new Error(input.figmaToken ? `Figma has no node ${input.frame} in file ${fileKey}.` : `Frame ${input.frame} is not cached, and no Figma token was given to fetch it.`);
+  }
   return normalizeTree(found.entry.document, { fileKey, fileVersion: found.version, ...found.entry });
+}
+
+/**
+ * Frames from another Figma file (e.g. a team's feature file using the design-system library)
+ * don't share node ids with the library file, but their instances carry the library
+ * components' stable keys. Map those too.
+ */
+export function mapByComponentKeys(mapping: Map<string, string>, library: Library | undefined, design: DesignTree): void {
+  if (!library) return;
+  const byKey = new Map<string, string>();
+  for (const def of library.components) {
+    const component = mapping.get(def.id);
+    if (!component) continue;
+    if (def.key) byKey.set(def.key, component);
+    for (const v of def.variants) if (v.key) byKey.set(v.key, component);
+  }
+  const visit = (n: DesignTree["root"]) => {
+    if (n.kind === "instance" && !mapping.has(n.component.id)) {
+      const component = (n.component.key && byKey.get(n.component.key)) ?? (n.component.set?.key && byKey.get(n.component.set.key));
+      if (component) mapping.set(n.component.id, component);
+    }
+    if (n.kind !== "text") n.children.forEach(visit);
+  };
+  visit(design.root);
 }
 
 export async function loadLibrary(outDir: string): Promise<Library | undefined> {
@@ -61,12 +103,14 @@ export interface Context {
   library?: Library;
 }
 
-export async function loadContext(host: AdapterHost, project: Project, frame: string, outDir: string, cacheDir: string): Promise<Context> {
-  const design = await loadDesign(project, frame, cacheDir);
+export async function loadContext(host: AdapterHost, project: Project, input: FrameInput, outDir: string, cacheDir: string): Promise<Context> {
+  const design = await loadDesign(project, input, cacheDir);
   const library = await loadLibrary(outDir);
   const index = await host.call("index", project.params);
   const links = host.manifest!.capabilities.links ? (await host.call("links", project.params)).links : [];
-  return { design, index, links, mapping: buildMapping(library, index, links), ...(library && { library }) };
+  const mapping = buildMapping(library, index, links);
+  mapByComponentKeys(mapping, library, design);
+  return { design, index, links, mapping, ...(library && { library }) };
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */

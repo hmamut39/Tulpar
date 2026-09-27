@@ -71,6 +71,22 @@ serve({
     return analyzeImplementation(impl, params.entry, prefix(params.config));
   },
 
+  conventions: (params) => {
+    const pkg = JSON.parse(readFileSync(join(packageDirs(params)[0] ?? params.root, "package.json"), "utf8")).name as string;
+    return {
+      language: "HTML, CSS and JavaScript modules",
+      framework: `Web Components (${pkg})`,
+      files: [{ path: "{name}.html", role: "component", description: "One HTML file: a <script type=\"module\"> that imports the design-system elements it uses, a <style> block for the component's own layout, and the markup." }],
+      entry: "{name}.html",
+      rules: [
+        `Import each design-system element from its module, e.g. import "${pkg}/es/components/button/index.js";`,
+        "Use the design-system custom elements (their tag names) for every mapped instance; set their attributes as the mapping gives them (kebab-case attribute names).",
+        "Put data-figma-id attributes directly on the custom elements.",
+      ],
+      importExample: `import "${pkg}/es/components/button/index.js";`,
+    };
+  },
+
   shutdown: async () => {
     await closeBrowser();
     return null;

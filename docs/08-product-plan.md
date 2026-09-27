@@ -49,9 +49,9 @@ Nothing from steps 0–6 is replaced. Each phase adds to what exists.
 |---|---|---|---|
 | 0–6 | **Engine** | Figma design model; component index for any framework (adapters); matcher; verifier; drift | ✅ Done (docs 01–07) |
 | G1 | **Generation (React)** | Brief (design + mapping + tokens + the framework's file conventions) → OpenAI → files → verify → repair loop. `tulpar generate` | ✅ Done, tested with a scripted model. Real runs need `OPENAI_API_KEY` |
-| G2 | **Web page v1** | Paste a Figma URL or upload a screenshot; pick the project (design system + framework); watch progress live; see the files, the rendered result and the report; download a zip | ⏭ Next |
-| G3 | **Live Figma URLs** | Paste *any* Figma frame link. Tulpar reads the file key and node id and fetches it with the **user's own** Figma token (cached, never re-fetched) | With G2 |
-| G4 | **Hosting** | Deploy the web page as a container. Sign-in or invite codes, per-user limits and a monthly spending cap on the OpenAI key | After G2 works locally. Needs a hosting account from you |
+| G2 | **Web page v1** | Paste a Figma URL or upload a screenshot; pick the project (design system + framework); watch progress live; see the files, the rendered result and the report; download a zip | ✅ v1 done (docs/09): Figma link + optional screenshot, files, render, checks, zip. `npm run web` |
+| G3 | **Live Figma URLs** | Paste *any* Figma frame link. Tulpar reads the file key and node id and fetches it with the **user's own** Figma token (cached, never re-fetched) | ✅ Done, in the page and in `tulpar generate --figma <link>`. Frames from other files are mapped by component keys |
+| G4 | **Hosting** | Deploy the web page as a container. Sign-in or invite codes, per-user limits and a monthly spending cap on the OpenAI key | 🟡 Prepared: Dockerfile, access code, per-visitor limits. Needs a hosting account from you, and a first real deploy |
 | G5 | **Screenshot input** | OpenAI vision turns an image into the same design model, recognising design-system components. Results are marked lower confidence than Figma | After G2 |
 | G6 | **Angular** | Adapter + generator: `.component.ts`, `.html`, `.less`, `.spec.ts` | After G5 |
 | G7 | **Run the generated tests** | Execute `.test.tsx` / `.spec.ts` in a sandbox and add the result to the report (today: delivered, marked "not run") | With G6 |

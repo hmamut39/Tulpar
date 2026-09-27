@@ -1,0 +1,13 @@
+{
+  "name": "@tulpar/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Tulpar web page: paste a Figma link, get verified component files.",
+  "scripts": { "start": "node src/server.ts" },
+  "dependencies": {
+    "@tulpar/cli": "0.0.0",
+    "@tulpar/core": "0.0.0",
+    "fflate": "0.8.3"
+  }
+}

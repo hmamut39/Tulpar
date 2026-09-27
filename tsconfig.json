@@ -18,6 +18,7 @@
     "core",
     "cli",
     "adapters",
+    "web/src",
     "vitest.config.ts"
   ]
 }

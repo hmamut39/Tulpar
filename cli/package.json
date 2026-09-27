@@ -3,6 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": { "tulpar": "./src/main.ts" },
-  "dependencies": { "@tulpar/core": "0.0.0" }
+  "bin": {
+    "tulpar": "./src/main.ts"
+  },
+  "dependencies": {
+    "@tulpar/core": "0.0.0"
+  },
+  "exports": {
+    "./generate": "./src/generate.ts",
+    "./pipeline": "./src/pipeline.ts",
+    "./project": "./src/project.ts",
+    "./env": "./src/env.ts"
+  }
 }

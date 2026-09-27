@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tulpar</title>
+<meta name="description" content="Figma to your design system, verified.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23305ef6'/><path d='M8 21l6-10 4 6 2-3 4 7z' fill='white'/></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo" aria-hidden="true"></span><span>Tulpar</span></div>
+  <p class="tagline">Figma → your design system, verified.</p>
+</header>
+
+<main>
+  <section class="card" aria-labelledby="new-title">
+    <h1 id="new-title">Generate a component</h1>
+    <p class="lede">Paste a Figma frame. Tulpar writes the component with your design system's own components and tokens, builds it, renders it, checks it against the design, and repairs what fails.</p>
+
+    <form id="form" novalidate>
+      <label class="field">
+        <span>Project</span>
+        <select id="project" required></select>
+        <small>The design system and framework to generate for.</small>
+      </label>
+
+      <label class="field">
+        <span>Figma frame link</span>
+        <input id="figmaUrl" type="url" placeholder="https://www.figma.com/design/…?node-id=12-34" required autocomplete="off">
+        <small>In Figma: select the frame → right-click → <b>Copy link to selection</b>.</small>
+      </label>
+
+      <label class="field">
+        <span>Component name</span>
+        <input id="name" type="text" placeholder="CheckoutCard" pattern="[A-Z][A-Za-z0-9]*" required autocomplete="off">
+        <small>PascalCase. Used for the file names.</small>
+      </label>
+
+      <label class="field">
+        <span>Screenshot <em>(optional)</em></span>
+        <input id="image" type="file" accept="image/png,image/jpeg,image/webp">
+        <small>Shown to the model alongside the Figma data.</small>
+      </label>
+
+      <details class="more">
+        <summary>Figma access</summary>
+        <label class="field">
+          <span>Your Figma token <em id="tokenHint">(optional)</em></span>
+          <input id="figmaToken" type="password" placeholder="figd_…" autocomplete="off">
+          <small>Needed for frames the server hasn't read before. Used for this run only; never stored on the server. Figma → Settings → Security → Personal access tokens (read-only).</small>
+        </label>
+        <label class="check"><input id="rememberToken" type="checkbox"> Remember in this browser</label>
+      </details>
+
+      <label class="field" id="accessField" hidden>
+        <span>Access code</span>
+        <input id="accessCode" type="password" autocomplete="off">
+      </label>
+
+      <div class="actions">
+        <button id="submit" type="submit">Generate</button>
+        <span id="formError" class="error" role="alert"></span>
+      </div>
+      <p id="modelNote" class="note"></p>
+    </form>
+  </section>
+
+  <section id="progress" class="card" hidden aria-live="polite">
+    <h2>Progress</h2>
+    <ol id="events" class="events"></ol>
+  </section>
+
+  <section id="result" class="card" hidden>
+    <div id="banner" class="banner"></div>
+    <div class="toolbar">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="report" aria-selected="true">Checks</button>
+        <button role="tab" data-tab="render" aria-selected="false">Render</button>
+        <button role="tab" data-tab="files" aria-selected="false">Files</button>
+      </div>
+      <a id="download" class="button secondary" download>Download .zip</a>
+    </div>
+    <div data-panel="report"><ul id="checks" class="checks"></ul><p id="meta" class="note"></p></div>
+    <div data-panel="render" hidden><img id="render" alt="The generated component, rendered"><p class="note">Rendered in headless Chromium at the Figma frame's size, network blocked.</p></div>
+    <div data-panel="files" hidden>
+      <div id="fileTabs" class="file-tabs"></div>
+      <div class="code-wrap"><button id="copy" class="button secondary small">Copy</button><pre><code id="code"></code></pre></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">Tulpar never says something is right unless it has checked. Where it cannot check, it says so.</footer>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

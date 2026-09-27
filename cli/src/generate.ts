@@ -13,10 +13,15 @@ import { printReport } from "./verify.ts";
 
 export interface GenerateCommandOptions {
   frame: string;
+  /** Figma file of the frame; defaults to the project's. */
+  fileKey?: string;
+  /** Token to fetch the frame with when it isn't cached (the user's own). */
+  figmaToken?: string;
   name: string;
   out: string;
   cache: string;
-  image?: string;
+  /** A picture of the design: a file path (CLI) or the image itself (web). */
+  image?: string | LlmImage;
   attempts?: number;
   theme?: string;
   /** A model to use instead of OpenAI (tests, offline development). */
@@ -25,21 +30,33 @@ export interface GenerateCommandOptions {
   onEvent?: (e: GenerationEvent) => void;
 }
 
-export async function generateCommand(projectDir: string, options: GenerateCommandOptions): Promise<{ code: number; result?: GenerationResult; outDir?: string }> {
-  if (!/^[A-Z][A-Za-z0-9]*$/.test(options.name)) {
-    console.error(`--name must be a PascalCase component name, e.g. CheckoutCard (got "${options.name}").`);
-    return { code: 2 };
-  }
+export interface GenerateOutcome {
+  code: number;
+  result?: GenerationResult;
+  outDir?: string;
+  /** Why nothing was generated, when code is 2. */
+  error?: string;
+  /** The last render, PNG base64. */
+  png?: string;
+}
+
+export async function generateCommand(projectDir: string, options: GenerateCommandOptions): Promise<GenerateOutcome> {
+  const fail = (error: string): GenerateOutcome => {
+    if (!options.quiet) console.error(error);
+    return { code: 2, error };
+  };
+  if (!/^[A-Z][A-Za-z0-9]*$/.test(options.name)) return fail(`The component name must be PascalCase, e.g. CheckoutCard (got "${options.name}").`);
   const llm = options.llm ?? OpenAiLlm.fromEnv();
-  if (!llm) {
-    console.error("No model: set OPENAI_API_KEY (see docs/08-product-plan.md).");
-    return { code: 2 };
-  }
+  if (!llm) return fail("No model: set OPENAI_API_KEY in .env (copy .env.example) or in your system environment.");
   const project = await loadProject(projectDir);
   const log = options.quiet ? () => undefined : (s: string) => console.log(s);
 
-  const result = await withAdapter(project, async (host) => {
-    const ctx = await loadContext(host, project, options.frame, options.out, options.cache);
+  let result: GenerationResult;
+  let png: string | undefined;
+  try {
+    result = await withAdapter(project, async (host) => {
+    const frameInput = { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) };
+    const ctx = await loadContext(host, project, frameInput, options.out, options.cache);
     const conventions = await host.call("conventions", project.params);
     const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
     const workDir = join(".tulpar", "generated", options.name);
@@ -55,7 +72,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       ...(tokens && { tokens }),
       ...(ctx.library && { library: ctx.library }),
       maxAttempts: options.attempts ?? 3,
-      ...(options.image && { image: await readImage(options.image) }),
+      ...(options.image && { image: typeof options.image === "string" ? await readImage(options.image) : options.image }),
       onEvent: (e) => {
         options.onEvent?.(e);
         if (e.type === "generating") log(`Attempt ${(attempt = e.attempt)}: asking ${llm.name}…`);
@@ -65,10 +82,15 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       verify: async (files) => {
         await writeFiles(project, workDir, files);
         const entry = join(workDir, conventions.entry.replaceAll("{name}", options.name)).replace(/\\/g, "/");
-        return (await verifyEntry(host, project, ctx, entry, options.theme)).report;
+        const verified = await verifyEntry(host, project, ctx, entry, options.theme);
+        png = verified.png;
+        return verified.report;
       },
     });
   });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
 
   const outDir = join(options.out, basename(project.root), "generated", options.name);
   await rm(outDir, { recursive: true, force: true });
@@ -77,6 +99,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     await mkdir(dirname(join(outDir, f.path)), { recursive: true });
     await writeFile(join(outDir, f.path), f.content);
   }
+  if (png) await writeFile(join(outDir, "tulpar-render.png"), Buffer.from(png, "base64"));
   if (result.report) await writeFile(join(outDir, "tulpar-report.json"), JSON.stringify({ status: result.status, model: result.model, usage: result.usage, attempts: result.attempts.length, report: result.report }, null, 2));
 
   if (!options.quiet) {
@@ -86,7 +109,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}`);
     console.log(`Files: ${outDir}`);
   }
-  return { code: result.status === "failed" ? 1 : 0, result, outDir };
+  return { code: result.status === "failed" ? 1 : 0, result, outDir, ...(png && { png }) };
 }
 
 async function writeFiles(project: Project, workDir: string, files: GeneratedFile[]): Promise<void> {
