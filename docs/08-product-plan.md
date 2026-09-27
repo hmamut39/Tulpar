@@ -37,16 +37,41 @@ A front-end developer receives a new design with each release: a **Figma link**,
 | AI model | OpenAI, with the owner's API key (`OPENAI_API_KEY`, never in the repo). Model configurable; default `gpt-6-astra` per OpenAI's current guidance for new projects |
 | Web app | Hosted from the start |
 
-## Phases
+## Two ways in, one engine
 
-| Phase | What | Done means |
-|---|---|---|
-| G1 | **Generation engine** in the core: the design model, mapping, tokens and the adapter's file conventions go to the model; files come back; they are verified; failures are fed back for repair | A Figma frame produces React files that pass the verifier. The loop is tested with a scripted model; real runs use OpenAI |
-| G2 | **Web app, hosted:** paste a Figma link or upload an image; watch generation and verification; see files, render and report; download a zip | Deployed behind access control, with per-user rate limits (the owner's OpenAI key pays for every run) |
-| G3 | **Screenshot input:** OpenAI vision reads the image into the same design model, recognising design-system components | Works on screenshots of the test frames; image-based results are marked lower confidence |
-| G4 | **Angular:** adapter (index, build, render, identify) and generator (`.ts`, `.html`, `.less`, `.spec.ts`) | The same frames verified in Angular; zero core changes |
-| G5 | **IDE:** a VS Code extension and an MCP server, so generation runs from the editor and files land in the workspace | Generate from a Figma link inside VS Code |
-| G6 | **HTML reports and a public project page** | Reports open in a browser; the project page shows the proof results |
+The **command line** (`tulpar generate`, `verify`, `match`, `drift`) and the **web page** call the same engine. Anything that works in one works in the other. Later, the **IDE** (a VS Code extension, and an MCP server for AI agents) is a third way in, on the same engine.
+
+## Roadmap
+
+Nothing from steps 0–6 is replaced. Each phase adds to what exists.
+
+| # | Phase | What it adds | Status |
+|---|---|---|---|
+| 0–6 | **Engine** | Figma design model; component index for any framework (adapters); matcher; verifier; drift | ✅ Done (docs 01–07) |
+| G1 | **Generation (React)** | Brief (design + mapping + tokens + the framework's file conventions) → OpenAI → files → verify → repair loop. `tulpar generate` | ✅ Done, tested with a scripted model. Real runs need `OPENAI_API_KEY` |
+| G2 | **Web page v1** | Paste a Figma URL or upload a screenshot; pick the project (design system + framework); watch progress live; see the files, the rendered result and the report; download a zip | ⏭ Next |
+| G3 | **Live Figma URLs** | Paste *any* Figma frame link. Tulpar reads the file key and node id and fetches it with the **user's own** Figma token (cached, never re-fetched) | With G2 |
+| G4 | **Hosting** | Deploy the web page as a container. Sign-in or invite codes, per-user limits and a monthly spending cap on the OpenAI key | After G2 works locally. Needs a hosting account from you |
+| G5 | **Screenshot input** | OpenAI vision turns an image into the same design model, recognising design-system components. Results are marked lower confidence than Figma | After G2 |
+| G6 | **Angular** | Adapter + generator: `.component.ts`, `.html`, `.less`, `.spec.ts` | After G5 |
+| G7 | **Run the generated tests** | Execute `.test.tsx` / `.spec.ts` in a sandbox and add the result to the report (today: delivered, marked "not run") | With G6 |
+| G8 | **IDE** | VS Code extension (generate from a Figma link; files land in the workspace) and an MCP server (Cursor, Claude Code, Copilot) | After G6 |
+| G9 | **Your own design system** | Index a team's own repository, from GitHub or locally in the IDE, instead of only the built-in Carbon examples | With G8 |
+| G10 | **More stacks** | Vue, Svelte, plain HTML/CSS; then non-JavaScript UI stacks: Flutter (Dart), Jetpack Compose (Kotlin), SwiftUI, Blazor (C#), and Python and Java UI frameworks. One adapter each; the core doesn't change (proven in step 5) | Ongoing, one stack at a time |
+| G11 | **Pixel comparison and token identity** | Compare the render with Figma's image of the frame; check the *right* token is used, not just *a* token | When the Figma budget allows |
+| G12 | **Reports and project page** | HTML report pages; a public page with the proof results | With G4 |
+| — | **Matcher scored run** | Fetch the 40 missing Figma pages; measure precision on about 78 held-out Carbon labels (docs/04) | October (Figma budget reset) |
+
+### About "every language"
+
+Tulpar generates **user interfaces**, so each language arrives through its UI frameworks: TypeScript and JavaScript (React, Angular, Vue, Svelte), Dart (Flutter), Kotlin (Compose), Swift (SwiftUI), C# (Blazor, XAML), and Python and Java through the UI frameworks teams use there. **Back-end code** (APIs, services), which the owner asked about earlier, is a separate kind of generation. It needs its own verification (contract tests instead of rendering), so it is planned as its own module after the UI flow is solid.
+
+## Ideas from the owner
+
+_Add ideas here, and they'll be folded into the roadmap._
+
+-
+
 
 ## Hard parts, stated up front
 
