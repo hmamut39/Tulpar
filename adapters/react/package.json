@@ -1,0 +1,12 @@
+{
+  "name": "@tulpar/adapter-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "tulpar-adapter-react": "./src/main.ts" },
+  "dependencies": {
+    "@tulpar/core": "0.0.0",
+    "@tulpar/web-kit": "0.0.0",
+    "typescript": "~6.0.0"
+  }
+}
