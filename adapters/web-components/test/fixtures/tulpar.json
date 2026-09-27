@@ -1,0 +1,7 @@
+{
+  "adapter": "web-components",
+  "web-components": {
+    "packages": ["pkg"],
+    "tokens": { "files": ["tokens.json"], "modesExtension": "x.themes", "cssPrefix": "x" }
+  }
+}

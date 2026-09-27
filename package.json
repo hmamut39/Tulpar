@@ -4,7 +4,8 @@
   "type": "module",
   "workspaces": [
     "core",
-    "cli"
+    "cli",
+    "adapters/*"
   ],
   "engines": {
     "node": ">=24"

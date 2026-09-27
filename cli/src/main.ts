@@ -3,18 +3,22 @@
 //
 //   tulpar model <fileKey> <nodeId>...   Figma frames → design model JSON, with round-trip check
 //   tulpar library <fileKey>             every component on every page → library JSON, with round-trip check
+//   tulpar index <projectDir>            the project's adapter → component index + tokens, with coverage
 //
 // Figma responses are cached in .cache/figma; outputs go to out/.
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
+  AdapterHost,
   FigmaClient,
   RateLimitError,
   extractLibrary,
+  indexCoverage,
   normalizeTree,
   roundTrip,
+  tokenCoverage,
   type Figma,
   type Library,
   type RoundTripReport,
@@ -30,27 +34,102 @@ const { positionals, values } = parseArgs({
   },
 });
 
-const [command, fileKey, ...rest] = positionals;
-const client = FigmaClient.fromEnv(values.cache, (url) => console.error(`  GET ${url.slice(0, 120)}`));
-client.offline = values.offline;
+const [command, target, ...rest] = positionals;
+let client: FigmaClient;
 
 switch (command) {
   case "model":
-    if (!fileKey || rest.length === 0) usage();
-    process.exitCode = await model(fileKey, rest);
+    if (!target || rest.length === 0) usage();
+    client = figmaClient();
+    process.exitCode = await model(target, rest);
     break;
   case "library":
-    if (!fileKey) usage();
-    process.exitCode = await library(fileKey, Number(values.batch));
+    if (!target) usage();
+    client = figmaClient();
+    process.exitCode = await library(target, Number(values.batch));
+    break;
+  case "index":
+    if (!target) usage();
+    process.exitCode = await index(target);
     break;
   default:
     usage();
 }
-console.error(`Figma requests sent: ${client.requestsSent} (the rest came from cache)`);
+
+function figmaClient(): FigmaClient {
+  const c = FigmaClient.fromEnv(values.cache, (url) => console.error(`  GET ${url.slice(0, 120)}`));
+  c.offline = values.offline;
+  process.on("exit", () => console.error(`Figma requests sent: ${c.requestsSent} (the rest came from cache)`));
+  return c;
+}
 
 function usage(): never {
-  console.error("usage: tulpar model <fileKey> <nodeId>...\n       tulpar library <fileKey> [--batch 4]");
+  console.error(
+    [
+      "usage: tulpar model <fileKey> <nodeId>... [--offline]",
+      "       tulpar library <fileKey> [--batch 4] [--offline]",
+      "       tulpar index <projectDir>",
+    ].join("\n"),
+  );
   process.exit(2);
+}
+
+async function index(projectDir: string): Promise<number> {
+  const root = resolve(projectDir);
+  const config = JSON.parse(await readFile(join(root, "tulpar.json"), "utf8"));
+  const adapterId: string = config.adapter;
+  // Adapters are separate programs; the core only talks to them over stdio.
+  const adapterMain = resolve(import.meta.dirname, "../../adapters", adapterId, "src/main.ts");
+  const host = await AdapterHost.start(process.execPath, [adapterMain]);
+  const params = { root, config: config[adapterId] ?? {} };
+  const out = join(values.out, basename(root));
+  await mkdir(out, { recursive: true });
+  let failed = 0;
+  try {
+    const { id, protocolVersion, capabilities } = host.manifest!;
+    console.log(`Adapter "${id}" (protocol ${protocolVersion})`);
+
+    if (capabilities.index) {
+      const idx = await host.call("index", params);
+      await writeFile(join(out, "index.json"), JSON.stringify(idx, null, 2));
+      const c = indexCoverage(idx);
+      console.log(`\nComponent index${idx.package ? ` — ${idx.package.name}@${idx.package.version}` : ""}`);
+      console.log(`  components: ${c.components} (${c.deprecatedComponents} deprecated, ${c.withDescription} described)`);
+      console.log(`  props: ${c.props.total} (${c.props.designFacing} design-facing, ${c.props.internal} internal)`);
+      console.log(`    by type: ${fmt(c.props.byType)}`);
+      console.log(`    type read from: ${fmt(c.props.typeSource)}`);
+      console.log(`    enums with values: ${c.props.enumsWithValues}; named types left unexpanded: ${c.props.unresolvedNamedTypes}`);
+      console.log(`  slots: ${c.slots.total} (${fmt(c.slots.bySource)}); components without slots: ${c.slots.componentsWithout}`);
+      console.log(`  events: ${c.events}`);
+      if (Object.keys(c.lowConfidence).length) console.log(`  low-confidence fields: ${fmt(c.lowConfidence)}`);
+      for (const g of c.gaps) console.log(`  – ${g}`);
+      if (!c.components) failed++;
+    } else console.log("– component index: not checked (the adapter does not support it)");
+
+    if (capabilities.tokens) {
+      const set = await host.call("tokens", params);
+      await writeFile(join(out, "tokens.json"), JSON.stringify(set, null, 2));
+      const t = tokenCoverage(set);
+      console.log(`\nTokens`);
+      console.log(`  tokens: ${t.tokens} (${fmt(t.byType)}); modes: ${t.modes.join(", ") || "none"}`);
+      console.log(`  unresolved values: ${t.unresolvedValues}${t.unresolvedValues ? ` (${fmt(t.unresolvedReasons)})` : ""}`);
+      console.log(`  code names not confirmed in code: ${t.unconfirmedCodeRefs} of ${t.tokens}`);
+      for (const g of t.gaps) console.log(`  – ${g}`);
+      if (!t.tokens) failed++;
+    } else console.log("– tokens: not checked (the adapter does not support it)");
+
+    console.log(`\nWritten to ${out}`);
+  } finally {
+    await host.stop();
+  }
+  return failed ? 1 : 0;
+}
+
+function fmt(counts: Record<string, number>): string {
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${k} ${n}`)
+    .join(", ");
 }
 
 async function model(fileKey: string, nodeIds: string[]): Promise<number> {

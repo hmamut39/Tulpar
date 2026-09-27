@@ -1,0 +1,13 @@
+{
+  "name": "@tulpar/adapter-web-components",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tulpar-adapter-web-components": "./src/main.ts"
+  },
+  "dependencies": {
+    "@tulpar/core": "0.0.0",
+    "typescript": "~6.0.0"
+  }
+}

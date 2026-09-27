@@ -1,0 +1,26 @@
+{
+  "version": "experimental",
+  "tags": [
+    {
+      "name": "x-chip",
+      "path": "./src/components/chip/chip.ts",
+      "description": "A chip.",
+      "attributes": [
+        { "name": "tone", "type": "CHIP_TONE", "default": "\"neutral\"" },
+        { "name": "size", "type": "string | undefined", "default": "\"md\"" },
+        { "name": "dismissible", "type": "boolean", "default": "false" },
+        { "name": "legacy-label", "type": "string" }
+      ],
+      "properties": [
+        { "name": "tone", "attribute": "tone", "type": "CHIP_TONE", "default": "\"neutral\"" },
+        { "name": "size", "attribute": "size", "type": "string | undefined", "default": "\"md\"" },
+        { "name": "dismissible", "attribute": "dismissible", "type": "boolean", "default": "false" },
+        { "name": "extra", "attribute": "extra" },
+        { "name": "form", "type": "HTMLFormElement | null" },
+        { "name": "styles", "default": "\"styles\"" }
+      ],
+      "events": [{ "name": "x-chip-dismissed", "description": "Fired on dismiss." }],
+      "slots": [{ "name": "icon", "description": "Leading icon." }]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "tulpar-example-carbon",
+  "private": true,
+  "description": "The proof's target project: Carbon Web Components, pinned. Not an npm workspace.",
+  "dependencies": {
+    "@carbon/layout": "11.60.0",
+    "@carbon/themes": "11.82.0",
+    "@carbon/web-components": "2.64.0"
+  }
+}
