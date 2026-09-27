@@ -77,7 +77,12 @@ export function buildBrief(input: BriefInput): Brief {
       instances.push(hint);
       const props = Object.entries(hint.props).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ");
       lines.push(`${pad}- INSTANCE id=${n.id} "${n.component.set?.name ?? n.component.name ?? n.name}" → ${component ?? "NO MAPPED COMPONENT"} ${props} ${box}${hint.text ? ` text=${JSON.stringify(hint.text)}` : ""}`);
-      return; // Its layers are the component's own business.
+      // Its own layers are the component's business; content placed into it goes inside it in code.
+      if (n.content?.length) {
+        lines.push(`${pad}  content (place inside ${component ?? "it"}):`);
+        for (const c of n.content) outline(c, depth + 2, false);
+      }
+      return;
     }
     if (n.kind === "text") {
       const s = n.style;
@@ -117,6 +122,17 @@ function instanceHint(n: InstanceNode, code: CodeComponent | undefined, def: Com
   const unmapped: string[] = [];
   const pairs = code && def ? features(def, prepareCode(code, prefix)).props : [];
   const codeProps = new Map((code?.props ?? []).map((p) => [p.name, p]));
+  if (code && !def) {
+    // Read from a screenshot: props already use the code's names. Keep only valid ones.
+    for (const p of n.props) {
+      const target = codeProps.get(p.name);
+      const value = String(p.value);
+      if (target?.type?.kind === "enum" && target.type.values.map(String).includes(value)) props[p.name] = value;
+      else if (target?.type?.kind === "boolean" && (value === "true" || value === "false")) props[p.name] = value === "true";
+      else unmapped.push(`${p.name}=${value}`);
+    }
+    return { figmaId: n.id, figmaName: n.name, component: code.name, props, unmapped, text: visibleText(n) };
+  }
   for (const p of n.props) {
     if (p.type === "instance-swap") continue;
     const pair = pairs.find((x) => x.figma === p.name);

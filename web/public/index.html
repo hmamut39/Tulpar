@@ -17,7 +17,7 @@
 <main>
   <section class="card" aria-labelledby="new-title">
     <h1 id="new-title">Generate a component</h1>
-    <p class="lede">Paste a Figma frame. Tulpar writes the component with your design system's own components and tokens, builds it, renders it, checks it against the design, and repairs what fails.</p>
+    <p class="lede">Paste a Figma frame, upload a screenshot, or both. Tulpar writes the component with your design system's own components and tokens, builds it, renders it, checks it against the design, and repairs what fails.</p>
 
     <form id="form" novalidate>
       <label class="field">
@@ -28,8 +28,8 @@
 
       <label class="field">
         <span>Figma frame link</span>
-        <input id="figmaUrl" type="url" placeholder="https://www.figma.com/design/…?node-id=12-34" required autocomplete="off">
-        <small>In Figma: select the frame → right-click → <b>Copy link to selection</b>.</small>
+        <input id="figmaUrl" type="url" placeholder="https://www.figma.com/design/…?node-id=12-34" autocomplete="off">
+        <small>In Figma: select the frame → right-click → <b>Copy link to selection</b>. Or leave empty and upload a screenshot.</small>
       </label>
 
       <label class="field">
@@ -39,9 +39,15 @@
       </label>
 
       <label class="field">
-        <span>Screenshot <em>(optional)</em></span>
+        <span>Screenshot <em>(with a link: extra context; alone: the design itself)</em></span>
         <input id="image" type="file" accept="image/png,image/jpeg,image/webp">
-        <small>Shown to the model alongside the Figma data.</small>
+        <small>PNG gives the pixel comparison. From a screenshot alone, positions are estimates and the report says so.</small>
+      </label>
+
+      <label class="field">
+        <span>Screenshot scale</span>
+        <select id="scale"><option value="auto">Auto</option><option value="1">1× (regular screen)</option><option value="2">2× (retina / high-DPI)</option><option value="1.5">1.5×</option><option value="3">3× (phone)</option></select>
+        <small>Pixels per design point in the screenshot.</small>
       </label>
 
       <details class="more">

@@ -7,12 +7,15 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { OpenAiLlm, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage } from "@tulpar/core";
-import { loadContext, verifyEntry } from "./pipeline.ts";
+import { loadContext, loadScreenshotContext, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
 
 export interface GenerateCommandOptions {
-  frame: string;
+  /** A Figma frame (node id). Without one, the image alone is the design (screenshot mode). */
+  frame?: string;
+  /** Screenshot pixels per design point; guessed from the image width when absent. */
+  scale?: number;
   /** Figma file of the frame; defaults to the project's. */
   fileKey?: string;
   /** Token to fetch the frame with when it isn't cached (the user's own). */
@@ -48,6 +51,13 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   if (!/^[A-Z][A-Za-z0-9]*$/.test(options.name)) return fail(`The component name must be PascalCase, e.g. CheckoutCard (got "${options.name}").`);
   const llm = options.llm ?? OpenAiLlm.fromEnv();
   if (!llm) return fail("No model: set OPENAI_API_KEY in .env (copy .env.example) or in your system environment.");
+  if (!options.frame && !options.image) return fail("Give a Figma frame link, a screenshot, or both.");
+  let image: LlmImage | undefined;
+  try {
+    image = options.image === undefined ? undefined : typeof options.image === "string" ? await readImage(options.image) : options.image;
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
   const project = await loadProject(projectDir);
   const log = options.quiet ? () => undefined : (s: string) => console.log(s);
 
@@ -55,8 +65,11 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   let png: string | undefined;
   try {
     result = await withAdapter(project, async (host) => {
-    const frameInput = { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) };
-    const ctx = await loadContext(host, project, frameInput, options.out, options.cache);
+    const ctx = options.frame
+      ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) }, options.out, options.cache)
+      : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out);
+    if (ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
+  note: ${n}`).join("")}`);
     const conventions = await host.call("conventions", project.params);
     const tokens = ctx.tokens;
     const workDir = join(".tulpar", "generated", options.name);
@@ -72,7 +85,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       ...(tokens && { tokens }),
       ...(ctx.library && { library: ctx.library }),
       maxAttempts: options.attempts ?? 3,
-      ...(options.image && { image: typeof options.image === "string" ? await readImage(options.image) : options.image }),
+      ...(image && { image }),
       onEvent: (e) => {
         options.onEvent?.(e);
         if (e.type === "generating") log(`Attempt ${(attempt = e.attempt)}: asking ${llm.name}…`);

@@ -79,9 +79,25 @@ To go live:
   - the zip download;
   - phone width in dark mode.
 
+## Screenshot only (G5)
+
+A screenshot alone is enough, on the page (leave the Figma link empty) and on the command line (`tulpar generate <project> --image shot.png --name Card`):
+
+1. **Read.** The vision model reads the picture into the same design model a Figma frame produces. It gets the design system's real catalogue (component names, prop values, slots), names only components that exist, and gives each element a box in image pixels and a confidence.
+   - An invented component becomes a plain container, with a note.
+   - Boxes are converted to design points using the screenshot's scale: auto, 1×, 1.5×, 2× or 3×.
+2. **Content, not internals.** Elements inside a design-system component (buttons inside a button set) are **content placed into it**, which the code must build. So they are tagged and checked individually. This needed a new `content` field on instances in the core model. The first real run showed why: without it, the buttons were never checked.
+3. **Generate and verify** as usual, with two differences stated in the report:
+   - layout is checked within ±16 pt, because boxes read from a picture are estimates;
+   - the typeface check is skipped, because a picture doesn't name its fonts.
+4. **Pixel comparison.** With a PNG screenshot, the render is compared with the picture pixel by pixel (pixelmatch, anti-aliasing ignored, limit 8% differing pixels). Where it differs is reported and attributed to elements. This is the strongest evidence in screenshot mode.
+
+**Real run** (the footer PNG, React, via the web page): 3 of 3 design-system components, layout within tolerance on 4 of 4 elements, text exact, **0.0% of pixels differ**.
+
+The reader's own notes claimed the primary button had "a white right-pointing arrow". There is no arrow. The code didn't add one, and the pixel comparison confirms the render matches the picture: the picture is the ground truth, not the model's description of it.
+
 ## Not in v1 (next in the roadmap)
 
-- **Screenshot-only input** (G5). Today a screenshot accompanies a Figma link; it can't replace one yet.
 - **Sign-in and per-user accounts** (G4). v1 has a shared access code.
 - **Choosing your own design system** (G9). v1 offers the built-in examples.
 - **Angular and other stacks** (G6, G10).

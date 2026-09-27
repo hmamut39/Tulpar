@@ -11,7 +11,10 @@ import {
   matchLibrary,
   nodeOwners,
   normalizeTree,
+  readScreenshot,
   verify,
+  type Llm,
+  type LlmImage,
   type AdapterHost,
   type ComponentIndex,
   type DesignTree,
@@ -103,6 +106,47 @@ export interface Context {
   mapping: Map<string, string>;
   library?: Library;
   tokens?: TokenSet;
+  /** Where the design came from. A screenshot's boxes are estimates. */
+  source: "figma" | "screenshot";
+  /** An image of the design for the pixel comparison, PNG base64. */
+  baseline?: { png: string; source: "screenshot" | "figma" };
+  tolerance?: { box: number; text: number };
+  /** Things the design reader was unsure of; shown as report warnings. */
+  notes: string[];
+}
+
+/** Screenshot pixels per design point: 2 for a typical retina capture of a desktop UI. */
+export function guessScale(width: number): number {
+  return width > 1600 ? 2 : 1;
+}
+
+/** PNG size from its header, without decoding. */
+export function pngSize(image: LlmImage): { width: number; height: number } | undefined {
+  if (image.mime !== "image/png") return undefined;
+  const b = Buffer.from(image.base64.slice(0, 64), "base64");
+  return b.length >= 24 && b.toString("ascii", 12, 16) === "IHDR" ? { width: b.readUInt32BE(16), height: b.readUInt32BE(20) } : undefined;
+}
+
+/** A context whose design is read from a screenshot by the vision model. */
+export async function loadScreenshotContext(host: AdapterHost, project: Project, input: { image: LlmImage; llm: Llm; scale?: number }, outDir: string): Promise<Context> {
+  const library = await loadLibrary(outDir);
+  const index = await host.call("index", project.params);
+  const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
+  const size = pngSize(input.image);
+  const scale = input.scale ?? (size ? guessScale(size.width) : 1);
+  const reading = await readScreenshot({ llm: input.llm, image: input.image, index, scale, ...(size && { size }) });
+  return {
+    design: reading.design,
+    index,
+    links: [],
+    mapping: reading.mapping,
+    ...(library && { library }),
+    ...(tokens && { tokens }),
+    source: "screenshot",
+    ...(input.image.mime === "image/png" && { baseline: { png: input.image.base64, source: "screenshot" as const } }),
+    tolerance: { box: 16, text: 16 },
+    notes: [`The design was read from a screenshot at ${scale}× by a vision model: element boxes are estimates, so layout is checked within ±16 pt, and the pixel comparison is the stronger evidence.`, ...reading.notes],
+  };
 }
 
 export async function loadContext(host: AdapterHost, project: Project, input: FrameInput, outDir: string, cacheDir: string): Promise<Context> {
@@ -113,7 +157,7 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
   const mapping = buildMapping(library, index, links);
   mapByComponentKeys(mapping, library, design);
   const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
-  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }) };
+  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), source: "figma", notes: [] };
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */
@@ -133,9 +177,12 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
     index: ctx.index,
     capabilities: caps,
     ...(ctx.tokens && { tokens: ctx.tokens }),
+    ...(ctx.baseline && { baseline: ctx.baseline }),
+    ...(ctx.tolerance && { tolerance: ctx.tolerance }),
     ...(build && { build }),
     ...(render && { render }),
     ...(analysis && { analysis }),
   });
+  report.warnings.push(...ctx.notes);
   return { report, ...(render?.status === "ok" && { png: render.png }) };
 }

@@ -165,6 +165,11 @@ export interface InstanceNode extends NodeBase {
   stack?: Stack;
   /** The instance's own layers, as the design draws them. */
   children: DesignNode[];
+  /**
+   * Content the design places into the component, as opposed to its own drawing:
+   * e.g. buttons inside a button set. Checked like any other layer.
+   */
+  content?: DesignNode[];
 }
 
 export interface TextNode extends NodeBase {

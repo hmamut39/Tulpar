@@ -50,6 +50,8 @@ describe("web API", () => {
     expect(await bad({ name: "card" })).toMatch(/PascalCase/);
     expect(await bad({ project: "nope" })).toBe("Pick a project.");
     expect(await bad({ image: "data:text/html;base64,PGgxPg==" })).toMatch(/PNG, JPEG or WebP/);
+    expect(await bad({ figmaUrl: "" })).toBe("Paste a Figma frame link, upload a screenshot, or both.");
+    expect(await bad({ scale: 7 })).toMatch(/Scale must be/);
   });
 
   it("serves only its own files", async () => {

@@ -83,13 +83,17 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
 
         const project = projects.find((p) => p.id === body.project);
         if (!project) return json(res, 400, { error: "Pick a project." });
-        const ref = typeof body.figmaUrl === "string" ? parseFigmaUrl(body.figmaUrl) : undefined;
-        if (!ref) return json(res, 400, { error: "That is not a Figma link." });
-        if (!ref.nodeId) return json(res, 400, { error: "That Figma link points at the whole file. In Figma, select the frame, then right-click → Copy link to selection." });
+        const hasUrl = typeof body.figmaUrl === "string" && body.figmaUrl.trim() !== "";
+        const ref = hasUrl ? parseFigmaUrl(body.figmaUrl as string) : undefined;
+        if (hasUrl && !ref) return json(res, 400, { error: "That is not a Figma link." });
+        if (ref && !ref.nodeId) return json(res, 400, { error: "That Figma link points at the whole file. In Figma, select the frame, then right-click → Copy link to selection." });
         const name = String(body.name ?? "");
         if (!/^[A-Z][A-Za-z0-9]{0,63}$/.test(name)) return json(res, 400, { error: "The component name must be PascalCase, e.g. CheckoutCard." });
         const image = parseImage(body.image);
         if (body.image && !image) return json(res, 400, { error: "The image must be a PNG, JPEG or WebP data URL." });
+        if (!ref && !image) return json(res, 400, { error: "Paste a Figma frame link, upload a screenshot, or both." });
+        const scale = body.scale === undefined || body.scale === "" || body.scale === "auto" ? undefined : Number(body.scale);
+        if (scale !== undefined && ![1, 1.5, 2, 3].includes(scale)) return json(res, 400, { error: "Scale must be auto, 1, 1.5, 2 or 3." });
         if (!llm()) return json(res, 503, { error: "The server has no OpenAI key configured (OPENAI_API_KEY)." });
 
         recent.push(Date.now());
@@ -97,8 +101,8 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const input: JobInput = {
           projectDir: project.dir,
           name,
-          frame: ref.nodeId,
-          fileKey: ref.fileKey,
+          ...(ref && { frame: ref.nodeId!, fileKey: ref.fileKey }),
+          ...(scale && { scale }),
           // The visitor's own token first; the server's only as a fallback for the owner's own use.
           ...((typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN ? { figmaToken: (typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN! } : {}),
           ...(image && { image }),

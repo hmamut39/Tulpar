@@ -87,3 +87,42 @@ describe.skipIf(!ready)("tulpar generate on Carbon React", () => {
     expect(text).not.toContain("ai-aura");
   }, 180_000);
 });
+
+describe.skipIf(!ready)("tulpar generate from a screenshot alone", () => {
+  it("reads the picture, generates, checks the content placed into components, and compares pixels", async () => {
+    const reading = {
+      width: 640,
+      height: 64,
+      notes: [],
+      elements: [
+        { id: "e1", parent: "", kind: "component", component: "ButtonSet", props: [], text: "", x: 0, y: 0, width: 640, height: 64, fill: "", confidence: 0.9 },
+        { id: "e2", parent: "e1", kind: "component", component: "Button", props: [{ name: "kind", value: "secondary" }, { name: "size", value: "xl" }], text: "Button", x: 0, y: 0, width: 320, height: 64, fill: "", confidence: 0.9 },
+        { id: "e3", parent: "e1", kind: "component", component: "Button", props: [{ name: "kind", value: "primary" }, { name: "size", value: "xl" }], text: "Button", x: 320, y: 0, width: 320, height: 64, fill: "", confidence: 0.9 },
+      ],
+    };
+    const tsx = `import { Button, ButtonSet } from "@carbon/react";
+import "./FromShot.css";
+export default function FromShot() {
+  return (
+    <div data-figma-id="screenshot">
+      <ButtonSet fluid data-figma-id="e1">
+        <Button kind="secondary" size="xl" data-figma-id="e2">Button</Button>
+        <Button kind="primary" size="xl" data-figma-id="e3">Button</Button>
+      </ButtonSet>
+    </div>
+  );
+}
+`;
+    const llm = new ScriptedLlm([reading, { files: [{ path: "FromShot.tsx", content: tsx }, { path: "FromShot.css", content: "" }, { path: "FromShot.test.tsx", content: "// tests\n" }], notes: "" }]);
+    const { result } = await generateCommand(project, { name: "FromShot", image: join(import.meta.dirname, "fixtures/footer-screenshot.png"), out: join(repo, "out"), cache: join(repo, ".cache/figma"), llm, quiet: true });
+
+    // The code-writing request saw the buttons as content to place inside the ButtonSet.
+    expect(llm.requests[1]!.text).toContain("content (place inside ButtonSet)");
+    const report = result!.report!;
+    expect(report.checks.find((c) => c.id === "components")!.summary).toBe("3 of 3 design-system components used, 0 invented");
+    const visual = report.checks.find((c) => c.id === "visual")!;
+    expect(visual.status).toBe("pass");
+    expect(report.warnings[0]).toMatch(/read from a screenshot/);
+    expect(result!.status).toBe("unchecked-remain");
+  }, 180_000);
+});

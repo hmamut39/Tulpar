@@ -49,6 +49,7 @@ const { positionals, values } = parseArgs({
     name: { type: "string" },
     figma: { type: "string" },
     image: { type: "string" },
+    scale: { type: "string" },
     attempts: { type: "string" },
     to: { type: "string" },
   },
@@ -83,8 +84,8 @@ switch (command) {
       process.exit(2);
     }
     const frame = ref?.nodeId ?? values.frame;
-    if (!target || !frame || !values.name) usage();
-    process.exitCode = (await generateCommand(target, { frame, ...(ref && { fileKey: ref.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }), name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }) })).code;
+    if (!target || (!frame && !values.image) || !values.name) usage();
+    process.exitCode = (await generateCommand(target, { ...(frame && { frame }), ...(values.scale && { scale: Number(values.scale) }), ...(ref && { fileKey: ref.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }), name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }) })).code;
     break;
   }
   case "drift":
@@ -115,7 +116,7 @@ function usage(): never {
       "       tulpar match <projectDir> [--evaluate]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
-      "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId>) --name <ComponentName> [--image design.png] [--attempts 3]",
+      "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3]",
     ].join("\n"),
   );
   process.exit(2);

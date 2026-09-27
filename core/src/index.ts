@@ -25,3 +25,5 @@ export { tokenHints, type TokenHint } from "./generate/tokens-hint.ts";
 export { generate, type Attempt, type GeneratedFile, type GenerateOptions, type GenerationEvent, type GenerationResult } from "./generate/generate.ts";
 export { ScriptedLlm } from "./generate/scripted.ts";
 export { parseFigmaUrl, type FigmaRef } from "./figma/url.ts";
+export { compareImages, type VisualComparison } from "./verify/visual.ts";
+export { readScreenshot, toDesign, type ReadScreenshotOptions, type ScreenshotReading } from "./generate/vision.ts";

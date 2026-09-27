@@ -26,15 +26,17 @@ export function tokenHints(root: DesignNode, set: TokenSet, mode: string): Token
     if (!n.visible || n.kind === "instance") return;
     const paints = [...n.fills, ...(n.stroke?.paints ?? [])];
     for (const p of paints) {
-      if (p.kind !== "solid" || p.token?.source !== "variable") continue;
+      if (p.kind !== "solid" || (p.token && p.token.source !== "variable")) continue;
       const color = { ...p.color, a: p.color.a * p.opacity };
       const matching = new Set(colorTokens.filter((t) => { const v = valueIn(t); return v?.kind === "color" && close(v.color, color); }).map((t) => t.name));
-      const seen = candidates.get(p.token.id);
-      if (!seen) candidates.set(p.token.id, { names: matching, uses: 1 });
+      // Unbound colours (e.g. read from a screenshot) are keyed by their value.
+      const key = p.token?.id ?? `#${[color.r, color.g, color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("")}`;
+      const seen = candidates.get(key);
+      if (!seen) candidates.set(key, { names: matching, uses: 1 });
       else {
         // Intersect, unless that would leave nothing (then keep what we had: the value data disagrees).
         const both = new Set([...seen.names].filter((x) => matching.has(x)));
-        candidates.set(p.token.id, { names: both.size ? both : seen.names, uses: seen.uses + 1 });
+        candidates.set(key, { names: both.size ? both : seen.names, uses: seen.uses + 1 });
       }
     }
     if (n.kind !== "text") n.children.forEach(visit);

@@ -18,6 +18,7 @@ import {
   type RenderedElement,
   type StyleFact,
 } from "./types.ts";
+import { compareImages, type VisualComparison } from "./visual.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
@@ -41,6 +42,8 @@ export interface VerifyInput {
   analysis?: AnalyzeResult;
   /** The project's tokens: a token the implementation uses must be one of them, or be defined in the render. */
   tokens?: TokenSet;
+  /** An image of the design to compare the render with, pixel by pixel. PNG, base64. */
+  baseline?: { png: string; source: "screenshot" | "figma"; maxMismatch?: number };
   /** Tolerances in design points (plan §3: ±1 for boxes, ±2–4 for text). */
   tolerance?: { box: number; text: number };
 }
@@ -221,12 +224,13 @@ export function verify(input: VerifyInput): VerifyReport {
       else details.push(`✗ ${e.node.name} (${e.node.id}): design uses ${families.join(", ")}, drawn with ${el.fonts.join(", ")}`);
     }
     const summary = `typeface as designed on ${right}/${checked} elements`;
-    if (!checked) checks.push(skip("typeface", "Typeface", "the renderer did not report which fonts drew the text"));
+    const designNamesFonts = texts.some((e) => fontFamilies(e.node).length > 0);
+    if (!checked) checks.push(skip("typeface", "Typeface", designNamesFonts ? "the renderer did not report which fonts drew the text" : "the design does not name a font family (e.g. it was read from a screenshot)"));
     else checks.push(right === checked ? ok("typeface", "Typeface", summary, details) : fail("typeface", "Typeface", summary, details));
   }
 
   // 10–11. Not verifiable here yet; said plainly.
-  checks.push(skip("visual", "Pixel comparison", "no Figma image of the frame (the images endpoint shares the monthly API budget)"));
+  checks.push(visualCheck(input, elements, skip, ok, fail));
   checks.push(skip("states", "Hover, focus and pressed states", "interaction states are not rendered"));
 
   const ran = checks.filter((c) => c.status !== "not-checked");
@@ -241,6 +245,39 @@ export function verify(input: VerifyInput): VerifyReport {
   };
 }
 
+function visualCheck(
+  input: VerifyInput,
+  elements: RenderedElement[] | undefined,
+  skip: (id: Check["id"], title: string, reason: string) => Check,
+  ok: (id: Check["id"], title: string, summary: string, details?: string[]) => Check,
+  fail: (id: Check["id"], title: string, summary: string, details?: string[]) => Check,
+): Check {
+  const title = "Pixel comparison";
+  const render = input.render;
+  if (!input.baseline) return skip("visual", title, "no image of the design to compare with (Figma's image endpoint shares the monthly API budget; a screenshot enables this check)");
+  if (!elements || render?.status !== "ok") return skip("visual", title, "nothing was rendered");
+  let result: VisualComparison;
+  try {
+    result = compareImages(Buffer.from(render.png, "base64"), Buffer.from(input.baseline.png, "base64"));
+  } catch {
+    return skip("visual", title, "the design image could not be read (PNG is needed)");
+  }
+  const limit = input.baseline.maxMismatch ?? 0.08;
+  const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+  const summary = `${pct(result.mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})`;
+  const details = result.regions.map((r) => {
+    const over = elements.filter((e) => e.visible && overlap(e.box, r) > 0.5 * r.width * r.height).sort((a, b) => a.box.width * a.box.height - b.box.width * b.box.height)[0];
+    return `${result.mismatch > limit ? "✗" : "–"} differs at (${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)})${over ? ` over <${over.component}> ${over.figmaId}` : ""}`;
+  });
+  return result.mismatch > limit ? fail("visual", title, summary, details) : ok("visual", title, summary, details);
+}
+
+function overlap(a: Box, b: Box): number {
+  const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
 /** Nodes the implementation is expected to tag: the root, top-level instances, and text outside instances. */
 function expectedNodes(root: DesignNode, mapping: Map<string, string>): Expected[] {
   const out: Expected[] = [];
@@ -252,7 +289,9 @@ function expectedNodes(root: DesignNode, mapping: Map<string, string>): Expected
       if (!shown) return;
       const component = mapping.get(n.id) ?? mapping.get(n.component.id) ?? (n.component.set && mapping.get(n.component.set.id));
       out.push(component ? { node: n, component } : { node: n, unmapped: true });
-      return; // An instance's layers are its component's own business.
+      // Its own layers are the component's business; content placed into it is the code's.
+      for (const c of n.content ?? []) visit(c, shown);
+      return;
     }
     if (n.kind === "text") {
       if (shown) out.push({ node: n });
@@ -266,7 +305,12 @@ function expectedNodes(root: DesignNode, mapping: Map<string, string>): Expected
 
 function walk(n: DesignNode, fn: (n: DesignNode) => void): void {
   fn(n);
-  if (n.kind !== "text") for (const c of n.children) walk(c, fn);
+  if (n.kind !== "text") for (const c of layers(n)) walk(c, fn);
+}
+
+/** A node's children, plus the content placed into it when it is an instance. */
+function layers(n: Exclude<DesignNode, { kind: "text" }>): DesignNode[] {
+  return n.kind === "instance" && n.content ? [...n.children, ...n.content] : n.children;
 }
 
 function visibleInDesign(root: DesignNode, id: string): boolean {
@@ -274,7 +318,7 @@ function visibleInDesign(root: DesignNode, id: string): boolean {
     const shown = visible && n.visible;
     if (n.id === id) return shown;
     if (n.kind === "text") return undefined;
-    for (const c of n.children) {
+    for (const c of layers(n)) {
       const r = find(c, shown);
       if (r !== undefined) return r;
     }

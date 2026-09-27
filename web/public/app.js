@@ -33,10 +33,12 @@ $("form").addEventListener("submit", async (e) => {
     project: $("project").value,
     figmaUrl: $("figmaUrl").value.trim(),
     name: $("name").value.trim(),
+    scale: $("scale").value,
     ...(figmaToken && { figmaToken }),
     ...($("accessCode").value && { accessCode: $("accessCode").value }),
   };
   const file = $("image").files[0];
+  if (!body.figmaUrl && !file) return showError("Paste a Figma frame link, upload a screenshot, or both.");
   if (file) {
     if (file.size > 8 * 1024 * 1024) return showError("The screenshot must be under 8 MB.");
     body.image = await readAsDataUrl(file);

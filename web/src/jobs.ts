@@ -9,8 +9,10 @@ import type { GenerationEvent, GenerationResult, Llm, LlmImage, VerifyReport } f
 export interface JobInput {
   projectDir: string;
   name: string;
-  frame: string;
-  fileKey: string;
+  /** Figma frame; absent in screenshot-only mode. */
+  frame?: string;
+  fileKey?: string;
+  scale?: number;
   figmaToken?: string;
   image?: LlmImage;
 }
@@ -85,8 +87,9 @@ export class JobQueue {
     try {
       const llm = this.#llm();
       const outcome = await generateCommand(job.input.projectDir, {
-        frame: job.input.frame,
-        fileKey: job.input.fileKey,
+        ...(job.input.frame && { frame: job.input.frame }),
+        ...(job.input.fileKey && { fileKey: job.input.fileKey }),
+        ...(job.input.scale && { scale: job.input.scale }),
         ...(job.input.figmaToken && { figmaToken: job.input.figmaToken }),
         name: job.input.name,
         out: resolve(this.#repoRoot, "out"),
