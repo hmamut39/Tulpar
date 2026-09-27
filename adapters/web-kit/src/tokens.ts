@@ -1,4 +1,4 @@
-// Tokens for a Web Components project: DTCG files, exposed to code as CSS custom properties.
+// Tokens for projects styled with CSS: DTCG files, exposed to code as CSS custom properties.
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -12,7 +12,7 @@ export interface TokenConfig {
   cssPrefix?: string;
 }
 
-export function readTokens(root: string, config: TokenConfig, packageDirs: string[]): TokenSet {
+export function readTokens(root: string, config: TokenConfig, cssDirs: string[], adapter: string): TokenSet {
   const gaps: string[] = [];
   const load = (file: string, referenceOnly: boolean): DtcgDocument[] => {
     const path = join(root, file);
@@ -33,7 +33,7 @@ export function readTokens(root: string, config: TokenConfig, packageDirs: strin
   });
 
   // Check each token's CSS custom property against the stylesheets the components ship.
-  const used = cssCustomProperties(packageDirs);
+  const used = cssCustomProperties(cssDirs);
   let unused = 0;
   for (const token of result.tokens) {
     token.codeRefConfirmed = used.has(`--${prefix}${token.name}`);
@@ -41,7 +41,7 @@ export function readTokens(root: string, config: TokenConfig, packageDirs: strin
   }
   if (unused) gaps.push(`${unused} of ${result.tokens.length} tokens' CSS custom properties are not used by any component stylesheet; their code names are unconfirmed.`);
 
-  return { adapter: "web-components", modes: result.modes, tokens: result.tokens, gaps: [...result.gaps, ...gaps] };
+  return { adapter, modes: result.modes, tokens: result.tokens, gaps: [...result.gaps, ...gaps] };
 }
 
 /**
@@ -59,9 +59,10 @@ function carbonLayoutDimension(raw: unknown, token: { node: Record<string, unkno
 function cssCustomProperties(packageDirs: string[]): Set<string> {
   const names = new Set<string>();
   for (const dir of packageDirs) {
-    const es = join(dir, "es");
-    if (!existsSync(es)) continue;
-    for (const e of readdirSync(es, { recursive: true, withFileTypes: true })) {
+    // Packages that ship ES modules keep their styles there; otherwise scan the whole directory.
+    const base = existsSync(join(dir, "es")) ? join(dir, "es") : dir;
+    if (!existsSync(base)) continue;
+    for (const e of readdirSync(base, { recursive: true, withFileTypes: true })) {
       if (!e.isFile() || !/\.(css|scss)\.js$|\.css$/.test(e.name)) continue;
       for (const m of readFileSync(join(e.parentPath, e.name), "utf8").matchAll(/--[a-zA-Z0-9-]+/g)) names.add(m[0]);
     }

@@ -1,7 +1,7 @@
 // An implementation file: HTML markup, module scripts that import components, and styles.
 // This is the shape code generators emit for Web Components; line numbers are kept for reports.
 
-import { declarations, classify } from "./css.ts";
+import { classify, declarations } from "@tulpar/web-kit";
 import type { AnalyzeResult, StyleFact } from "@tulpar/core";
 
 export interface Implementation {

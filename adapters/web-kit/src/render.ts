@@ -7,10 +7,18 @@
 
 import { platform, release } from "node:os";
 import { pathToFileURL } from "node:url";
-import { chromium, type Browser, type CDPSession } from "playwright";
+import { chromium, type Browser, type CDPSession, type Page } from "playwright";
 import type { RenderParams, RenderResult, RenderedElement, StyleFact } from "@tulpar/core";
 import { classify } from "./css.ts";
-import { FRAME_ID, IMPL_SOURCE_URL, type RenderConfig } from "./build.ts";
+import { FRAME_ID, IMPL_SOURCE_URL, type RenderConfig } from "./harness.ts";
+
+/** The only framework-specific parts of rendering. */
+export interface FrameworkHooks {
+  /** Wait until the framework has finished rendering the frame. Returns warnings. */
+  settle(page: Page, frameId: string): Promise<string[]>;
+  /** For each tagged element (by Figma id): the component it is, as the index names it, and whether it loaded. */
+  identify(page: Page): Promise<Record<string, { component: string; defined: boolean }>>;
+}
 
 let browser: Browser | undefined;
 
@@ -19,7 +27,8 @@ export async function closeBrowser(): Promise<void> {
   browser = undefined;
 }
 
-export async function render(params: RenderParams, config: RenderConfig, prefix: string, entry: string): Promise<RenderResult> {
+export async function render(params: RenderParams, config: RenderConfig, prefix: string, framework: FrameworkHooks): Promise<RenderResult> {
+  const entry = params.entry ?? "implementation";
   browser ??= await chromium.launch();
   const context = await browser.newContext({ viewport: { width: Math.ceil(params.width), height: Math.ceil(params.height) }, deviceScaleFactor: params.scale });
   const warnings: string[] = [];
@@ -47,40 +56,30 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     const themeClass = params.theme ? config.themes?.[params.theme] : undefined;
     if (params.theme && !themeClass) warnings.push(`Theme "${params.theme}" has no class configured; rendered with the default theme.`);
 
-    const settle = await page.evaluate(
-      async ({ frameId, themeClass }) => {
-        const frame = document.getElementById(frameId)!;
-        if (themeClass) frame.classList.add(themeClass);
-        const tags = [...new Set([...frame.querySelectorAll("*")].map((e) => e.localName).filter((n) => n.includes("-")))];
-        const timeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 5000));
-        const undefinedTags: string[] = [];
-        await Promise.all(tags.map(async (t) => ((await Promise.race([customElements.whenDefined(t), timeout])) === "timeout" ? undefinedTags.push(t) : undefined)));
-        // Lit elements expose updateComplete; wait for every pending render.
-        await Promise.all([...frame.querySelectorAll("*")].map((e) => (e as unknown as { updateComplete?: Promise<unknown> }).updateComplete));
-        await document.fonts.ready;
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        return { undefinedTags };
-      },
-      { frameId: FRAME_ID, themeClass },
-    );
-    if (settle.undefinedTags.length) warnings.push(`Never registered (not imported?): ${settle.undefinedTags.join(", ")}`);
+    await page.evaluate(({ frameId, themeClass }) => themeClass && document.getElementById(frameId)!.classList.add(themeClass), { frameId: FRAME_ID, themeClass });
+    warnings.push(...(await framework.settle(page, FRAME_ID)));
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
     if (blocked.size) warnings.push(`Blocked network requests to: ${[...blocked].join(", ")}`);
     for (const e of errors) warnings.push(`Page error: ${e}`);
 
-    const facts = await page.evaluate((frameId) => {
+    const identity = await framework.identify(page);
+    const measured = await page.evaluate((frameId) => {
       const frame = document.getElementById(frameId)!.getBoundingClientRect();
       return [...document.querySelectorAll<HTMLElement>("[data-figma-id]")].map((el) => {
         const r = el.getBoundingClientRect();
         return {
           figmaId: el.dataset.figmaId!,
-          component: el.localName,
-          defined: !el.localName.includes("-") || !!customElements.get(el.localName),
+          tag: el.localName,
           box: { x: r.x - frame.x, y: r.y - frame.y, width: r.width, height: r.height },
           text: (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim(),
           visible: el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) && r.width > 0 && r.height > 0,
         };
       });
     }, FRAME_ID);
+    const facts = measured.map(({ tag, ...m }) => ({ ...m, ...(identity[m.figmaId] ?? { component: tag, defined: true }) }));
 
     const styles = await styleFacts(cdp, implSheets, prefix, entry);
     const elements: RenderedElement[] = facts.map((f) => ({ ...f, styles: styles.get(f.figmaId)?.facts ?? [], fonts: styles.get(f.figmaId)?.fonts ?? [] }));

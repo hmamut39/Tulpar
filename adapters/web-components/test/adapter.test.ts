@@ -188,7 +188,7 @@ figma.connect('https://www.figma.com/design/K/Kit?node-id=5-7', { example: () =>
 });
 
 describe("style classification", async () => {
-  const { classify, declarations } = await import("../src/verify/css.ts");
+  const { classify, declarations } = await import("@tulpar/web-kit");
   const { analyzeImplementation, parseImplementation } = await import("../src/verify/impl.ts");
 
   it("tells tokens from literals and keywords, in design terms", () => {

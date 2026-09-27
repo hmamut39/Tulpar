@@ -6,10 +6,10 @@ import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
-import { build, type RenderConfig } from "./verify/build.ts";
+import { closeBrowser, readTokens, render, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { build } from "./verify/build.ts";
+import { webComponentHooks } from "./verify/hooks.ts";
 import { analyzeImplementation, parseImplementation } from "./verify/impl.ts";
-import { closeBrowser, render } from "./verify/render.ts";
-import { readTokens, type TokenConfig } from "./tokens.ts";
 
 interface Config {
   packages?: string[];
@@ -59,12 +59,12 @@ serve({
   tokens: (params) => {
     const config = (params.config as Config).tokens;
     if (!config) return { adapter: "web-components", modes: [], tokens: [], gaps: ['No "tokens" configured.'] };
-    return readTokens(params.root, config, packageDirs(params));
+    return readTokens(params.root, config, packageDirs(params), "web-components");
   },
 
   build: (params) => build(params, (params.config as Config).render ?? {}),
 
-  render: (params) => render(params, (params.config as Config).render ?? {}, prefix(params.config), params.entry ?? "implementation"),
+  render: (params) => render(params, (params.config as Config).render ?? {}, prefix(params.config), webComponentHooks),
 
   analyze: (params) => {
     const impl = parseImplementation(readFileSync(join(params.root, params.entry), "utf8"));
