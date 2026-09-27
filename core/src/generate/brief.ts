@@ -165,7 +165,7 @@ function describeComponent(c: CodeComponent | undefined): string {
     .slice(0, 40)
     .map((p) => `${p.name}${p.type?.kind === "enum" ? `: ${p.type.values.map((v) => JSON.stringify(v)).join(" | ")}${p.type.open ? " | string" : ""}` : p.type ? `: ${p.type.kind === "other" ? p.type.text : p.type.kind}` : ""}`);
   const slots = c.slots.map((s) => (s.name ? s.name : "children/default"));
-  return `${c.name} (${c.module})\n  props: ${props.join("; ") || "none"}\n  slots: ${slots.join(", ") || "none"}${c.extends?.length ? `\n  extends: ${c.extends.join(", ")}` : ""}`;
+  return `${c.name} (${c.module})${c.markup ? `\n  written as: ${c.markup}` : ""}\n  props: ${props.join("; ") || "none"}\n  slots: ${slots.join(", ") || "none"}${c.extends?.length ? `\n  extends: ${c.extends.join(", ")}` : ""}`;
 }
 
 function visibleText(n: DesignNode): string {

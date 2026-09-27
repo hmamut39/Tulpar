@@ -27,3 +27,4 @@ export { ScriptedLlm } from "./generate/scripted.ts";
 export { parseFigmaUrl, type FigmaRef } from "./figma/url.ts";
 export { compareImages, type VisualComparison } from "./verify/visual.ts";
 export { readScreenshot, toDesign, type ReadScreenshotOptions, type ScreenshotReading } from "./generate/vision.ts";
+export { kebab, fillName } from "./generate/names.ts";

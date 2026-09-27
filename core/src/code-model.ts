@@ -66,6 +66,8 @@ export interface CodeComponent {
   extends?: string[];
   /** Where code imports it from. */
   module: string;
+  /** How markup writes it, when that differs from its name, e.g. "<button cdsButton>" for an attribute directive. */
+  markup?: string;
   sourcePath?: string;
   description?: string;
   deprecated?: string | true;

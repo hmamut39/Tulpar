@@ -93,8 +93,14 @@ export function buildMapping(library: Library | undefined, index: ComponentIndex
     if (!def) continue;
     for (const id of [def.id, ...def.variants.map((v) => v.id)]) if (!mapping.has(id)) mapping.set(id, l.component);
   }
+  // Without any explicit links (a design system with no Code Connect files for this framework),
+  // the matcher's best proposals are the only mapping there is: used, and reported as unconfirmed.
+  const accept = links.length ? ["verified", "likely"] : ["verified", "likely", "possible"];
   for (const r of matchLibrary(library, index, { links })) {
-    if ((r.tier === "verified" || r.tier === "likely") && r.best && !mapping.has(r.figma.id)) mapping.set(r.figma.id, r.best.component);
+    if (accept.includes(r.tier) && r.best && !mapping.has(r.figma.id)) {
+      mapping.set(r.figma.id, r.best.component);
+      for (const v of library.components.find((d) => d.id === r.figma.id)?.variants ?? []) if (!mapping.has(v.id)) mapping.set(v.id, r.best.component);
+    }
   }
   return mapping;
 }
@@ -157,7 +163,8 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
   const mapping = buildMapping(library, index, links);
   mapByComponentKeys(mapping, library, design);
   const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
-  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), source: "figma", notes: [] };
+  const notes = links.length ? [] : ["This project has no explicit Figma ↔ code links (no Code Connect files): the Figma → component mapping comes from the matcher's uncalibrated proposals and is unconfirmed."];
+  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), source: "figma", notes };
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */

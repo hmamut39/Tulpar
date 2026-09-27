@@ -1,0 +1,68 @@
+{
+  "adapter": "angular",
+  "figma": {
+    "fileKey": "b8xYgmx2Js30XaldxPkOs9"
+  },
+  "angular": {
+    "packages": [
+      "node_modules/carbon-components-angular"
+    ],
+    "styleDirs": [
+      "node_modules/@carbon/styles/css"
+    ],
+    "tokens": {
+      "files": [
+        "node_modules/@carbon/themes/src/dtcg/themes.json",
+        "node_modules/@carbon/themes/src/dtcg/components/button.json",
+        "node_modules/@carbon/themes/src/dtcg/components/tag.json",
+        "node_modules/@carbon/themes/src/dtcg/components/notification.json",
+        "node_modules/@carbon/themes/src/dtcg/components/status.json",
+        "node_modules/@carbon/themes/src/dtcg/components/content-switcher.json",
+        "node_modules/@carbon/layout/src/dtcg/layout.json"
+      ],
+      "references": [
+        "node_modules/@carbon/themes/src/dtcg/color-palette.json"
+      ],
+      "modesExtension": "carbon.themes",
+      "modes": [
+        "white",
+        "g10",
+        "g90",
+        "g100"
+      ],
+      "cssPrefix": "cds"
+    },
+    "render": {
+      "stylesheets": [
+        "node_modules/@carbon/styles/css/styles.min.css",
+        "node_modules/@ibm/plex-sans/css/ibm-plex-sans-default.min.css"
+      ],
+      "fonts": [
+        "IBM Plex Sans"
+      ],
+      "themes": {
+        "white": "cds--white",
+        "g10": "cds--g10",
+        "g90": "cds--g90",
+        "g100": "cds--g100"
+      }
+    }
+  },
+  "evaluation": {
+    "developmentSet": [
+      "16031:269750",
+      "1854:1776",
+      "20125:279432",
+      "3897:51336",
+      "3906:50587",
+      "4080:55366",
+      "43292:32017",
+      "4487:180741",
+      "4547:163221",
+      "46254:7550",
+      "4630:268268",
+      "6172:291044"
+    ],
+    "note": "The same Figma components as examples/carbon: their labels were looked at while building the matcher. Evaluations report the other labels separately as held-out."
+  }
+}

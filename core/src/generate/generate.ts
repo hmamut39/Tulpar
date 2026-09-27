@@ -5,6 +5,7 @@
 import type { VerifyReport } from "../verify/verify.ts";
 import { buildBrief, type Brief, type BriefInput } from "./brief.ts";
 import type { Llm, LlmImage } from "./llm.ts";
+import { NAME_PLACEHOLDERS, fillName } from "./names.ts";
 
 export interface GeneratedFile {
   path: string;
@@ -70,7 +71,7 @@ const FILES_SCHEMA = {
 export async function generate(options: GenerateOptions): Promise<GenerationResult> {
   const brief = buildBrief(options);
   options.onEvent?.({ type: "brief", brief });
-  const expected = brief.conventions.files.map((f) => f.path.replaceAll("{name}", brief.name));
+  const expected = brief.conventions.files.map((f) => f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, brief.name)));
   const maxAttempts = options.maxAttempts ?? 3;
   const attempts: Attempt[] = [];
   const usage = { inputTokens: 0, outputTokens: 0 };
@@ -104,7 +105,7 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
 
     const attempt: Attempt = { files, rejected, ...(response.usage && { usage: response.usage }) };
     attempts.push(attempt);
-    if (!files.some((f) => f.path === brief.conventions.entry.replaceAll("{name}", brief.name))) continue;
+    if (!files.some((f) => f.path === brief.conventions.entry.replace(NAME_PLACEHOLDERS, (p) => fillName(p, brief.name)))) continue;
 
     options.onEvent?.({ type: "verifying", attempt: n });
     attempt.report = await options.verify(files);
@@ -138,8 +139,8 @@ function instructions(b: Brief): string {
     `- Do not set the component's own width or height from the frame's size: it fills its container, and the host decides the size. Size inner parts with layout (flex, grid, percentages, auto), not fixed numbers.`,
     `- Put data-figma-id="<id>" on the root element and on every element that renders a Figma instance or a text layer, using the ids in the outline.`,
     `- Text must match the design character for character.`,
-    `- Write exactly these files and no others: ${c.files.map((f) => f.path.replaceAll("{name}", b.name)).join(", ")}.`,
-    ...c.rules.map((r) => `- ${r.replaceAll("{name}", b.name)}`),
+    `- Write exactly these files and no others: ${c.files.map((f) => f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))).join(", ")}.`,
+    ...c.rules.map((r) => `- ${r.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))}`),
     `Answer with JSON: { "files": [{ "path", "content" }], "notes" }.`,
   ].join("\n");
 }
@@ -150,7 +151,7 @@ function briefText(b: Brief): string {
     `Component name: ${b.name}`,
     ``,
     `FILES TO WRITE`,
-    ...c.files.map((f) => `- ${f.path.replaceAll("{name}", b.name)} (${f.role}): ${f.description.replaceAll("{name}", b.name)}`),
+    ...c.files.map((f) => `- ${f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))} (${f.role}): ${f.description.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))}`),
     ``,
     `DESIGN OUTLINE (boxes are x,y width×height in points, relative to the root)`,
     b.outline,

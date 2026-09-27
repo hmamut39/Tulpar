@@ -55,7 +55,7 @@ CheckoutCard
 - **Adapters.** One per target stack, running as separate programs that talk to the core over a JSON protocol. That lets a SwiftUI adapter be written in Swift and a Rust adapter in Rust without changing the core.
 - **Where it runs.** On your own machine and CI: as a CLI, a CI check and an MCP tool your AI agent can call.
 
-**First targets:** Web Components, then React, both proven against [Carbon](https://github.com/carbon-design-system/carbon) and its public Figma kit.
+**Targets today:** Web Components, React and Angular, both proven against [Carbon](https://github.com/carbon-design-system/carbon) and its public Figma kit.
 
 **Later targets:** Compose, then Vue, Svelte, Angular, Flutter, SwiftUI, .NET and Rust.
 

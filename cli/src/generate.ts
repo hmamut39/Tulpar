@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { OpenAiLlm, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage } from "@tulpar/core";
+import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage } from "@tulpar/core";
 import { loadContext, loadScreenshotContext, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
@@ -94,7 +94,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       },
       verify: async (files) => {
         await writeFiles(project, workDir, files);
-        const entry = join(workDir, conventions.entry.replaceAll("{name}", options.name)).replace(/\\/g, "/");
+        const entry = join(workDir, conventions.entry.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");
         const verified = await verifyEntry(host, project, ctx, entry, options.theme);
         png = verified.png;
         return verified.report;

@@ -53,7 +53,7 @@ Nothing from steps 0–6 is replaced. Each phase adds to what exists.
 | G3 | **Live Figma URLs** | Paste *any* Figma frame link. Tulpar reads the file key and node id and fetches it with the **user's own** Figma token (cached, never re-fetched) | ✅ Done, in the page and in `tulpar generate --figma <link>`. Frames from other files are mapped by component keys |
 | G4 | **Hosting** | Deploy the web page as a container. Sign-in or invite codes, per-user limits and a monthly spending cap on the OpenAI key | 🟡 Prepared: Dockerfile, access code, per-visitor limits. Needs a hosting account from you, and a first real deploy |
 | G5 | **Screenshot input** | OpenAI vision turns an image into the same design model, recognising design-system components. Results are marked lower confidence than Figma | ✅ Done (docs/09): a screenshot alone works, in the page and in `tulpar generate --image`; the screenshot enables the pixel comparison |
-| G6 | **Angular** | Adapter + generator: `.component.ts`, `.html`, `.less`, `.spec.ts` | After G5 |
+| G6 | **Angular** | Adapter + generator: `.component.ts`, `.html`, `.less`, `.spec.ts` | ✅ Done (docs/11): Carbon for Angular; index, JIT build, render, verify; real model passes on attempt 1 |
 | G7 | **Run the generated tests** | Execute `.test.tsx` / `.spec.ts` in a sandbox and add the result to the report (today: delivered, marked "not run") | With G6 |
 | G8 | **IDE** | VS Code extension (generate from a Figma link; files land in the workspace) and an MCP server (Cursor, Claude Code, Copilot) | After G6 |
 | G9 | **Your own design system** | Index a team's own repository, from GitHub or locally in the IDE, instead of only the built-in Carbon examples | With G8 |
