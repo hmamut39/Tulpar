@@ -13,6 +13,7 @@
     "./generate": "./src/generate.ts",
     "./pipeline": "./src/pipeline.ts",
     "./project": "./src/project.ts",
-    "./env": "./src/env.ts"
+    "./env": "./src/env.ts",
+    "./verify": "./src/verify.ts"
   }
 }

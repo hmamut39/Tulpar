@@ -1,0 +1,17 @@
+{
+  "name": "@tulpar/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tulpar as an MCP server: generate and verify components from Figma links or screenshots, from any MCP client (Claude Code, Cursor, VS Code/Copilot).",
+  "bin": { "tulpar-mcp": "./src/server.ts" },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.1.0",
+    "@tulpar/cli": "0.0.0",
+    "@tulpar/core": "0.0.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.1.0"
+  }
+}

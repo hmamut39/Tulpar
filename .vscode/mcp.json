@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "tulpar": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/mcp/src/server.ts"]
+    }
+  }
+}

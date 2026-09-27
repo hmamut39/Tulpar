@@ -1,0 +1,25 @@
+{
+  "name": "tulpar",
+  "displayName": "Tulpar",
+  "description": "Figma → your design system, verified. Generate components from a Figma frame or a screenshot, and verify code against the design.",
+  "version": "0.1.0",
+  "publisher": "hmamut39",
+  "license": "UNLICENSED",
+  "repository": { "type": "git", "url": "https://github.com/hmamut39/Tulpar" },
+  "engines": { "vscode": "^1.100.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "tulpar.generate", "title": "Generate component from Figma or a screenshot", "category": "Tulpar" },
+      { "command": "tulpar.verify", "title": "Verify this file against a Figma frame", "category": "Tulpar" }
+    ],
+    "configuration": {
+      "title": "Tulpar",
+      "properties": {
+        "tulpar.repoPath": { "type": "string", "default": "", "description": "Path to the Tulpar repository (the folder containing cli/src/main.ts). Leave empty to use an open workspace folder that is Tulpar." },
+        "tulpar.nodePath": { "type": "string", "default": "node", "description": "Node.js 24 or newer." }
+      }
+    }
+  }
+}

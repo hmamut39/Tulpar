@@ -7,3 +7,6 @@ out/
 .tulpar/
 # Local secrets (keys, tokens). Never committed; see .env.example.
 .env
+
+# Packaged VS Code extensions.
+*.vsix

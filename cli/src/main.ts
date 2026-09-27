@@ -51,6 +51,7 @@ const { positionals, values } = parseArgs({
     image: { type: "string" },
     scale: { type: "string" },
     test: { type: "string" },
+    json: { type: "boolean", default: false },
     attempts: { type: "string" },
     to: { type: "string" },
   },
@@ -86,7 +87,13 @@ switch (command) {
     }
     const frame = ref?.nodeId ?? values.frame;
     if (!target || (!frame && !values.image) || !values.name) usage();
-    process.exitCode = (await generateCommand(target, { ...(frame && { frame }), ...(values.scale && { scale: Number(values.scale) }), ...(ref && { fileKey: ref.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }), name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }) })).code;
+    const outcome = await generateCommand(target, { ...(values.json && { quiet: true }), ...(frame && { frame }), ...(values.scale && { scale: Number(values.scale) }), ...(ref && { fileKey: ref.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }), name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }) });
+    // --json: one machine-readable result on stdout, for editors and scripts.
+    if (values.json) {
+      const r = outcome.result;
+      console.log(JSON.stringify({ ok: !outcome.error, error: outcome.error, status: r?.status, attempts: r?.attempts.length, model: r?.model, outDir: outcome.outDir, files: r?.files ?? [], report: r?.report }));
+    }
+    process.exitCode = outcome.code;
     break;
   }
   case "drift":
@@ -94,8 +101,13 @@ switch (command) {
     process.exitCode = await drift(target, values.from, values.to, values.out);
     break;
   case "verify":
+    if (values.figma && !values.frame) values.frame = parseFigmaUrl(values.figma)?.nodeId;
     if (!target || !rest[0] || !values.frame) usage();
-    process.exitCode = (await verifyCommand(target, rest[0], { frame: values.frame, out: values.out, cache: values.cache, ...(values.theme && { theme: values.theme }), ...(values.test && { test: values.test }) })).code;
+  {
+    const verified = await verifyCommand(target, rest[0], { frame: values.frame, out: values.out, cache: values.cache, ...(values.json && { quiet: true }), ...(values.theme && { theme: values.theme }), ...(values.test && { test: values.test }) });
+    if (values.json) console.log(JSON.stringify({ ok: !!verified.report, report: verified.report }));
+    process.exitCode = verified.code;
+  }
     break;
   default:
     usage();

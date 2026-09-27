@@ -19,7 +19,10 @@
     "cli",
     "adapters",
     "web/src",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "mcp/src",
+    "mcp/test",
+    "vscode-extension/test"
   ],
   "exclude": [
     "**/*.template.ts",

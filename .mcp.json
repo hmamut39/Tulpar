@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "tulpar": {
+      "command": "node",
+      "args": ["mcp/src/server.ts"]
+    }
+  }
+}

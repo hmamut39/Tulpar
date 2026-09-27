@@ -6,7 +6,8 @@
     "core",
     "cli",
     "adapters/*",
-    "web"
+    "web",
+    "mcp"
   ],
   "engines": {
     "node": ">=24"
@@ -15,7 +16,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "tulpar": "node cli/src/main.ts",
-    "web": "node web/src/server.ts"
+    "web": "node web/src/server.ts",
+    "mcp": "node mcp/src/server.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.0",
