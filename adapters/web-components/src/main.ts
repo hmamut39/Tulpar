@@ -4,11 +4,14 @@
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { indexPackage } from "./components.ts";
+import { readLinks } from "./links.ts";
 import { readTokens, type TokenConfig } from "./tokens.ts";
 
 interface Config {
   packages?: string[];
   tokens?: TokenConfig;
+  /** Directories holding Code Connect files, relative to the project root. */
+  codeConnect?: string[];
 }
 
 const packageDirs = ({ root, config }: ProjectParams) => ((config as Config).packages ?? []).map((p) => join(root, p));
@@ -21,6 +24,7 @@ serve({
     capabilities: {
       index: true,
       tokens: true,
+      links: true,
       // Not built yet; declared honestly so the core reports "not checked".
       emit: false,
       build: false,
@@ -49,5 +53,11 @@ serve({
     const config = (params.config as Config).tokens;
     if (!config) return { adapter: "web-components", modes: [], tokens: [], gaps: ['No "tokens" configured.'] };
     return readTokens(params.root, config, packageDirs(params));
+  },
+
+  links: (params) => {
+    const dirs = (params.config as Config).codeConnect ?? [];
+    if (!dirs.length) return { adapter: "web-components", links: [], gaps: ['No "codeConnect" directories configured.'] };
+    return readLinks(params.root, dirs);
   },
 });

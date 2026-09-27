@@ -1,8 +1,15 @@
 {
   "adapter": "web-components",
-  "figma": { "fileKey": "b8xYgmx2Js30XaldxPkOs9" },
+  "figma": {
+    "fileKey": "b8xYgmx2Js30XaldxPkOs9"
+  },
   "web-components": {
-    "packages": ["node_modules/@carbon/web-components"],
+    "packages": [
+      "node_modules/@carbon/web-components"
+    ],
+    "codeConnect": [
+      "../../.cache/repos/carbon/packages/web-components/code-connect"
+    ],
     "tokens": {
       "files": [
         "node_modules/@carbon/themes/src/dtcg/themes.json",
@@ -13,10 +20,34 @@
         "node_modules/@carbon/themes/src/dtcg/components/content-switcher.json",
         "node_modules/@carbon/layout/src/dtcg/layout.json"
       ],
-      "references": ["node_modules/@carbon/themes/src/dtcg/color-palette.json"],
+      "references": [
+        "node_modules/@carbon/themes/src/dtcg/color-palette.json"
+      ],
       "modesExtension": "carbon.themes",
-      "modes": ["white", "g10", "g90", "g100"],
+      "modes": [
+        "white",
+        "g10",
+        "g90",
+        "g100"
+      ],
       "cssPrefix": "cds"
     }
+  },
+  "evaluation": {
+    "developmentSet": [
+      "16031:269750",
+      "1854:1776",
+      "20125:279432",
+      "3897:51336",
+      "3906:50587",
+      "4080:55366",
+      "43292:32017",
+      "4487:180741",
+      "4547:163221",
+      "46254:7550",
+      "4630:268268",
+      "6172:291044"
+    ],
+    "note": "Figma components whose labels were looked at while building the matcher (2026-09-27). Evaluations report the other labels separately as held-out."
   }
 }

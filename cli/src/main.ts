@@ -4,12 +4,14 @@
 //   tulpar model <fileKey> <nodeId>...   Figma frames → design model JSON, with round-trip check
 //   tulpar library <fileKey>             every component on every page → library JSON, with round-trip check
 //   tulpar index <projectDir>            the project's adapter → component index + tokens, with coverage
+//   tulpar match <projectDir>            Figma library ↔ code components; --evaluate scores against known links
 //
 // Figma responses are cached in .cache/figma; outputs go to out/.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { match } from "./match.ts";
 import {
   AdapterHost,
   FigmaClient,
@@ -31,6 +33,7 @@ const { positionals, values } = parseArgs({
     cache: { type: "string", default: ".cache/figma" },
     batch: { type: "string", default: "4" },
     offline: { type: "boolean", default: false },
+    evaluate: { type: "boolean", default: false },
   },
 });
 
@@ -52,6 +55,10 @@ switch (command) {
     if (!target) usage();
     process.exitCode = await index(target);
     break;
+  case "match":
+    if (!target) usage();
+    process.exitCode = await match(target, values.out, values.evaluate);
+    break;
   default:
     usage();
 }
@@ -69,6 +76,7 @@ function usage(): never {
       "usage: tulpar model <fileKey> <nodeId>... [--offline]",
       "       tulpar library <fileKey> [--batch 4] [--offline]",
       "       tulpar index <projectDir>",
+      "       tulpar match <projectDir> [--evaluate]",
     ].join("\n"),
   );
   process.exit(2);

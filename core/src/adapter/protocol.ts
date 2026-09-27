@@ -4,7 +4,7 @@
 // The core never loads adapter code; it only exchanges these messages.
 // See docs/00-research-and-plan.md §4.
 
-import type { ComponentIndex, TokenSet } from "../code-model.ts";
+import type { ComponentIndex, LinkSet, TokenSet } from "../code-model.ts";
 
 export const PROTOCOL_VERSION = "0.1";
 
@@ -16,6 +16,7 @@ export interface AdapterManifest {
   capabilities: {
     index: boolean;
     tokens: boolean;
+    links: boolean;
     emit: boolean;
     build: boolean;
     render: { supported: boolean; hostOS: ("linux" | "macos" | "windows")[]; reason?: string };
@@ -36,6 +37,8 @@ export interface Methods {
   initialize: { params: { protocolVersion: string }; result: AdapterManifest };
   index: { params: ProjectParams; result: ComponentIndex };
   tokens: { params: ProjectParams; result: TokenSet };
+  /** Mappings already written in the repository (e.g. Code Connect files). */
+  links: { params: ProjectParams; result: LinkSet };
   shutdown: { params: Record<string, never>; result: null };
 }
 

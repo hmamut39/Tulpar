@@ -10,3 +10,8 @@ export * from "./adapter/protocol.ts";
 export { AdapterHost, AdapterError } from "./adapter/host.ts";
 export { serve, type Handlers } from "./adapter/serve.ts";
 export { indexCoverage, tokenCoverage, type IndexCoverage, type TokenCoverage } from "./coverage.ts";
+export { FEATURES, features, prepareCode, type Features, type FeatureName, type PairEvidence, type PropPair } from "./match/features.ts";
+export { PRIOR_MODEL, fit, fitLogistic, score, type ScoringModel } from "./match/model.ts";
+export { createMatcher, decide, matchLibrary, fitCalibration, calibratedProbability, nodeOwners, type Calibration, type Candidate, type MatchOptions, type MatchResult, type Tier } from "./match/match.ts";
+export { evaluate, labelled, MIN_LABELS_FOR_CALIBRATION, type Evaluation, type EvaluateOptions, type LabelledDef } from "./match/evaluate.ts";
+export { tokens as nameTokens, normValue, valueOverlap, tokenOverlap, jaroWinkler, commonPrefix } from "./match/text.ts";

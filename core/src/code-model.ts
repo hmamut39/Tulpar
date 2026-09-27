@@ -112,3 +112,21 @@ export interface TokenSet {
   tokens: DesignToken[];
   gaps: string[];
 }
+
+/** A mapping someone wrote down: a Figma node ↔ a code component (e.g. a Code Connect file). */
+export interface ExplicitLink {
+  figma: { fileKey?: string; nodeId: string };
+  /** The code component's `name` as in the ComponentIndex. */
+  component: string;
+  /** Figma variant values this link is restricted to, if any. */
+  variant?: Record<string, string>;
+  /** Where the link was written, e.g. a file path. */
+  source: string;
+  provenance: Provenance;
+}
+
+export interface LinkSet {
+  adapter: string;
+  links: ExplicitLink[];
+  gaps: string[];
+}

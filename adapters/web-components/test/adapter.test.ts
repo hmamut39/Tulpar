@@ -151,3 +151,34 @@ describe.skipIf(!existsSync(resolve(carbon, "node_modules/@carbon/web-components
     expect(t("spacing-05")).toMatchObject({ values: { default: { kind: "dimension", points: 16 } }, codeRef: "var(--cds-spacing-05)", codeRefConfirmed: true });
   });
 });
+
+describe("Code Connect links", async () => {
+  const { figmaNode, parseCodeConnect } = await import("../src/links.ts");
+
+  it("parses Figma URLs in both forms", () => {
+    expect(figmaNode("https://www.figma.com/file/ABC123/Kit?type=design&node-id=1854-1776&mode=dev")).toEqual({ fileKey: "ABC123", nodeId: "1854:1776" });
+    expect(figmaNode("https://www.figma.com/design/XYZ/Kit?node-id=12%3A34")).toBeUndefined();
+    expect(figmaNode("https://www.figma.com/design/XYZ/Kit?node-id=12:34")).toEqual({ fileKey: "XYZ", nodeId: "12:34" });
+  });
+
+  it("reads template files by their header", () => {
+    const text = "// url=https://www.figma.com/file/K/Kit?node-id=1-2\n// source=x\n// component=x-button\nconst a = 1;";
+    expect(parseCodeConnect(text, "b.figma.ts")).toEqual([
+      { figma: { fileKey: "K", nodeId: "1:2" }, component: "x-button", source: "b.figma.ts", provenance: { source: "code-connect-header", confidence: "high" } },
+    ]);
+  });
+
+  it("reads figma.connect calls, with their variant restriction", () => {
+    const text = `import figma, { html } from '@figma/code-connect/html';
+figma.connect('https://www.figma.com/design/K/Kit?node-id=5-6', {
+  variant: { State: 'Skeleton', 'Has icon': true },
+  example: () => html\`<x-tag-skeleton size="sm"><x-icon></x-icon></x-tag-skeleton>\`,
+});
+figma.connect('https://www.figma.com/design/K/Kit?node-id=5-7', { example: () => html\`<x-tag></x-tag>\` });`;
+    const links = parseCodeConnect(text, "t.figma.ts");
+    expect(links.map((l) => [l.figma.nodeId, l.component, l.variant])).toEqual([
+      ["5:6", "x-tag-skeleton", { State: "Skeleton", "Has icon": "true" }],
+      ["5:7", "x-tag", undefined],
+    ]);
+  });
+});
