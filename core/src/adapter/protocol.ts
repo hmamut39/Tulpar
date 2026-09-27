@@ -5,6 +5,7 @@
 // See docs/00-research-and-plan.md §4.
 
 import type { ComponentIndex, LinkSet, TokenSet } from "../code-model.ts";
+import type { Conventions } from "../generate/brief.ts";
 import type { AnalyzeParams, AnalyzeResult, BuildParams, BuildResult, RenderParams, RenderResult } from "../verify/types.ts";
 
 export const PROTOCOL_VERSION = "0.1";
@@ -43,6 +44,8 @@ export interface Methods {
   build: { params: BuildParams; result: BuildResult };
   render: { params: RenderParams; result: RenderResult };
   analyze: { params: AnalyzeParams; result: AnalyzeResult };
+  /** How to write code for this framework: files, entry, rules. */
+  conventions: { params: ProjectParams; result: Conventions };
   shutdown: { params: Record<string, never>; result: null };
 }
 

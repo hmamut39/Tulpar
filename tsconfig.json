@@ -17,6 +17,7 @@
   "include": [
     "core",
     "cli",
-    "adapters"
+    "adapters",
+    "vitest.config.ts"
   ]
 }

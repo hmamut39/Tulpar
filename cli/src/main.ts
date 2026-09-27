@@ -14,6 +14,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { drift } from "./drift.ts";
+import { generateCommand } from "./generate.ts";
 import { match } from "./match.ts";
 import { verifyCommand } from "./verify.ts";
 import {
@@ -41,6 +42,9 @@ const { positionals, values } = parseArgs({
     frame: { type: "string" },
     theme: { type: "string" },
     from: { type: "string" },
+    name: { type: "string" },
+    image: { type: "string" },
+    attempts: { type: "string" },
     to: { type: "string" },
   },
 });
@@ -66,6 +70,10 @@ switch (command) {
   case "match":
     if (!target) usage();
     process.exitCode = await match(target, values.out, values.evaluate);
+    break;
+  case "generate":
+    if (!target || !values.frame || !values.name) usage();
+    process.exitCode = (await generateCommand(target, { frame: values.frame, name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }) })).code;
     break;
   case "drift":
     if (!target || !values.from || !values.to) usage();
@@ -95,6 +103,7 @@ function usage(): never {
       "       tulpar match <projectDir> [--evaluate]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
+      "       tulpar generate <projectDir> --frame <nodeId> --name <ComponentName> [--image design.png] [--attempts 3]",
     ].join("\n"),
   );
   process.exit(2);

@@ -81,6 +81,27 @@ serve({
 
   analyze: (params) => analyzeReact(params.root, params.entry, prefix(params)),
 
+  conventions: (params) => {
+    const pkg = index(params).package?.name ?? "the design system";
+    return {
+      language: "TypeScript (TSX)",
+      framework: `React 19 with ${pkg}`,
+      files: [
+        { path: "{name}.tsx", role: "component", description: "The component, default-exported, with no required props; renders the whole design." },
+        { path: "{name}.css", role: "styles", description: "Styles for the component's own layout only (design-system components style themselves), imported by {name}.tsx." },
+        { path: "{name}.test.tsx", role: "test", description: "Vitest + @testing-library/react tests: it renders, shows the design's text, and uses the design-system components." },
+      ],
+      entry: "{name}.tsx",
+      rules: [
+        "Default-export a function component named {name} with no required props.",
+        'Import "./{name}.css" from {name}.tsx.',
+        `Design-system components pass unknown props such as data-figma-id through to their root element; put data-figma-id directly on them.`,
+        'In {name}.test.tsx import { render, screen } from "@testing-library/react", { describe, it, expect } from "vitest", and the component from "./{name}".',
+      ],
+      importExample: `import { Button } from "${pkg}";`,
+    };
+  },
+
   shutdown: async () => {
     await closeBrowser();
     return null;

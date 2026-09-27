@@ -1,17 +1,9 @@
 // tulpar verify <projectDir> <implementation> --frame <nodeId> [--theme white]
 
-import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import {
-  FigmaClient,
-  matchLibrary,
-  nodeOwners,
-  normalizeTree,
-  verify,
-  type Library,
-  type VerifyReport,
-} from "@tulpar/core";
+import type { VerifyReport } from "@tulpar/core";
+import { loadContext, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter } from "./project.ts";
 
 export interface VerifyOptions {
@@ -25,62 +17,17 @@ export interface VerifyOptions {
 
 export async function verifyCommand(projectDir: string, entry: string, options: VerifyOptions): Promise<{ code: number; report?: VerifyReport }> {
   const project = await loadProject(projectDir);
-  const fileKey = project.config.figma?.fileKey;
-  if (!fileKey) {
-    console.error('tulpar.json has no "figma.fileKey".');
-    return { code: 2 };
-  }
-
-  // The design: read from the local Figma cache only; verification never spends API budget.
-  const client = new FigmaClient({ token: process.env.FIGMA_TOKEN ?? "", cacheDir: options.cache });
-  client.offline = true;
-  const found = await client.findCached(fileKey, options.frame);
-  if (!found) {
-    console.error(`Frame ${options.frame} is not in the local Figma cache. Fetch it first: tulpar model ${fileKey} ${options.frame}`);
-    return { code: 2 };
-  }
-  const design = normalizeTree(found.entry.document, { fileKey, fileVersion: found.version, ...found.entry });
-
-  const libraryPath = join(options.out, "library.json");
-  const library: Library | undefined = existsSync(libraryPath) ? JSON.parse(await readFile(libraryPath, "utf8")) : undefined;
-
-  const { report, png } = await withAdapter(project, async (host) => {
-    const caps = host.manifest!.capabilities;
-    const index = await host.call("index", project.params);
-    const links = caps.links ? (await host.call("links", project.params)).links : [];
-
-    // Which code component each Figma component stands for: explicit links, then confident matches.
-    const mapping = new Map<string, string>();
-    if (library) {
-      const owners = nodeOwners(library);
-      for (const l of links) {
-        const def = owners.get(l.figma.nodeId);
-        if (!def) continue;
-        for (const id of [def.id, ...def.variants.map((v) => v.id)]) if (!mapping.has(id)) mapping.set(id, l.component);
-      }
-      for (const r of matchLibrary(library, index, { links })) {
-        if ((r.tier === "verified" || r.tier === "likely") && r.best && !mapping.has(r.figma.id)) mapping.set(r.figma.id, r.best.component);
-      }
-    }
-
-    const frame = { width: design.root.box!.width, height: design.root.box!.height };
-    const build = caps.build ? await host.call("build", { ...project.params, entry, frame }) : undefined;
-    const render =
-      caps.render.supported && build?.ok && build.artifact
-        ? await host.call("render", { ...project.params, artifact: build.artifact, entry, ...frame, scale: 1, ...(options.theme && { theme: options.theme }) })
-        : undefined;
-    const analysis = caps.staticProvenance ? await host.call("analyze", { ...project.params, entry }) : undefined;
-    const report = verify({
-      design,
-      mapping,
-      index,
-      capabilities: caps,
-      ...(build && { build }),
-      ...(render && { render }),
-      ...(analysis && { analysis }),
+  let result: { report: VerifyReport; png?: string };
+  try {
+    result = await withAdapter(project, async (host) => {
+      const ctx = await loadContext(host, project, options.frame, options.out, options.cache);
+      return verifyEntry(host, project, ctx, entry, options.theme);
     });
-    return { report, png: render?.status === "ok" ? render.png : undefined };
-  });
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return { code: 2 };
+  }
+  const { report, png } = result;
 
   const out = join(options.out, basename(project.root), "verify", basename(entry).replace(/\.[^.]+$/, ""));
   await mkdir(out, { recursive: true });
