@@ -1,0 +1,5 @@
+node_modules/
+# Raw Figma API responses. Large, and re-fetchable; never commit.
+.cache/
+# Generated design models and reports.
+out/

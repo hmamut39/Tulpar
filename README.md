@@ -6,8 +6,14 @@
 
 Tulpar maps the components in a Figma library to the real components in your repository, and keeps that mapping correct as both sides change. It then checks any generated UI against the Figma frame and reports what it found, whether the code came from Figma's MCP server, Cursor, Claude Code or anything else.
 
-> **Status: research and planning. There is no product code yet.**
-> Start with [docs/00-research-and-plan.md](docs/00-research-and-plan.md).
+> **Status: early build.** Step 1 of the proof (the design model) is done: see [docs/02-step1-design-model.md](docs/02-step1-design-model.md).
+> The plan is in [docs/00-research-and-plan.md](docs/00-research-and-plan.md).
+>
+> ```sh
+> npm install
+> npm test
+> FIGMA_TOKEN=… npm run tulpar -- model <fileKey> <nodeId>...
+> ```
 
 ## The rule
 
