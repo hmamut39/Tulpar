@@ -133,7 +133,9 @@ function instructions(b: Brief): string {
     `- Every Figma instance mapped to a design-system component MUST be that component, imported as in: ${c.importExample}`,
     `- Never re-create a design-system component with plain elements, and never copy its CSS class names.`,
     `- Set component props exactly as the mapping gives them. Do not invent props for Figma properties listed as unmapped.`,
-    `- Colours, typography and spacing come only from design tokens, written as their code reference (e.g. var(--prefix-token, fallback)). No hex, rgb or px literals except 0.`,
+    `- Use only tokens listed in this brief. A token name that is not listed does not exist; inventing one is a failure the verifier catches.`,
+    `- Colours, typography and spacing come only from design tokens, written as their code reference (e.g. var(--prefix-token, fallback)). No hex, rgb or px literals except 0, and no arithmetic on tokens (calc(var(--x) * 4) is a hard-coded value in disguise).`,
+    `- Do not set the component's own width or height from the frame's size: it fills its container, and the host decides the size. Size inner parts with layout (flex, grid, percentages, auto), not fixed numbers.`,
     `- Put data-figma-id="<id>" on the root element and on every element that renders a Figma instance or a text layer, using the ids in the outline.`,
     `- Text must match the design character for character.`,
     `- Write exactly these files and no others: ${c.files.map((f) => f.path.replaceAll("{name}", b.name)).join(", ")}.`,
@@ -161,6 +163,9 @@ function briefText(b: Brief): string {
     ``,
     `TOKENS FOR THE DESIGN'S COLOURS (Figma variable → candidate tokens, best first)`,
     ...(b.tokens.length ? b.tokens.map((t) => `- ${t.variable} (used ${t.uses}×): ${t.tokens.slice(0, 4).map((x) => x.codeRef ?? x.name).join(", ") || "no token has this value: report it in notes"}`) : ["(none)"]),
+    ``,
+    `SPACING AND SIZE TOKENS (the only ones that exist; value in points)`,
+    ...(b.dimensions.length ? b.dimensions.map((d) => `- ${d.codeRef ?? d.name} = ${d.points}`) : ["(none)"]),
   ].join("\n");
 }
 

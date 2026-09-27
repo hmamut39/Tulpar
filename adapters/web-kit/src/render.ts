@@ -53,8 +53,14 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     await cdp.send("CSS.enable");
 
     await page.goto(pathToFileURL(params.artifact).href, { waitUntil: "load" });
-    const themeClass = params.theme ? config.themes?.[params.theme] : undefined;
-    if (params.theme && !themeClass) warnings.push(`Theme "${params.theme}" has no class configured; rendered with the default theme.`);
+    // An app always renders inside a theme; without one, theme variables are undefined.
+    // Use the requested theme, else the first configured one.
+    const themeName = params.theme ?? Object.keys(config.themes ?? {})[0];
+    let themeClass = themeName ? config.themes?.[themeName] : undefined;
+    if (params.theme && !themeClass) {
+      themeClass = Object.values(config.themes ?? {})[0];
+      warnings.push(`Theme "${params.theme}" has no class configured; rendered with the default theme.`);
+    }
 
     await page.evaluate(({ frameId, themeClass }) => themeClass && document.getElementById(frameId)!.classList.add(themeClass), { frameId: FRAME_ID, themeClass });
     warnings.push(...(await framework.settle(page, FRAME_ID)));
@@ -83,6 +89,7 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
 
     const styles = await styleFacts(cdp, implSheets, prefix, entry);
     const elements: RenderedElement[] = facts.map((f) => ({ ...f, styles: styles.get(f.figmaId)?.facts ?? [], fonts: styles.get(f.figmaId)?.fonts ?? [] }));
+    await markUndefinedTokens(page, elements);
     // Fonts the project requires but that drew none of the tagged text: text metrics are then untrustworthy.
     const used = new Set(elements.flatMap((e) => e.fonts));
     const missing = (config.fonts ?? []).filter((f) => !used.has(f));
@@ -94,6 +101,28 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
   } finally {
     await context.close();
   }
+}
+
+/**
+ * Ask the browser whether each variable a token fact uses is defined on its element.
+ * An undefined variable (a misspelt or invented token) silently falls back or drops the
+ * declaration; the render is the ground truth, including variables outside the token files.
+ */
+async function markUndefinedTokens(page: Page, elements: RenderedElement[]): Promise<void> {
+  const queries = elements.flatMap((e) =>
+    e.styles.filter((s) => s.source === "token").map((s) => ({ figmaId: e.figmaId, vars: [...s.written.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map((m) => m[1]!) })),
+  );
+  if (!queries.length) return;
+  const answers = await page.evaluate((qs) => {
+    return qs.map((q) => {
+      const el = document.querySelector(`[data-figma-id="${CSS.escape(q.figmaId)}"]`);
+      if (!el) return true;
+      const style = getComputedStyle(el);
+      return q.vars.every((v) => style.getPropertyValue(v).trim() !== "");
+    });
+  }, queries);
+  let i = 0;
+  for (const e of elements) for (const s of e.styles) if (s.source === "token") s.defined = answers[i++]!;
 }
 
 interface CssProperty {

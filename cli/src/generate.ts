@@ -58,7 +58,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     const frameInput = { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) };
     const ctx = await loadContext(host, project, frameInput, options.out, options.cache);
     const conventions = await host.call("conventions", project.params);
-    const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
+    const tokens = ctx.tokens;
     const workDir = join(".tulpar", "generated", options.name);
     let attempt = 0;
 

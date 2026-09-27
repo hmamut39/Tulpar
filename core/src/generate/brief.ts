@@ -38,6 +38,8 @@ export interface Brief {
   instances: InstanceHint[];
   components: string;
   tokens: TokenHint[];
+  /** Spacing and size tokens that exist in code, with their values: the only ones the model may use. */
+  dimensions: { name: string; codeRef?: string; points: number }[];
   conventions: Conventions;
 }
 
@@ -100,6 +102,12 @@ export function buildBrief(input: BriefInput): Brief {
     instances,
     components,
     tokens: input.tokens ? tokenHints(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : [],
+    dimensions: (input.tokens?.tokens ?? [])
+      .filter((t) => t.type === "dimension" && t.codeRefConfirmed !== false)
+      .flatMap((t) => {
+        const v = t.values.default ?? Object.values(t.values)[0];
+        return v?.kind === "dimension" ? [{ name: t.name, ...(t.codeRef && { codeRef: t.codeRef }), points: v.points }] : [];
+      }),
     conventions: input.conventions,
   };
 }
@@ -122,8 +130,11 @@ function instanceHint(n: InstanceNode, code: CodeComponent | undefined, def: Com
     } else if (p.type === "boolean" && target?.type?.kind === "boolean") {
       props[target.name] = p.value as boolean;
     } else if (p.type === "text") {
-      // Text goes in as content (the default slot) or a text prop, per the alignment.
-      if (target?.type?.kind === "string") props[target.name] = String(p.value);
+      // A label is content: with a default slot it goes there (the outline shows it as the instance's text).
+      // Only a component without one takes it as a string prop; name overlap alone ("Button text" ~
+      // "tooltipText") is not enough to route a label into some other prop.
+      const hasDefaultSlot = code?.slots.some((s) => s.name === "") ?? false;
+      if (!hasDefaultSlot && target?.type?.kind === "string") props[target.name] = String(p.value);
     } else if (p.type === "variant" && !["Enabled", "Default"].includes(String(p.value))) {
       unmapped.push(`${p.name}=${p.value}`);
     }

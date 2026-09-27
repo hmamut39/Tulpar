@@ -4,7 +4,7 @@
 // only from checks that ran, and the overall verdict is never "pass" while anything
 // was left unchecked (docs/00-research-and-plan.md §3).
 
-import type { ComponentIndex } from "../code-model.ts";
+import type { ComponentIndex, TokenSet } from "../code-model.ts";
 import type { AdapterManifest } from "../adapter/protocol.ts";
 import type { Box, DesignNode, DesignTree } from "../model.ts";
 import {
@@ -39,6 +39,8 @@ export interface VerifyInput {
   build?: BuildResult;
   render?: RenderResult;
   analysis?: AnalyzeResult;
+  /** The project's tokens: a token the implementation uses must be one of them, or be defined in the render. */
+  tokens?: TokenSet;
   /** Tolerances in design points (plan §3: ±1 for boxes, ±2–4 for text). */
   tolerance?: { box: number; text: number };
 }
@@ -131,13 +133,26 @@ export function verify(input: VerifyInput): VerifyReport {
     if (!elements && !input.analysis) return skip(id, title, "nothing was rendered or analysed");
     const literal = facts.filter((f) => f.source === "literal" && props.includes(f.property));
     const tokens = facts.filter((f) => f.source === "token" && props.includes(f.property));
-    const summary = `${literal.length} hard-coded ${noun}`;
-    const details = [...literal.map((f) => `✗ ${f.property}: ${f.written}${f.at ? ` at ${f.at}` : ""}`), ...tokens.map((f) => `✓ ${f.property}: token ${f.token}`)];
-    return literal.length ? fail(id, title, summary, details) : ok(id, title, summary, details);
+    // A token must be real. Undefined in the render is fine only for a known token written with its
+    // fallback (how Carbon itself writes spacing); otherwise it is invented, or renders nothing.
+    const known = input.tokens ? new Set(input.tokens.tokens.map((t) => t.name)) : undefined;
+    const hasFallback = (f: StyleFact) => /var\(\s*--[a-zA-Z0-9-]+\s*,/.test(f.written);
+    const undefinedTokens = tokens.filter((f) => f.defined === false && !(known?.has(f.token ?? "") && hasFallback(f)));
+    const summary = `${literal.length} hard-coded ${noun}${undefinedTokens.length ? `, ${undefinedTokens.length} undefined token${undefinedTokens.length === 1 ? "" : "s"}` : ""}`;
+    const details = [
+      ...literal.map((f) => `✗ ${f.property}: ${f.written}${f.at ? ` at ${f.at}` : ""}`),
+      ...undefinedTokens.map((f) =>
+        known && !known.has(f.token ?? "")
+          ? `✗ ${f.property}: ${f.written} — no such token (misspelt or invented)${f.at ? ` at ${f.at}` : ""}`
+          : `✗ ${f.property}: ${f.written} — the token is not defined on the page; write its fallback, e.g. var(--token, value)${f.at ? ` at ${f.at}` : ""}`,
+      ),
+      ...tokens.filter((f) => f.defined !== false).map((f) => `✓ ${f.property}: token ${f.token}`),
+    ];
+    return literal.length || undefinedTokens.length ? fail(id, title, summary, details) : ok(id, title, summary, details);
   };
   checks.push(hardCoded("colors", "Colours from tokens", COLOR_PROPERTIES, "colours"));
   checks.push(hardCoded("type", "Type styles from tokens", TYPE_PROPERTIES, "type styles"));
-  checks.push(hardCoded("spacing", "Spacing from tokens", SPACING_PROPERTIES, "spacing values"));
+  checks.push(hardCoded("spacing", "Spacing and sizes from tokens", SPACING_PROPERTIES, "spacing or size values"));
 
   // 7. Layout
   const placed = expected.filter((e) => e.node.visible && e.node.box);
@@ -301,14 +316,22 @@ function boxDiffs(want: Box, got: Box, tolerance: number): string[] {
   return out;
 }
 
+/**
+ * One fact per distinct written value. The render and the static scan often report the
+ * same declaration with different locations; keep the one a developer can jump to (file:line).
+ */
 function dedupe(facts: StyleFact[]): StyleFact[] {
-  const seen = new Set<string>();
-  return facts.filter((f) => {
-    const key = `${f.property}|${f.written}|${f.at?.replace(/ style attribute.*$/, "") ?? ""}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const byValue = new Map<string, StyleFact>();
+  const precise = (f: StyleFact) => !!f.at && /:\d+$/.test(f.at);
+  for (const f of facts) {
+    const key = `${f.property}|${f.written}`;
+    const kept = byValue.get(key);
+    // Prefer the precise location, but never lose what the render learnt (an undefined token).
+    if (!kept) byValue.set(key, f);
+    else if (!precise(kept) && precise(f)) byValue.set(key, { ...f, ...(kept.defined !== undefined && { defined: kept.defined }) });
+    else if (kept.defined === undefined && f.defined !== undefined) byValue.set(key, { ...kept, defined: f.defined });
+  }
+  return [...byValue.values()];
 }
 
 function round(n: number): number {

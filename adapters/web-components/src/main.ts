@@ -82,6 +82,7 @@ serve({
         `Import each design-system element from its module, e.g. import "${pkg}/es/components/button/index.js";`,
         "Use the design-system custom elements (their tag names) for every mapped instance; set their attributes as the mapping gives them (kebab-case attribute names).",
         "Put data-figma-id attributes directly on the custom elements.",
+        "Write every token with its value as the fallback, the way the design system's own styles do: var(--cds-spacing-05, 1rem), var(--cds-layer-01, #f4f4f4). Spacing tokens are not global variables, so without the fallback they render nothing.",
       ],
       importExample: `import "${pkg}/es/components/button/index.js";`,
     };

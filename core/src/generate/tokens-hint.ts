@@ -46,6 +46,6 @@ export function tokenHints(root: DesignNode, set: TokenSet, mode: string): Token
     variable,
     uses,
     // Shorter names first: "layer-01" before "layer-accent-hover-01" for the same value.
-    tokens: [...names].sort((a, b) => a.length - b.length || a.localeCompare(b)).map((name) => ({ name, ...(byName.get(name)?.codeRef && { codeRef: byName.get(name)!.codeRef }) })),
+    tokens: [...names].filter((n) => byName.get(n)?.codeRefConfirmed !== false).sort((a, b) => a.length - b.length || a.localeCompare(b)).map((name) => ({ name, ...(byName.get(name)?.codeRef && { codeRef: byName.get(name)!.codeRef }) })),
   }));
 }

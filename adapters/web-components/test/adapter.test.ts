@@ -202,7 +202,11 @@ describe("style classification", async () => {
     expect(classify("background", "#0f62fe", "cds")).toMatchObject({ property: "fill", source: "literal" });
     expect(classify("padding", "0", "cds")).toMatchObject({ property: "padding", source: "keyword" });
     expect(classify("margin-left", "16px !important", "cds")).toMatchObject({ property: "margin", written: "16px", source: "literal" });
-    expect(classify("width", "100px", "cds")).toBeUndefined();
+    expect(classify("width", "100px", "cds")).toMatchObject({ property: "size", source: "literal" });
+    expect(classify("inline-size", "calc(var(--cds-spacing-13, 10rem) * 4)", "cds")).toMatchObject({ property: "size", source: "literal" });
+    expect(classify("block-size", "100%", "cds")).toMatchObject({ source: "keyword" });
+    expect(classify("gap", "calc(var(--cds-spacing-03) + var(--cds-spacing-01))", "cds")).toMatchObject({ source: "token" });
+    expect(classify("z-index", "10", "cds")).toBeUndefined();
   });
 
   it("finds declarations with their line numbers, not selectors", () => {

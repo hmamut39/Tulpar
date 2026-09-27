@@ -17,6 +17,7 @@ import {
   type DesignTree,
   type ExplicitLink,
   type Library,
+  type TokenSet,
   type VerifyReport,
 } from "@tulpar/core";
 import type { Project } from "./project.ts";
@@ -101,6 +102,7 @@ export interface Context {
   links: ExplicitLink[];
   mapping: Map<string, string>;
   library?: Library;
+  tokens?: TokenSet;
 }
 
 export async function loadContext(host: AdapterHost, project: Project, input: FrameInput, outDir: string, cacheDir: string): Promise<Context> {
@@ -110,7 +112,8 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
   const links = host.manifest!.capabilities.links ? (await host.call("links", project.params)).links : [];
   const mapping = buildMapping(library, index, links);
   mapByComponentKeys(mapping, library, design);
-  return { design, index, links, mapping, ...(library && { library }) };
+  const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
+  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }) };
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */
@@ -129,6 +132,7 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
     mapping: ctx.mapping,
     index: ctx.index,
     capabilities: caps,
+    ...(ctx.tokens && { tokens: ctx.tokens }),
     ...(build && { build }),
     ...(render && { render }),
     ...(analysis && { analysis }),

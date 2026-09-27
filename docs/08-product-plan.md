@@ -48,7 +48,7 @@ Nothing from steps 0–6 is replaced. Each phase adds to what exists.
 | # | Phase | What it adds | Status |
 |---|---|---|---|
 | 0–6 | **Engine** | Figma design model; component index for any framework (adapters); matcher; verifier; drift | ✅ Done (docs 01–07) |
-| G1 | **Generation (React)** | Brief (design + mapping + tokens + the framework's file conventions) → OpenAI → files → verify → repair loop. `tulpar generate` | ✅ Done, tested with a scripted model. Real runs need `OPENAI_API_KEY` |
+| G1 | **Generation (React)** | Brief (design + mapping + tokens + the framework's file conventions) → OpenAI → files → verify → repair loop. `tulpar generate` | ✅ Done. Real runs with `gpt-6-astra` pass on the first attempt for React and Web Components (docs/10) |
 | G2 | **Web page v1** | Paste a Figma URL or upload a screenshot; pick the project (design system + framework); watch progress live; see the files, the rendered result and the report; download a zip | ✅ v1 done (docs/09): Figma link + optional screenshot, files, render, checks, zip. `npm run web` |
 | G3 | **Live Figma URLs** | Paste *any* Figma frame link. Tulpar reads the file key and node id and fetches it with the **user's own** Figma token (cached, never re-fetched) | ✅ Done, in the page and in `tulpar generate --figma <link>`. Frames from other files are mapped by component keys |
 | G4 | **Hosting** | Deploy the web page as a container. Sign-in or invite codes, per-user limits and a monthly spending cap on the OpenAI key | 🟡 Prepared: Dockerfile, access code, per-visitor limits. Needs a hosting account from you, and a first real deploy |

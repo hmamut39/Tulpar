@@ -96,6 +96,7 @@ serve({
         "Default-export a function component named {name} with no required props.",
         'Import "./{name}.css" from {name}.tsx.',
         `Design-system components pass unknown props such as data-figma-id through to their root element; put data-figma-id directly on them.`,
+        "Write every token with its value as the fallback, the way the design system's own styles do: var(--cds-spacing-05, 1rem), var(--cds-layer-01, #f4f4f4). Spacing tokens are not global variables, so without the fallback they render nothing.",
         'In {name}.test.tsx import { render, screen } from "@testing-library/react", { describe, it, expect } from "vitest", and the component from "./{name}".',
       ],
       importExample: `import { Button } from "${pkg}";`,

@@ -69,6 +69,18 @@ const mutants: { name: string; mutate: (src: string) => string; fails: Check["id
     detail: /fontSize: 16px/,
   },
   {
+    name: "an invented token: looks like a token, is defined nowhere",
+    mutate: (s) => s.replace(SECONDARY_OPEN, `<Button kind="secondary" style={{ marginLeft: "var(--cds-border-width-01)" }} data-figma-id="4122:87677">`),
+    fails: "spacing",
+    detail: /no such token/,
+  },
+  {
+    name: "a known token without its fallback, which renders nothing",
+    mutate: (s) => s.replace(SECONDARY_OPEN, `<Button kind="secondary" style={{ marginLeft: "var(--cds-spacing-01)" }} data-figma-id="4122:87677">`),
+    fails: "spacing",
+    detail: /not defined on the page; write its fallback/,
+  },
+  {
     name: "misspelt import: the build fails and nothing downstream is claimed",
     mutate: (s) => s.replace(`import { Button, ModalFooter }`, `import { Buton as Button, ModalFooter }`),
     fails: "build",

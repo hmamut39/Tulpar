@@ -16,6 +16,7 @@ const PROPERTY: [RegExp, DesignProperty][] = [
   [/^margin(-(top|right|bottom|left|inline|block)(-(start|end))?)?$/, "margin"],
   [/^border(-(top|bottom)-(left|right))?-radius$/, "radius"],
   [/^(top|right|bottom|left|inset|translate|transform)$/, "offset"],
+  [/^((min-|max-)?(width|height|inline-size|block-size))$/, "size"],
 ];
 
 export function designProperty(cssProperty: string): DesignProperty | undefined {
@@ -49,6 +50,8 @@ export function classify(cssProperty: string, value: string, prefix: string, at?
   );
   const base = { property, written, ...(at && { at }) };
   if (literal.length) return { ...base, source: "literal" };
+  // calc(var(--spacing-13) * 4) is a hard-coded 640px wearing a token: arithmetic on tokens is not a token.
+  if (vars.length && /calc\(/i.test(written) && /[*/]/.test(outside)) return { ...base, source: "literal" };
   if (vars.length) {
     const name = vars[0]!;
     return { ...base, source: "token", token: prefix && name.startsWith(`${prefix}-`) ? name.slice(prefix.length + 1) : name };

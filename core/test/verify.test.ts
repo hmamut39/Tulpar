@@ -139,6 +139,22 @@ describe("verify", () => {
     expect(status(r, "spacing")).toBe("pass");
   });
 
+  it("fails invented tokens and fallback-less undefined ones, and accepts a known token with its fallback", () => {
+    const tokens = { adapter: "t", modes: [], gaps: [], tokens: [{ name: "space-1", path: ["space-1"], type: "dimension", values: {}, provenance: { source: "t", confidence: "high" as const } }] };
+    const fact = (written: string, token: string, defined: boolean) => ({ property: "gap" as const, written, source: "token" as const, token, defined });
+    const els = good();
+    els[1] = { ...els[1]!, styles: [fact("var(--x-space-1, 4px)", "space-1", false)] };
+    expect(status(verify(input(els, { tokens })), "spacing")).toBe("pass");
+    els[1] = { ...els[1]!, styles: [fact("var(--x-space-1)", "space-1", false)] };
+    expect(verify(input(els, { tokens })).checks.find((c) => c.id === "spacing")!.details.join()).toContain("write its fallback");
+    els[1] = { ...els[1]!, styles: [fact("var(--x-made-up, 4px)", "made-up", false)] };
+    const r = verify(input(els, { tokens }));
+    expect(r.checks.find((c) => c.id === "spacing")!.summary).toBe("0 hard-coded spacing or size values, 1 undefined token");
+    expect(r.checks.find((c) => c.id === "spacing")!.details.join()).toContain("no such token");
+    els[1] = { ...els[1]!, styles: [fact("var(--x-page-var)", "page-var", true)] };
+    expect(status(verify(input(els, { tokens })), "spacing")).toBe("pass");
+  });
+
   it("checks text exactly and the typeface actually drawn", () => {
     const els = good();
     els[1] = { ...els[1]!, text: "Cancel ", fonts: ["Arial"] };

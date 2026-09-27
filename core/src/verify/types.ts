@@ -18,11 +18,13 @@ export type DesignProperty =
   | "padding"
   | "margin"
   | "radius"
-  | "offset";
+  | "offset"
+  /** Width and height, including min and max. */
+  | "size";
 
 export const COLOR_PROPERTIES: DesignProperty[] = ["fill", "textColor", "strokeColor"];
 export const TYPE_PROPERTIES: DesignProperty[] = ["fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing"];
-export const SPACING_PROPERTIES: DesignProperty[] = ["gap", "padding", "margin", "radius", "offset"];
+export const SPACING_PROPERTIES: DesignProperty[] = ["gap", "padding", "margin", "radius", "offset", "size"];
 
 /** Where a value in the implementation's own code comes from. */
 export interface StyleFact {
@@ -35,6 +37,8 @@ export interface StyleFact {
   token?: string;
   /** Where it was written, e.g. "modal-footer.html:12". */
   at?: string;
+  /** For tokens, from a render: whether the token is actually defined. False means it is misspelt or invented. */
+  defined?: boolean;
 }
 
 export interface RenderedElement {
