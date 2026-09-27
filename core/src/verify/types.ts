@@ -103,3 +103,18 @@ export interface AnalyzeResult {
   /** Hard-coded values found anywhere in the implementation's own code. */
   literals: StyleFact[];
 }
+
+export interface TestParams extends ProjectParams {
+  /** The test file to run, relative to the project root. */
+  entry: string;
+}
+
+export type TestRunResult =
+  | {
+      status: "ran";
+      runner: string;
+      tests: { name: string; status: "passed" | "failed" | "skipped"; error?: string }[];
+      /** A file-level failure (e.g. it didn't compile, or declared no tests). */
+      fileError?: string;
+    }
+  | { status: "unsupported" | "failed"; reason: string };

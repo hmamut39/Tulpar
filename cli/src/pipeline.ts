@@ -168,7 +168,7 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */
-export async function verifyEntry(host: AdapterHost, project: Project, ctx: Context, entry: string, theme?: string): Promise<{ report: VerifyReport; png?: string }> {
+export async function verifyEntry(host: AdapterHost, project: Project, ctx: Context, entry: string, theme?: string, testFile?: string): Promise<{ report: VerifyReport; png?: string }> {
   const caps = host.manifest!.capabilities;
   const frame = { width: ctx.design.root.box!.width, height: ctx.design.root.box!.height };
   const build = caps.build ? await host.call("build", { ...project.params, entry, frame }) : undefined;
@@ -178,8 +178,11 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
       : undefined;
   // The static scan needs no build, so it runs even when the build fails.
   const analysis = caps.staticProvenance ? await host.call("analyze", { ...project.params, entry }).catch(() => undefined) : undefined;
+  // The implementation's own tests, in the adapter's sandbox; only when it built.
+  const tests = caps.tests && testFile && build?.ok ? await host.call("test", { ...project.params, entry: testFile }) : undefined;
   const report = verify({
     design: ctx.design,
+    ...(tests && { tests }),
     mapping: ctx.mapping,
     index: ctx.index,
     capabilities: caps,

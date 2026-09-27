@@ -21,7 +21,10 @@ export interface GenerateCommandOptions {
   /** Token to fetch the frame with when it isn't cached (the user's own). */
   figmaToken?: string;
   name: string;
+  /** Where the library is read from (out/library.json), and results go by default. */
   out: string;
+  /** Where to save the result; default out/<project>/generated/<name>. Tests use their own. */
+  resultsDir?: string;
   cache: string;
   /** A picture of the design: a file path (CLI) or the image itself (web). */
   image?: string | LlmImage;
@@ -95,7 +98,9 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       verify: async (files) => {
         await writeFiles(project, workDir, files);
         const entry = join(workDir, conventions.entry.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");
-        const verified = await verifyEntry(host, project, ctx, entry, options.theme);
+        const testSpec = conventions.files.find((f) => f.role === "test");
+        const testFile = testSpec && join(workDir, testSpec.path.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");
+        const verified = await verifyEntry(host, project, ctx, entry, options.theme, testFile && files.some((f) => testFile.endsWith(f.path)) ? testFile : undefined);
         png = verified.png;
         return verified.report;
       },
@@ -105,7 +110,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     return fail(err instanceof Error ? err.message : String(err));
   }
 
-  const outDir = join(options.out, basename(project.root), "generated", options.name);
+  const outDir = options.resultsDir ?? join(options.out, basename(project.root), "generated", options.name);
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   for (const f of result.files) {

@@ -1,6 +1,7 @@
 // The web API: its safety rules, and a full generation through it with a scripted model.
 
 import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { unzipSync, strFromU8 } from "fflate";
@@ -22,7 +23,7 @@ export default function ModalActions() {
   );
 }
 `;
-const answer = { files: [{ path: "ModalActions.tsx", content: tsx }, { path: "ModalActions.css", content: "/* none */\n" }, { path: "ModalActions.test.tsx", content: "// tests\n" }], notes: "" };
+const answer = { files: [{ path: "ModalActions.tsx", content: tsx }, { path: "ModalActions.css", content: "/* none */\n" }, { path: "ModalActions.test.tsx", content: 'import { render, screen } from "@testing-library/react";\nimport ModalActions from "./ModalActions";\ndescribe("ModalActions", () => { it("shows two actions", () => { render(<ModalActions />); expect(screen.getAllByRole("button")).toHaveLength(2); }); });\n' }], notes: "" };
 
 let server: { url: string; close: () => Promise<void> };
 let llm: ScriptedLlm;
@@ -31,7 +32,7 @@ const post = (body: Record<string, unknown>) => fetch(`${server.url}/api/jobs`, 
 describe("web API", () => {
   beforeAll(async () => {
     llm = new ScriptedLlm([answer]);
-    server = await startServer({ repoRoot: repo, llm: () => llm, accessCode: "open-sesame", runsPerHour: 2 }, 0);
+    server = await startServer({ repoRoot: repo, llm: () => llm, accessCode: "open-sesame", runsPerHour: 2, resultsRoot: resolve(tmpdir(), "tulpar-web-test") }, 0);
   });
   afterAll(() => server.close());
 
@@ -80,6 +81,7 @@ describe("web API", () => {
     const zip = unzipSync(new Uint8Array(await (await fetch(`${server.url}/api/jobs/${id}/download.zip`)).arrayBuffer()));
     expect(Object.keys(zip).sort()).toEqual(["ModalActions/ModalActions.css", "ModalActions/ModalActions.test.tsx", "ModalActions/ModalActions.tsx", "ModalActions/tulpar-report.json"]);
     expect(strFromU8(zip["ModalActions/ModalActions.tsx"]!)).toBe(tsx);
+    expect(job.result.report.checks.find((c: { id: string }) => c.id === "tests").summary).toMatch(/^1 of 1 generated tests pass/);
   }, 180_000);
 
   it("limits generations per visitor per hour", async () => {

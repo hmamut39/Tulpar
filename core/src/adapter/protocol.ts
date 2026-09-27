@@ -6,7 +6,7 @@
 
 import type { ComponentIndex, LinkSet, TokenSet } from "../code-model.ts";
 import type { Conventions } from "../generate/brief.ts";
-import type { AnalyzeParams, AnalyzeResult, BuildParams, BuildResult, RenderParams, RenderResult } from "../verify/types.ts";
+import type { AnalyzeParams, AnalyzeResult, BuildParams, BuildResult, RenderParams, RenderResult, TestParams, TestRunResult } from "../verify/types.ts";
 
 export const PROTOCOL_VERSION = "0.1";
 
@@ -24,6 +24,8 @@ export interface AdapterManifest {
     render: { supported: boolean; hostOS: ("linux" | "macos" | "windows")[]; reason?: string };
     runtimeStyleProvenance: boolean;
     staticProvenance: boolean;
+    /** Can run generated tests in a sandbox. Optional: absent means no. */
+    tests?: boolean;
     forceStates: ("hover" | "focus" | "pressed" | "disabled")[];
     themes: boolean;
   };
@@ -44,6 +46,8 @@ export interface Methods {
   build: { params: BuildParams; result: BuildResult };
   render: { params: RenderParams; result: RenderResult };
   analyze: { params: AnalyzeParams; result: AnalyzeResult };
+  /** Run a test file in a sandbox (never on the host). */
+  test: { params: TestParams; result: TestRunResult };
   /** How to write code for this framework: files, entry, rules. */
   conventions: { params: ProjectParams; result: Conventions };
   shutdown: { params: Record<string, never>; result: null };

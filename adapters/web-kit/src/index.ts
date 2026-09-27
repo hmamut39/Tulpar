@@ -5,3 +5,4 @@ export { FRAME_ID, IMPL_SOURCE_URL, writeHarness, type HarnessInput, type Render
 export { closeBrowser, render, type FrameworkHooks } from "./render.ts";
 export { readTokens, type TokenConfig } from "./tokens.ts";
 export { typeShape } from "./typeshape.ts";
+export { runVitestBrowser, type VitestOptions } from "./tests.ts";

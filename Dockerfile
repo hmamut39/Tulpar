@@ -23,7 +23,8 @@ RUN npm ci --omit=dev --ignore-scripts \
 
 # The example projects (design systems the page offers), pinned by their lockfiles.
 COPY examples/ examples/
-RUN for d in examples/*/; do (cd "$d" && npm ci --no-workspaces --ignore-scripts); done
+# --include=dev: the test tools (Vitest browser mode) are dev dependencies of the example projects.
+RUN for d in examples/*/; do (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev); done
 
 # Carbon's Code Connect files: the explicit Figma ↔ code links (public repository).
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* \

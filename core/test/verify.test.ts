@@ -183,3 +183,22 @@ describe("verify", () => {
     expect(visibleText(design.root)).toBe("Cancel Save Help");
   });
 });
+
+describe("generated tests check", () => {
+  const withTests = (tests: VerifyInput["tests"]) => verify(input(good(), { ...(tests && { tests }) })).checks.find((c) => c.id === "tests")!;
+
+  it("passes when every test ran and passed", () => {
+    expect(withTests({ status: "ran", runner: "r", tests: [{ name: "a", status: "passed" }, { name: "b", status: "passed" }] })).toMatchObject({ status: "pass", summary: "2 of 2 generated tests pass (r)" });
+  });
+
+  it("fails on a failing test, a broken file, or a file with no tests", () => {
+    expect(withTests({ status: "ran", runner: "r", tests: [{ name: "a", status: "passed" }, { name: "b", status: "failed", error: "expected 2, got 4" }] })).toMatchObject({ status: "fail", details: ["✗ b: expected 2, got 4"] });
+    expect(withTests({ status: "ran", runner: "r", tests: [], fileError: "SyntaxError" }).summary).toBe("the test file did not run");
+    expect(withTests({ status: "ran", runner: "r", tests: [] }).summary).toBe("the test file declares no tests");
+  });
+
+  it("does not blame the tests when the runner itself is unavailable", () => {
+    expect(withTests({ status: "unsupported", reason: "no Vitest installed" })).toMatchObject({ status: "not-checked", summary: "no Vitest installed" });
+    expect(withTests(undefined)).toMatchObject({ status: "not-checked", summary: "the adapter cannot run tests in a sandbox" });
+  });
+});

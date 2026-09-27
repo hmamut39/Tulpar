@@ -20,5 +20,9 @@
     "adapters",
     "web/src",
     "vitest.config.ts"
+  ],
+  "exclude": [
+    "**/*.template.ts",
+    "**/node_modules"
   ]
 }

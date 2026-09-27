@@ -3,7 +3,7 @@
 
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
-import { closeBrowser, readTokens, render, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { closeBrowser, readTokens, render, runVitestBrowser, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
 import { analyzeReact } from "./verify/analyze.ts";
@@ -55,6 +55,7 @@ serve({
       render: { supported: true, hostOS: ["linux", "windows", "macos"] },
       runtimeStyleProvenance: true,
       staticProvenance: true,
+      tests: true,
       forceStates: [],
       themes: true,
     },
@@ -80,6 +81,8 @@ serve({
   render: (params) => render(params, config(params).render ?? {}, prefix(params), reactHooks(new Set(index(params).components.map((c) => c.name)))),
 
   analyze: (params) => analyzeReact(params.root, params.entry, prefix(params)),
+
+  test: (params) => runVitestBrowser({ root: params.root, testFile: params.entry }),
 
   conventions: (params) => {
     const pkg = index(params).package?.name ?? "the design system";

@@ -50,6 +50,7 @@ const { positionals, values } = parseArgs({
     figma: { type: "string" },
     image: { type: "string" },
     scale: { type: "string" },
+    test: { type: "string" },
     attempts: { type: "string" },
     to: { type: "string" },
   },
@@ -94,7 +95,7 @@ switch (command) {
     break;
   case "verify":
     if (!target || !rest[0] || !values.frame) usage();
-    process.exitCode = (await verifyCommand(target, rest[0], { frame: values.frame, out: values.out, cache: values.cache, ...(values.theme && { theme: values.theme }) })).code;
+    process.exitCode = (await verifyCommand(target, rest[0], { frame: values.frame, out: values.out, cache: values.cache, ...(values.theme && { theme: values.theme }), ...(values.test && { test: values.test }) })).code;
     break;
   default:
     usage();
@@ -114,7 +115,7 @@ function usage(): never {
       "       tulpar library <fileKey> [--batch 4] [--offline]",
       "       tulpar index <projectDir>",
       "       tulpar match <projectDir> [--evaluate]",
-      "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--theme <name>]",
+      "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--test <test file>] [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
       "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3]",
     ].join("\n"),

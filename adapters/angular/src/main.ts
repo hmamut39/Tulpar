@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Tulpar adapter for Angular. Speaks the adapter protocol on stdio.
 
+import { copyFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
-import { closeBrowser, readTokens, render, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { closeBrowser, readTokens, render, runVitestBrowser, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { indexPackage } from "./components.ts";
 import { analyzeAngular } from "./verify/analyze.ts";
 import { build } from "./verify/build.ts";
@@ -47,6 +49,7 @@ serve({
       render: { supported: true, hostOS: ["linux", "windows", "macos"] },
       runtimeStyleProvenance: true,
       staticProvenance: true,
+      tests: true,
       forceStates: [],
       themes: true,
     },
@@ -65,6 +68,20 @@ serve({
   render: (params) => render(params, config(params).render ?? {}, prefix(params), angularHooks(new Set(index(params).components.map((c) => c.name)))),
 
   analyze: (params) => analyzeAngular(params.root, params.entry, prefix(params), index(params).components),
+
+  // Specs run in Vitest browser mode with Angular's TestBed, in JIT; the setup must live inside the project.
+  test: async (params) => {
+    const setup = join(params.root, ".tulpar", "vitest", "angular-setup.ts");
+    await mkdir(join(params.root, ".tulpar", "vitest"), { recursive: true });
+    await copyFile(join(import.meta.dirname, "verify", "vitest-setup.template.ts"), setup);
+    return runVitestBrowser({
+      root: params.root,
+      testFile: params.entry,
+      pluginImports: [`import { tulparAngular } from ${JSON.stringify(pathToFileURL(join(import.meta.dirname, "verify", "vitest-plugin.mjs")).href)};`],
+      plugins: "[tulparAngular()]",
+      setupFiles: [".tulpar/vitest/angular-setup.ts"],
+    });
+  },
 
   conventions: (params) => {
     const pkg = index(params).package?.name ?? "the design system";
@@ -85,7 +102,7 @@ serve({
         "Put data-figma-id attributes directly on the design system's elements and on the native elements that carry its directives (e.g. <button cdsButton=\"primary\" data-figma-id=\"…\">).",
         "Write every token with its value as the fallback, the way the design system's own styles do: var(--cds-spacing-05, 1rem), var(--cds-layer-01, #f4f4f4). Spacing tokens are not global variables, so without the fallback they render nothing.",
         "No LESS variables for design values: use the tokens directly.",
-        "In {kebab}.component.spec.ts use TestBed with the standalone component in imports.",
+        "In {kebab}.component.spec.ts use TestBed with the standalone component in imports. The specs run under Vitest with its globals (describe, it, expect, beforeEach, vi): no Jasmine-only APIs (jasmine.createSpy, toBeTrue).",
       ],
       importExample: `import { ButtonModule } from "${pkg}/button";`,
     };

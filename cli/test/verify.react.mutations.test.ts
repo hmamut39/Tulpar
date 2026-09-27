@@ -128,3 +128,27 @@ describe.skipIf(!ready)("verifier on the Carbon React modal footer", () => {
     }, 120_000);
   }
 });
+
+describe.skipIf(!ready || !existsSync(join(project, "node_modules/@vitest/browser-playwright")))("generated tests run in the sandbox", () => {
+  it("runs a passing test and a failing one, and reports each", async () => {
+    const dir = join(project, ".tulpar", "tests-check");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "ModalFooterCheck.tsx"), await readFile(join(project, "impl/modal-footer.tsx"), "utf8"));
+    await writeFile(
+      join(dir, "ModalFooterCheck.test.tsx"),
+      `import { render, screen } from "@testing-library/react";
+import Implementation from "./ModalFooterCheck";
+describe("footer", () => {
+  it("shows two actions", () => { render(<Implementation />); expect(screen.getAllByRole("button")).toHaveLength(2); });
+  it("is wrong on purpose", () => { render(<Implementation />); expect(screen.getAllByRole("button")).toHaveLength(3); });
+  it("cannot reach the network", async () => { await expect(fetch("https://example.com/")).rejects.toThrow(); });
+});
+`,
+    );
+    const { report } = await verifyCommand(project, ".tulpar/tests-check/ModalFooterCheck.tsx", { frame, test: ".tulpar/tests-check/ModalFooterCheck.test.tsx", out: join(repo, "out"), cache: join(repo, ".cache/figma"), quiet: true });
+    const tests = report!.checks.find((c) => c.id === "tests")!;
+    expect(tests.status).toBe("fail");
+    expect(tests.summary).toMatch(/^2 of 3 generated tests pass/);
+    expect(tests.details.join("\n")).toMatch(/is wrong on purpose/);
+  }, 180_000);
+});

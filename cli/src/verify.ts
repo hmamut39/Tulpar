@@ -9,6 +9,8 @@ import { loadProject, withAdapter } from "./project.ts";
 export interface VerifyOptions {
   frame: string;
   theme?: string;
+  /** The implementation's test file, to run in the adapter's sandbox. */
+  test?: string;
   out: string;
   cache: string;
   /** Print nothing; the caller reads the returned report. */
@@ -21,7 +23,7 @@ export async function verifyCommand(projectDir: string, entry: string, options: 
   try {
     result = await withAdapter(project, async (host) => {
       const ctx = await loadContext(host, project, { frame: options.frame, ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }) }, options.out, options.cache);
-      return verifyEntry(host, project, ctx, entry, options.theme);
+      return verifyEntry(host, project, ctx, entry, options.theme, options.test);
     });
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));

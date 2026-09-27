@@ -24,6 +24,8 @@ export interface ServerOptions {
   llm?: () => Llm | undefined;
   accessCode?: string;
   runsPerHour?: number;
+  /** Where generation results go; default out/<project>/generated/<name>. */
+  resultsRoot?: string;
 }
 
 export interface ProjectInfo {
@@ -101,6 +103,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const input: JobInput = {
           projectDir: project.dir,
           name,
+          ...(options.resultsRoot && { resultsDir: join(options.resultsRoot, project.id, name) }),
           ...(ref && { frame: ref.nodeId!, fileKey: ref.fileKey }),
           ...(scale && { scale }),
           // The visitor's own token first; the server's only as a fallback for the owner's own use.

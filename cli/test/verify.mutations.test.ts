@@ -91,7 +91,8 @@ describe.skipIf(!ready)("verifier on the Carbon modal footer", () => {
   it("passes every check that runs on the reference, and says what it could not check", () => {
     expect(failing(baseline)).toEqual([]);
     expect(baseline.verdict).toBe("incomplete");
-    expect(baseline.checks.filter((c) => c.status === "not-checked").map((c) => c.id)).toEqual(["visual", "states"]);
+    // The Web Components adapter cannot run tests yet; it says so.
+    expect(baseline.checks.filter((c) => c.status === "not-checked").map((c) => c.id)).toEqual(["tests", "visual", "states"]);
     expect(baseline.headline).toContain("3 of 3 design-system components used, 0 invented");
   });
 

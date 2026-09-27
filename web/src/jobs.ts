@@ -7,6 +7,8 @@ import { generateCommand } from "@tulpar/cli/generate";
 import type { GenerationEvent, GenerationResult, Llm, LlmImage, VerifyReport } from "@tulpar/core";
 
 export interface JobInput {
+  /** Where results go; default under out/. */
+  resultsDir?: string;
   projectDir: string;
   name: string;
   /** Figma frame; absent in screenshot-only mode. */
@@ -93,6 +95,7 @@ export class JobQueue {
         ...(job.input.figmaToken && { figmaToken: job.input.figmaToken }),
         name: job.input.name,
         out: resolve(this.#repoRoot, "out"),
+        ...(job.input.resultsDir && { resultsDir: job.input.resultsDir }),
         cache: resolve(this.#repoRoot, ".cache/figma"),
         ...(job.input.image && { image: job.input.image }),
         ...(llm && { llm }),

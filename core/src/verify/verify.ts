@@ -17,13 +17,14 @@ import {
   type RenderResult,
   type RenderedElement,
   type StyleFact,
+  type TestRunResult,
 } from "./types.ts";
 import { compareImages, type VisualComparison } from "./visual.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
 export interface Check {
-  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "visual" | "states";
+  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "tests" | "visual" | "states";
   title: string;
   status: CheckStatus;
   /** One line, used in the headline when the check ran. */
@@ -42,6 +43,8 @@ export interface VerifyInput {
   analysis?: AnalyzeResult;
   /** The project's tokens: a token the implementation uses must be one of them, or be defined in the render. */
   tokens?: TokenSet;
+  /** The result of running the implementation's own tests, when there are any. */
+  tests?: TestRunResult;
   /** An image of the design to compare the render with, pixel by pixel. PNG, base64. */
   baseline?: { png: string; source: "screenshot" | "figma"; maxMismatch?: number };
   /** Tolerances in design points (plan §3: ±1 for boxes, ±2–4 for text). */
@@ -230,6 +233,7 @@ export function verify(input: VerifyInput): VerifyReport {
   }
 
   // 10–11. Not verifiable here yet; said plainly.
+  checks.push(testsCheck(input, skip, ok, fail));
   checks.push(visualCheck(input, elements, skip, ok, fail));
   checks.push(skip("states", "Hover, focus and pressed states", "interaction states are not rendered"));
 
@@ -243,6 +247,26 @@ export function verify(input: VerifyInput): VerifyReport {
     ...(render?.status === "ok" && { renderer: render.renderer }),
     warnings,
   };
+}
+
+function testsCheck(
+  input: VerifyInput,
+  skip: (id: Check["id"], title: string, reason: string) => Check,
+  ok: (id: Check["id"], title: string, summary: string, details?: string[]) => Check,
+  fail: (id: Check["id"], title: string, summary: string, details?: string[]) => Check,
+): Check {
+  const title = "Generated tests";
+  const t = input.tests;
+  if (!t) return skip("tests", title, input.capabilities.tests ? "no test file was given" : "the adapter cannot run tests in a sandbox");
+  // A runner that could not start says nothing about the tests: not checked, not failed.
+  if (t.status !== "ran") return skip("tests", title, t.reason);
+  if (t.fileError) return fail("tests", title, "the test file did not run", [`✗ ${t.fileError}`]);
+  if (!t.tests.length) return fail("tests", title, "the test file declares no tests");
+  const passed = t.tests.filter((x) => x.status === "passed").length;
+  const failed = t.tests.filter((x) => x.status === "failed");
+  const details = [...failed.map((x) => `✗ ${x.name}: ${x.error ?? "failed"}`), ...t.tests.filter((x) => x.status === "skipped").map((x) => `– ${x.name}: skipped`)];
+  const summary = `${passed} of ${t.tests.length} generated tests pass (${t.runner})`;
+  return failed.length || passed === 0 ? fail("tests", title, summary, details) : ok("tests", title, summary, details);
 }
 
 function visualCheck(
