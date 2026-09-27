@@ -17,3 +17,4 @@ export { evaluate, labelled, MIN_LABELS_FOR_CALIBRATION, type Evaluation, type E
 export { tokens as nameTokens, normValue, valueOverlap, tokenOverlap, jaroWinkler, commonPrefix } from "./match/text.ts";
 export * from "./verify/types.ts";
 export { verify, visibleText, type Check, type CheckStatus, type VerifyInput, type VerifyReport } from "./verify/verify.ts";
+export { compareIndexes, signature, type DriftFinding, type DriftKind, type DriftOptions, type DriftReport, type DriftSeverity } from "./drift/drift.ts";

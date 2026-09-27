@@ -6,12 +6,14 @@
 //   tulpar index <projectDir>            the project's adapter → component index + tokens, with coverage
 //   tulpar match <projectDir>            Figma library ↔ code components; --evaluate scores against known links
 //   tulpar verify <projectDir> <impl> --frame <nodeId>   build, render and check an implementation against a Figma frame
+//   tulpar drift <projectDir> --from <v> --to <v>         what changed between two releases, and which mappings it touches
 //
 // Figma responses are cached in .cache/figma; outputs go to out/.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { drift } from "./drift.ts";
 import { match } from "./match.ts";
 import { verifyCommand } from "./verify.ts";
 import {
@@ -38,6 +40,8 @@ const { positionals, values } = parseArgs({
     evaluate: { type: "boolean", default: false },
     frame: { type: "string" },
     theme: { type: "string" },
+    from: { type: "string" },
+    to: { type: "string" },
   },
 });
 
@@ -63,6 +67,10 @@ switch (command) {
     if (!target) usage();
     process.exitCode = await match(target, values.out, values.evaluate);
     break;
+  case "drift":
+    if (!target || !values.from || !values.to) usage();
+    process.exitCode = await drift(target, values.from, values.to, values.out);
+    break;
   case "verify":
     if (!target || !rest[0] || !values.frame) usage();
     process.exitCode = (await verifyCommand(target, rest[0], { frame: values.frame, out: values.out, cache: values.cache, ...(values.theme && { theme: values.theme }) })).code;
@@ -86,6 +94,7 @@ function usage(): never {
       "       tulpar index <projectDir>",
       "       tulpar match <projectDir> [--evaluate]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--theme <name>]",
+      "       tulpar drift <projectDir> --from <version> --to <version>",
     ].join("\n"),
   );
   process.exit(2);
