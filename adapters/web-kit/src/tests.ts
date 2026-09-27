@@ -64,7 +64,7 @@ export default defineConfig({
       ...(a.failureMessages?.length && { error: clean(a.failureMessages.join("\n")) }),
     }));
     const fileError = file?.status === "failed" && !tests.some((t) => t.status === "failed") ? clean(file.message || "the test file failed") : undefined;
-    return { status: "ran", runner: "vitest (browser mode, chromium)", tests, ...(fileError && { fileError }) };
+    return { status: "ran", runner: "Vitest in Chromium", tests, ...(fileError && { fileError }) };
   } finally {
     await rm(configFile, { force: true });
     await rm(reportFile, { force: true });

@@ -265,7 +265,7 @@ function testsCheck(
   const passed = t.tests.filter((x) => x.status === "passed").length;
   const failed = t.tests.filter((x) => x.status === "failed");
   const details = [...failed.map((x) => `✗ ${x.name}: ${x.error ?? "failed"}`), ...t.tests.filter((x) => x.status === "skipped").map((x) => `– ${x.name}: skipped`)];
-  const summary = `${passed} of ${t.tests.length} generated tests pass (${t.runner})`;
+  const summary = `${passed} of ${t.tests.length} generated tests pass · ${t.runner}`;
   return failed.length || passed === 0 ? fail("tests", title, summary, details) : ok("tests", title, summary, details);
 }
 

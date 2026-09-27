@@ -4,100 +4,173 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tulpar</title>
-<meta name="description" content="Figma to your design system, verified.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23305ef6'/><path d='M8 21l6-10 4 6 2-3 4 7z' fill='white'/></svg>">
+<meta name="description" content="Turn a Figma frame or a screenshot into a production component, built with your own design system and verified against the design.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234F46E5'/><path d='M7 21 L14 10 L18 16 L21 12 L25 21 Z' fill='white'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand"><span class="logo" aria-hidden="true"></span><span>Tulpar</span></div>
-  <p class="tagline">Figma → your design system, verified.</p>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M7 21 L14 10 L18 16 L21 12 L25 21 Z"/></svg>
+      <span>Tulpar</span>
+      <span class="badge">Beta</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="https://github.com/hmamut39/Tulpar" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
 </header>
 
-<main>
-  <section class="card" aria-labelledby="new-title">
-    <h1 id="new-title">Generate a component</h1>
-    <p class="lede">Paste a Figma frame, upload a screenshot, or both. Tulpar writes the component with your design system's own components and tokens, builds it, renders it, checks it against the design, and repairs what fails.</p>
+<section class="hero">
+  <p class="eyebrow">Figma → code, verified</p>
+  <h1>Turn a design into a production component.</h1>
+  <p class="lede">Paste a Figma frame or drop a screenshot. Tulpar writes the component with <strong>your</strong> design system's components and tokens, then builds, renders, tests and checks it against the design before you ever see it.</p>
+  <ul class="stacks" id="stacks" aria-label="Supported frameworks"></ul>
+</section>
 
+<main class="workspace">
+  <section class="panel form-panel" aria-labelledby="form-title">
+    <h2 id="form-title" class="sr-only">Generate a component</h2>
     <form id="form" novalidate>
-      <label class="field">
-        <span>Project</span>
-        <select id="project" required></select>
-        <small>The design system and framework to generate for.</small>
-      </label>
+      <div class="field">
+        <label for="project" class="label"><span class="step">1</span>Design system</label>
+        <div class="select-wrap"><select id="project" required></select></div>
+      </div>
 
-      <label class="field">
-        <span>Figma frame link</span>
-        <input id="figmaUrl" type="url" placeholder="https://www.figma.com/design/…?node-id=12-34" autocomplete="off">
-        <small>In Figma: select the frame → right-click → <b>Copy link to selection</b>. Or leave empty and upload a screenshot.</small>
-      </label>
+      <div class="field">
+        <span class="label"><span class="step">2</span>Design</span>
+        <div class="segmented" role="radiogroup" aria-label="Design source">
+          <label><input type="radio" name="mode" value="figma" checked><span>Figma link</span></label>
+          <label><input type="radio" name="mode" value="image"><span>Screenshot</span></label>
+          <label><input type="radio" name="mode" value="both"><span>Both</span></label>
+        </div>
 
-      <label class="field">
-        <span>Component name</span>
-        <input id="name" type="text" placeholder="CheckoutCard" pattern="[A-Z][A-Za-z0-9]*" required autocomplete="off">
-        <small>PascalCase. Used for the file names.</small>
-      </label>
+        <div id="figmaBlock" class="stack-sm">
+          <div class="input-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h3v6H9a3 3 0 0 1 0-6Zm3 0h3a3 3 0 0 1 0 6h-3V3Zm-3 6h3v6H9a3 3 0 0 1 0-6Zm3 3a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm-3 3h3v3a3 3 0 1 1-3-3Z"/></svg>
+            <input id="figmaUrl" type="url" placeholder="https://www.figma.com/design/…?node-id=12-34" autocomplete="off" aria-label="Figma frame link">
+          </div>
+          <p class="hint">In Figma, right-click the frame → <b>Copy link to selection</b>.</p>
+        </div>
 
-      <label class="field">
-        <span>Screenshot <em>(with a link: extra context; alone: the design itself)</em></span>
-        <input id="image" type="file" accept="image/png,image/jpeg,image/webp">
-        <small>PNG gives the pixel comparison. From a screenshot alone, positions are estimates and the report says so.</small>
-      </label>
+        <div id="imageBlock" class="stack-sm" hidden>
+          <label class="dropzone" id="dropzone">
+            <input id="image" type="file" accept="image/png,image/jpeg,image/webp" class="sr-only">
+            <div class="dz-empty" id="dzEmpty">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+              <span><b>Drop a screenshot</b> or click to browse</span>
+              <small>PNG, JPEG or WebP · PNG enables the pixel check</small>
+            </div>
+            <div class="dz-file" id="dzFile" hidden>
+              <img id="dzThumb" alt="">
+              <div><b id="dzName"></b><small id="dzSize"></small></div>
+              <button type="button" class="icon-btn" id="dzClear" aria-label="Remove screenshot">✕</button>
+            </div>
+          </label>
+          <div class="inline-field">
+            <label for="scale" class="hint">Screenshot scale</label>
+            <div class="select-wrap small"><select id="scale"><option value="auto">Auto</option><option value="1">1× regular</option><option value="2">2× retina</option><option value="1.5">1.5×</option><option value="3">3× phone</option></select></div>
+          </div>
+        </div>
+      </div>
 
-      <label class="field">
-        <span>Screenshot scale</span>
-        <select id="scale"><option value="auto">Auto</option><option value="1">1× (regular screen)</option><option value="2">2× (retina / high-DPI)</option><option value="1.5">1.5×</option><option value="3">3× (phone)</option></select>
-        <small>Pixels per design point in the screenshot.</small>
-      </label>
+      <div class="field">
+        <label for="name" class="label"><span class="step">3</span>Component name</label>
+        <input id="name" type="text" placeholder="CheckoutCard" autocomplete="off" spellcheck="false">
+        <p class="hint">PascalCase. Used for file names and the class.</p>
+      </div>
 
-      <details class="more">
-        <summary>Figma access</summary>
-        <label class="field">
-          <span>Your Figma token <em id="tokenHint">(optional)</em></span>
-          <input id="figmaToken" type="password" placeholder="figd_…" autocomplete="off">
-          <small>Needed for frames the server hasn't read before. Used for this run only; never stored on the server. Figma → Settings → Security → Personal access tokens (read-only).</small>
-        </label>
-        <label class="check"><input id="rememberToken" type="checkbox"> Remember in this browser</label>
+      <details class="disclosure">
+        <summary>Figma access <span class="hint" id="tokenHint">optional</span></summary>
+        <div class="stack-sm">
+          <input id="figmaToken" type="password" placeholder="figd_…" autocomplete="off" aria-label="Your Figma token">
+          <p class="hint">Needed only for frames Tulpar hasn't read before. Used for this run, never stored on the server.</p>
+          <label class="check"><input id="rememberToken" type="checkbox"> Remember in this browser</label>
+        </div>
       </details>
 
-      <label class="field" id="accessField" hidden>
-        <span>Access code</span>
+      <div class="field" id="accessField" hidden>
+        <label for="accessCode" class="label">Access code</label>
         <input id="accessCode" type="password" autocomplete="off">
-      </label>
-
-      <div class="actions">
-        <button id="submit" type="submit">Generate</button>
-        <span id="formError" class="error" role="alert"></span>
       </div>
-      <p id="modelNote" class="note"></p>
+
+      <button id="submit" type="submit" class="btn-primary">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Zm6 11 .9 2.1 2.1.9-2.1.9L18 20l-.9-2.1L15 17l2.1-.9L18 14Z"/></svg>
+        <span id="submitLabel">Generate component</span>
+      </button>
+      <p id="formError" class="error" role="alert"></p>
+      <p id="modelNote" class="hint center"></p>
     </form>
   </section>
 
-  <section id="progress" class="card" hidden aria-live="polite">
-    <h2>Progress</h2>
-    <ol id="events" class="events"></ol>
-  </section>
+  <section class="panel result-panel" aria-live="polite">
+    <div id="emptyState" class="empty">
+      <svg class="empty-art" viewBox="0 0 220 120" aria-hidden="true">
+        <rect x="8" y="14" width="86" height="92" rx="10" class="art-card"/>
+        <rect x="20" y="28" width="44" height="8" rx="4" class="art-line"/>
+        <rect x="20" y="44" width="62" height="6" rx="3" class="art-soft"/>
+        <rect x="20" y="56" width="52" height="6" rx="3" class="art-soft"/>
+        <rect x="20" y="78" width="30" height="16" rx="5" class="art-accent"/>
+        <path d="M104 60h26m0 0-8-8m8 8-8 8" class="art-arrow"/>
+        <rect x="140" y="14" width="72" height="92" rx="10" class="art-code"/>
+        <rect x="152" y="30" width="34" height="5" rx="2.5" class="art-code-line"/>
+        <rect x="160" y="42" width="40" height="5" rx="2.5" class="art-code-line"/>
+        <rect x="160" y="54" width="28" height="5" rx="2.5" class="art-code-line"/>
+        <rect x="152" y="66" width="22" height="5" rx="2.5" class="art-code-line"/>
+        <circle cx="194" cy="90" r="9" class="art-accent"/>
+        <path d="m190 90 3 3 5-6" class="art-tick"/>
+      </svg>
+      <h2>Your verified component appears here</h2>
+      <ul class="promises" id="how">
+        <li><span class="dot"></span><div><b>Your design system, not look-alikes</b>Real components from your library, with the props the design asks for.</div></li>
+        <li><span class="dot"></span><div><b>Tokens, not hard-coded values</b>Colours, type and spacing come from your tokens; invented ones are caught.</div></li>
+        <li><span class="dot"></span><div><b>Checked before you see it</b>Built, rendered, tested and compared with the design. Failures are repaired or reported honestly.</div></li>
+      </ul>
+    </div>
 
-  <section id="result" class="card" hidden>
-    <div id="banner" class="banner"></div>
-    <div class="toolbar">
+    <div id="progress" hidden>
+      <div class="result-head"><h2 id="progressTitle">Generating…</h2></div>
+      <ol id="stages" class="timeline"></ol>
+      <details class="activity" open><summary>Activity</summary><ol id="events" class="log"></ol></details>
+    </div>
+
+    <div id="result" hidden>
+      <div class="result-head">
+        <div>
+          <h2 id="resultName"></h2>
+          <p id="meta" class="hint"></p>
+        </div>
+        <a id="download" class="btn-secondary" download>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M4 20h16"/></svg>Download .zip
+        </a>
+      </div>
+      <div id="banner" class="banner"></div>
       <div class="tabs" role="tablist">
         <button role="tab" data-tab="report" aria-selected="true">Checks</button>
-        <button role="tab" data-tab="render" aria-selected="false">Render</button>
-        <button role="tab" data-tab="files" aria-selected="false">Files</button>
+        <button role="tab" data-tab="render" aria-selected="false">Preview</button>
+        <button role="tab" data-tab="files" aria-selected="false">Code</button>
       </div>
-      <a id="download" class="button secondary" download>Download .zip</a>
-    </div>
-    <div data-panel="report"><ul id="checks" class="checks"></ul><p id="meta" class="note"></p></div>
-    <div data-panel="render" hidden><img id="render" alt="The generated component, rendered"><p class="note">Rendered in headless Chromium at the Figma frame's size, network blocked.</p></div>
-    <div data-panel="files" hidden>
-      <div id="fileTabs" class="file-tabs"></div>
-      <div class="code-wrap"><button id="copy" class="button secondary small">Copy</button><pre><code id="code"></code></pre></div>
+      <div data-panel="report"><ul id="checks" class="checks"></ul></div>
+      <div data-panel="render" hidden>
+        <div class="preview"><img id="render" alt="The generated component, rendered"></div>
+        <p class="hint">Rendered in a sandboxed browser at the design's size, network blocked.</p>
+      </div>
+      <div data-panel="files" hidden>
+        <div class="code">
+          <div class="code-bar"><div id="fileTabs" class="file-tabs"></div><button id="copy" type="button" class="copy">Copy</button></div>
+          <pre><code id="code"></code></pre>
+        </div>
+      </div>
     </div>
   </section>
 </main>
 
-<footer class="foot">Tulpar never says something is right unless it has checked. Where it cannot check, it says so.</footer>
+<footer class="foot">Tulpar never says something is right unless it has checked. Where it can't check, it says so.</footer>
 <script type="module" src="/app.js"></script>
 </body>
 </html>

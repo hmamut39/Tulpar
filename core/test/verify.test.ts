@@ -188,7 +188,7 @@ describe("generated tests check", () => {
   const withTests = (tests: VerifyInput["tests"]) => verify(input(good(), { ...(tests && { tests }) })).checks.find((c) => c.id === "tests")!;
 
   it("passes when every test ran and passed", () => {
-    expect(withTests({ status: "ran", runner: "r", tests: [{ name: "a", status: "passed" }, { name: "b", status: "passed" }] })).toMatchObject({ status: "pass", summary: "2 of 2 generated tests pass (r)" });
+    expect(withTests({ status: "ran", runner: "r", tests: [{ name: "a", status: "passed" }, { name: "b", status: "passed" }] })).toMatchObject({ status: "pass", summary: "2 of 2 generated tests pass · r" });
   });
 
   it("fails on a failing test, a broken file, or a file with no tests", () => {

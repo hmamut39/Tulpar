@@ -71,6 +71,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     const ctx = options.frame
       ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) }, options.out, options.cache)
       : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out);
+    if (ctx.source === "figma" && image?.mime === "image/png") ctx.baseline = { png: image.base64, source: "screenshot" };
     if (ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
   note: ${n}`).join("")}`);
     const conventions = await host.call("conventions", project.params);
