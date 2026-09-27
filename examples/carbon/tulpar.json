@@ -31,6 +31,21 @@
         "g100"
       ],
       "cssPrefix": "cds"
+    },
+    "render": {
+      "stylesheets": [
+        "node_modules/@carbon/styles/css/styles.min.css",
+        "node_modules/@ibm/plex-sans/css/ibm-plex-sans-default.min.css"
+      ],
+      "fonts": [
+        "IBM Plex Sans"
+      ],
+      "themes": {
+        "white": "cds--white",
+        "g10": "cds--g10",
+        "g90": "cds--g90",
+        "g100": "cds--g100"
+      }
     }
   },
   "evaluation": {

@@ -4,8 +4,10 @@
   "description": "The proof's target project: Carbon Web Components, pinned. Not an npm workspace.",
   "dependencies": {
     "@carbon/layout": "11.60.0",
+    "@carbon/styles": "1.116.0",
     "@carbon/themes": "11.82.0",
-    "@carbon/web-components": "2.64.0"
+    "@carbon/web-components": "2.64.0",
+    "@ibm/plex-sans": "1.1.0"
   },
   "scripts": {
     "code-connect": "git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-design-system/carbon.git ../../.cache/repos/carbon && git -C ../../.cache/repos/carbon sparse-checkout set --no-cone '**/*.figma.ts' '**/*.figma.tsx'"

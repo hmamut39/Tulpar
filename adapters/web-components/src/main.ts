@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 // Tulpar adapter for Web Components. Speaks the adapter protocol on stdio.
 
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
+import { build, type RenderConfig } from "./verify/build.ts";
+import { analyzeImplementation, parseImplementation } from "./verify/impl.ts";
+import { closeBrowser, render } from "./verify/render.ts";
 import { readTokens, type TokenConfig } from "./tokens.ts";
 
 interface Config {
@@ -12,7 +16,10 @@ interface Config {
   tokens?: TokenConfig;
   /** Directories holding Code Connect files, relative to the project root. */
   codeConnect?: string[];
+  render?: RenderConfig;
 }
+
+const prefix = (config: Record<string, unknown>) => (config as Config).tokens?.cssPrefix ?? "";
 
 const packageDirs = ({ root, config }: ProjectParams) => ((config as Config).packages ?? []).map((p) => join(root, p));
 
@@ -27,10 +34,10 @@ serve({
       links: true,
       // Not built yet; declared honestly so the core reports "not checked".
       emit: false,
-      build: false,
-      render: { supported: false, hostOS: ["linux", "windows", "macos"], reason: "rendering arrives in step 4" },
-      runtimeStyleProvenance: false,
-      staticProvenance: false,
+      build: true,
+      render: { supported: true, hostOS: ["linux", "windows", "macos"] },
+      runtimeStyleProvenance: true,
+      staticProvenance: true,
       forceStates: [],
       themes: true,
     },
@@ -53,6 +60,20 @@ serve({
     const config = (params.config as Config).tokens;
     if (!config) return { adapter: "web-components", modes: [], tokens: [], gaps: ['No "tokens" configured.'] };
     return readTokens(params.root, config, packageDirs(params));
+  },
+
+  build: (params) => build(params, (params.config as Config).render ?? {}),
+
+  render: (params) => render(params, (params.config as Config).render ?? {}, prefix(params.config), params.entry ?? "implementation"),
+
+  analyze: (params) => {
+    const impl = parseImplementation(readFileSync(join(params.root, params.entry), "utf8"));
+    return analyzeImplementation(impl, params.entry, prefix(params.config));
+  },
+
+  shutdown: async () => {
+    await closeBrowser();
+    return null;
   },
 
   links: (params) => {

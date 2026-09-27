@@ -25,6 +25,8 @@ export function serve(handlers: Handlers): void {
     if (req.method === "shutdown") {
       // Answer everything already received before exiting.
       await Promise.allSettled(inFlight);
+      // An adapter may release resources (e.g. a browser) before it exits.
+      if (handlers.shutdown) await Promise.resolve(handlers.shutdown({})).catch(() => undefined);
       out({ id: req.id, result: null });
       process.exit(0);
     }

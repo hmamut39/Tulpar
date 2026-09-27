@@ -3,3 +3,5 @@ node_modules/
 .cache/
 # Generated design models and reports.
 out/
+# Adapter build output inside projects.
+.tulpar/

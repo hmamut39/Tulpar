@@ -15,3 +15,5 @@ export { PRIOR_MODEL, fit, fitLogistic, score, type ScoringModel } from "./match
 export { createMatcher, decide, matchLibrary, fitCalibration, calibratedProbability, nodeOwners, type Calibration, type Candidate, type MatchOptions, type MatchResult, type Tier } from "./match/match.ts";
 export { evaluate, labelled, MIN_LABELS_FOR_CALIBRATION, type Evaluation, type EvaluateOptions, type LabelledDef } from "./match/evaluate.ts";
 export { tokens as nameTokens, normValue, valueOverlap, tokenOverlap, jaroWinkler, commonPrefix } from "./match/text.ts";
+export * from "./verify/types.ts";
+export { verify, visibleText, type Check, type CheckStatus, type VerifyInput, type VerifyReport } from "./verify/verify.ts";

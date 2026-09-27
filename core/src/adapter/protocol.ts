@@ -5,6 +5,7 @@
 // See docs/00-research-and-plan.md §4.
 
 import type { ComponentIndex, LinkSet, TokenSet } from "../code-model.ts";
+import type { AnalyzeParams, AnalyzeResult, BuildParams, BuildResult, RenderParams, RenderResult } from "../verify/types.ts";
 
 export const PROTOCOL_VERSION = "0.1";
 
@@ -39,6 +40,9 @@ export interface Methods {
   tokens: { params: ProjectParams; result: TokenSet };
   /** Mappings already written in the repository (e.g. Code Connect files). */
   links: { params: ProjectParams; result: LinkSet };
+  build: { params: BuildParams; result: BuildResult };
+  render: { params: RenderParams; result: RenderResult };
+  analyze: { params: AnalyzeParams; result: AnalyzeResult };
   shutdown: { params: Record<string, never>; result: null };
 }
 

@@ -58,7 +58,14 @@ export function indexPackage(packageDir: string, gaps: string[]): { components: 
   const tags = manifest.tags as WcaTag[];
   const decls = new Declarations(listFiles(join(packageDir, "es"), ".d.ts"));
   const counts = { noDts: 0, noClass: 0, propsUnresolved: 0 };
-  const components = tags.map((tag) => component(tag, packageDir, pkg.name, decls, counts));
+  const bases = new Map<string, string[]>();
+  const components = tags.map((tag) => component(tag, packageDir, pkg.name, decls, counts, bases));
+  // A subclass of another indexed component is accepted wherever that component is expected.
+  const byExport = new Map(components.filter((c) => c.exportName).map((c) => [c.exportName!, c.name]));
+  for (const c of components) {
+    const ext = (bases.get(c.name) ?? []).map((b) => byExport.get(b)).filter((n): n is string => !!n && n !== c.name);
+    if (ext.length) c.extends = [...new Set(ext)];
+  }
 
   if (counts.noDts) gaps.push(`${counts.noDts} elements have no .d.ts file; their prop types come from the manifest only.`);
   if (counts.noClass) gaps.push(`${counts.noClass} elements' classes were not found in their .d.ts file.`);
@@ -72,6 +79,7 @@ function component(
   pkgName: string,
   decls: Declarations,
   counts: { noDts: number; noClass: number; propsUnresolved: number },
+  bases: Map<string, string[]>,
 ): CodeComponent {
   // "./src/components/button/button.ts" → "es/components/button/button"
   const stem = tag.path.replace(/^\.\/src\//, "es/").replace(/\.ts$/, "");
@@ -83,6 +91,7 @@ function component(
   if (existsSync(dts)) {
     cls = decls.findClass(dts, members.map((m) => m.name));
     if (!cls) counts.noClass++;
+    else bases.set(tag.name, cls.bases);
   } else counts.noDts++;
 
   const props: CodeProp[] = [];

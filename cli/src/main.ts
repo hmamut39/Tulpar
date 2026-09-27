@@ -5,6 +5,7 @@
 //   tulpar library <fileKey>             every component on every page → library JSON, with round-trip check
 //   tulpar index <projectDir>            the project's adapter → component index + tokens, with coverage
 //   tulpar match <projectDir>            Figma library ↔ code components; --evaluate scores against known links
+//   tulpar verify <projectDir> <impl> --frame <nodeId>   build, render and check an implementation against a Figma frame
 //
 // Figma responses are cached in .cache/figma; outputs go to out/.
 
@@ -12,6 +13,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { match } from "./match.ts";
+import { verifyCommand } from "./verify.ts";
 import {
   AdapterHost,
   FigmaClient,
@@ -34,6 +36,8 @@ const { positionals, values } = parseArgs({
     batch: { type: "string", default: "4" },
     offline: { type: "boolean", default: false },
     evaluate: { type: "boolean", default: false },
+    frame: { type: "string" },
+    theme: { type: "string" },
   },
 });
 
@@ -59,6 +63,10 @@ switch (command) {
     if (!target) usage();
     process.exitCode = await match(target, values.out, values.evaluate);
     break;
+  case "verify":
+    if (!target || !rest[0] || !values.frame) usage();
+    process.exitCode = (await verifyCommand(target, rest[0], { frame: values.frame, out: values.out, cache: values.cache, ...(values.theme && { theme: values.theme }) })).code;
+    break;
   default:
     usage();
 }
@@ -77,6 +85,7 @@ function usage(): never {
       "       tulpar library <fileKey> [--batch 4] [--offline]",
       "       tulpar index <projectDir>",
       "       tulpar match <projectDir> [--evaluate]",
+      "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--theme <name>]",
     ].join("\n"),
   );
   process.exit(2);

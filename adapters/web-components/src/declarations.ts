@@ -16,6 +16,8 @@ export interface ResolvedProp {
 
 export interface ClassInfo {
   name: string;
+  /** Names of every class this one inherits from, nearest first. */
+  bases: string[];
   resolve(prop: string): ResolvedProp | undefined;
 }
 
@@ -57,6 +59,7 @@ export class Declarations {
     const statics = this.#checker.getTypeOfSymbolAtLocation(this.#checker.getSymbolAtLocation(node.name!)!, node.name!);
     return {
       name: node.name!.text,
+      bases: baseNames(instance),
       resolve: (prop) => {
         const own = instance.getProperty(prop);
         const sym = own ?? statics.getProperty(prop);
@@ -72,6 +75,25 @@ export class Declarations {
       },
     };
   }
+}
+
+function baseNames(type: ts.Type): string[] {
+  const names: string[] = [];
+  const seen = new Set<ts.Type>();
+  const walk = (t: ts.Type) => {
+    for (const base of t.getBaseTypes?.() ?? []) {
+      if (seen.has(base)) continue;
+      seen.add(base);
+      // Mixins produce intersections; each named class in them counts.
+      for (const part of base.isIntersection() ? base.types : [base]) {
+        const name = part.getSymbol()?.getName();
+        if (name && !name.startsWith("__")) names.push(name);
+        walk(part);
+      }
+    }
+  };
+  walk(type);
+  return names;
 }
 
 function isReadonly(sym: ts.Symbol, decl: ts.Declaration | undefined): boolean {

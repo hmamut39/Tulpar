@@ -62,6 +62,8 @@ export interface CodeComponent {
   /** The name people write, e.g. a tag name or an export name. */
   name: string;
   exportName?: string;
+  /** Other components in the index this one specialises (e.g. a subclass). It is accepted where they are expected. */
+  extends?: string[];
   /** Where code imports it from. */
   module: string;
   sourcePath?: string;

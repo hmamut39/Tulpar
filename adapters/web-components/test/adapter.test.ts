@@ -31,7 +31,11 @@ describe("web-components adapter on a fixture package", () => {
 
   it("declares its capabilities honestly", async () => {
     const host = await AdapterHost.start(process.execPath, [main]);
-    expect(host.manifest).toMatchObject({ id: "web-components", protocolVersion: PROTOCOL_VERSION, capabilities: { index: true, tokens: true, render: { supported: false } } });
+    expect(host.manifest).toMatchObject({
+      id: "web-components",
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: { index: true, tokens: true, links: true, build: true, render: { supported: true }, runtimeStyleProvenance: true, emit: false, forceStates: [] },
+    });
     await expect(host.call("emit" as "index", { root: fixtureRoot, config: {} })).rejects.toMatchObject({ code: ErrorCodes.MethodNotFound });
     await host.stop();
   });
@@ -180,5 +184,41 @@ figma.connect('https://www.figma.com/design/K/Kit?node-id=5-7', { example: () =>
       ["5:6", "x-tag-skeleton", { State: "Skeleton", "Has icon": "true" }],
       ["5:7", "x-tag", undefined],
     ]);
+  });
+});
+
+describe("style classification", async () => {
+  const { classify, declarations } = await import("../src/verify/css.ts");
+  const { analyzeImplementation, parseImplementation } = await import("../src/verify/impl.ts");
+
+  it("tells tokens from literals and keywords, in design terms", () => {
+    expect(classify("background-color", "var(--cds-layer-01)", "cds")).toEqual({ property: "fill", written: "var(--cds-layer-01)", source: "token", token: "layer-01" });
+    expect(classify("color", "var(--cds-text-primary, #161616)", "cds")).toMatchObject({ property: "textColor", source: "token", token: "text-primary" });
+    expect(classify("border", "1px solid var(--cds-border-subtle)", "cds")).toMatchObject({ property: "strokeColor", source: "token", token: "border-subtle" });
+    expect(classify("border", "1px solid #ccc", "cds")).toMatchObject({ property: "strokeColor", source: "literal" });
+    expect(classify("color", "red", "cds")).toMatchObject({ source: "literal" });
+    expect(classify("color", "currentColor", "cds")).toMatchObject({ source: "keyword" });
+    expect(classify("border-color", "var(--cds-border-subtle)", "cds")).toMatchObject({ source: "token" });
+    expect(classify("background", "#0f62fe", "cds")).toMatchObject({ property: "fill", source: "literal" });
+    expect(classify("padding", "0", "cds")).toMatchObject({ property: "padding", source: "keyword" });
+    expect(classify("margin-left", "16px !important", "cds")).toMatchObject({ property: "margin", written: "16px", source: "literal" });
+    expect(classify("width", "100px", "cds")).toBeUndefined();
+  });
+
+  it("finds declarations with their line numbers, not selectors", () => {
+    expect(declarations("a:hover {\n  color: red;\n}\n.x { gap: 4px }", 10)).toEqual([
+      { property: "color", value: "red", line: 11 },
+      { property: "gap", value: "4px", line: 13 },
+    ]);
+  });
+
+  it("splits an implementation file and scans all of its styles", () => {
+    const html = `<script type="module">import 'x';</script>\n<style>\n.a { color: #fff; }\n</style>\n<x-a style="margin: var(--cds-spacing-01, 2px)">Hi</x-a>\n<div style="font-size: 12px"></div>`;
+    const impl = parseImplementation(html);
+    expect(impl.scripts).toEqual([{ code: "import 'x';", line: 1 }]);
+    expect(impl.markup).not.toContain("<style>");
+    const a = analyzeImplementation(impl, "f.html", "cds");
+    expect(a.componentsUsed).toEqual(["x-a"]);
+    expect(a.literals.map((l) => `${l.property} ${l.written} ${l.at}`)).toEqual(["textColor #fff f.html:3", "fontSize 12px f.html:6"]);
   });
 });

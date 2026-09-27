@@ -6,9 +6,9 @@
 // Delete the cache directory to force a refresh.
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { FileNodesResponse, FileResponse, NodeEntry } from "./types.ts";
+import type { FigmaNode, FileNodesResponse, FileResponse, NodeEntry } from "./types.ts";
 
 const API = "https://api.figma.com";
 
@@ -74,6 +74,29 @@ export class FigmaClient {
     }
     for (const id of missing) result.nodes[id] ??= null;
     return result;
+  }
+
+  /**
+   * Find a node inside any cached response (e.g. a variant inside a cached page), without
+   * a request. Returns it with the component and style maps of the response it came from.
+   */
+  async findCached(fileKey: string, id: string): Promise<{ entry: NodeEntry; version: string } | undefined> {
+    const dir = join(this.#cacheDir, fileKey, "nodes");
+    const direct = await readJson<CachedNode>(join(dir, nodeFile(id)));
+    if (direct?.entry) return { entry: direct.entry, version: direct.version };
+    let files: string[];
+    try {
+      files = await readdir(dir);
+    } catch {
+      return undefined;
+    }
+    for (const f of files) {
+      const cached = await readJson<CachedNode>(join(dir, f));
+      if (!cached?.entry) continue;
+      const found = findNode(cached.entry.document, id);
+      if (found) return { entry: { ...cached.entry, document: found }, version: cached.version };
+    }
+    return undefined;
   }
 
   async #get<T>(path: string): Promise<T> {
@@ -143,6 +166,15 @@ async function readJson<T>(file: string): Promise<T | undefined> {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw err;
   }
+}
+
+function findNode(node: FigmaNode, id: string): FigmaNode | undefined {
+  if (node.id === id) return node;
+  for (const c of node.children ?? []) {
+    const found = findNode(c, id);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 function nodeFile(id: string): string {
