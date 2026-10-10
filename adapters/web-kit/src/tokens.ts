@@ -1,11 +1,16 @@
-// Tokens for projects styled with CSS: DTCG files, exposed to code as CSS custom properties.
+// Tokens for projects styled with CSS: DTCG files exposed to code as CSS custom properties,
+// and/or custom properties declared directly in the design system's stylesheets (css-tokens.ts).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readDtcg, type DtcgDocument, type TokenSet, type TokenValue } from "@tulpar/core";
+import { readCssTokens, type CssTokenConfig } from "./css-tokens.ts";
 
 export interface TokenConfig {
-  files: string[];
+  /** DTCG token files. */
+  files?: string[];
+  /** Stylesheets that declare tokens as custom properties; used for tokens the DTCG files lack. */
+  css?: CssTokenConfig;
   references?: string[];
   modesExtension?: string;
   modes?: string[];
@@ -22,7 +27,7 @@ export function readTokens(root: string, config: TokenConfig, cssDirs: string[],
     }
     return [{ label: file.replace(/^node_modules\//, ""), json: JSON.parse(readFileSync(path, "utf8")), referenceOnly }];
   };
-  const docs = [...config.files.flatMap((f) => load(f, false)), ...(config.references ?? []).flatMap((f) => load(f, true))];
+  const docs = [...(config.files ?? []).flatMap((f) => load(f, false)), ...(config.references ?? []).flatMap((f) => load(f, true))];
 
   const prefix = config.cssPrefix ? `${config.cssPrefix}-` : "";
   const result = readDtcg(docs, {
@@ -41,7 +46,11 @@ export function readTokens(root: string, config: TokenConfig, cssDirs: string[],
   }
   if (unused) gaps.push(`${unused} of ${result.tokens.length} tokens' CSS custom properties are not used by any component stylesheet; their code names are unconfirmed.`);
 
-  return { adapter, modes: result.modes, tokens: result.tokens, gaps: [...result.gaps, ...gaps] };
+  if (!config.css) return { adapter, modes: result.modes, tokens: result.tokens, gaps: [...result.gaps, ...gaps] };
+  const css = readCssTokens(root, config.css);
+  const known = new Set(result.tokens.map((t) => t.codeRef));
+  const extra = css.tokens.filter((t) => !known.has(t.codeRef));
+  return { adapter, modes: [...new Set([...result.modes, ...css.modes])], tokens: [...result.tokens, ...extra], gaps: [...result.gaps, ...gaps, ...css.gaps] };
 }
 
 /**

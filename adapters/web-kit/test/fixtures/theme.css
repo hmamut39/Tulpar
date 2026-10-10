@@ -1,0 +1,22 @@
+/* A small design system's theme, as many publish it: custom properties only. */
+:root, :host {
+  --ds-color-primary-600: #4f46e5;
+  --ds-color-primary: var(--ds-color-primary-600);
+  --ds-color-surface: rgb(255 255 255);
+  --ds-color-overlay: rgba(15, 23, 42, 0.5);
+  --ds-color-accent: hsl(0, 100%, 50%);
+  --ds-space-small: 0.5rem;
+  --ds-space-large: 24px;
+  --ds-font-weight-bold: 700;
+  --ds-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+  --ds-border: var(--ds-missing, 1px);
+  --other-library: red;
+}
+:host, .ds-theme-dark {
+  --ds-color-primary-600: #818cf8;
+  --ds-color-surface: #0f172a;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --ds-space-large: 20px; }
+}
+.ds-button { color: var(--ds-color-primary); }

@@ -1,0 +1,70 @@
+# Your own design system (G9)
+
+Until now every example was Carbon, and parts of Tulpar assumed it. This step lets a team
+point Tulpar at its own library in one command, and tests that on a design system Tulpar
+was not built around: Shoelace (`examples/shoelace`, set up only by `tulpar init`).
+
+## `tulpar init`
+
+```sh
+cd my-app
+npx tulpar init --figma "https://www.figma.com/design/<file>/…"
+```
+
+It reads `package.json` and `node_modules` and finds the following, printing its evidence for each guess:
+
+| Finds | How |
+|---|---|
+| Framework | `@angular/core` → Angular; `react` → React; otherwise Web Components. `--adapter` overrides it. |
+| Design-system package | The dependency that looks most like one: a custom elements manifest, "design system / components / ui" in its description or keywords, a framework peer dependency, shipped CSS and types. Build tools and utilities are never picked. `--package` overrides it. |
+| Tokens | DTCG files (`*.tokens.json`, or JSON with `$value` under a `tokens/` folder), and stylesheets that declare 20 or more custom properties on `:root` or a theme selector. It searches the package and sibling packages such as `@acme/tokens` or `@acme/themes`. It finds the shared prefix (`--sl-`), and the theme selectors become modes, with the one declared with `:root` first. Copies under `cdn/` are skipped when `dist/` has the same file. |
+| Stylesheets to render with | The token sheets plus the package's main stylesheet. |
+| Code Connect | `*.figma.tsx`/`*.ts` files in the project itself. |
+
+It then writes `tulpar.json` and runs the adapter, printing the number of components, tokens and links, and any gaps.
+
+## What had to change in Tulpar
+
+Running it on Shoelace showed what was still Carbon-only:
+
+1. **Tokens as CSS custom properties** (`web-kit/src/css-tokens.ts`). Shoelace, like many libraries, publishes no DTCG files.
+   - Each `--sl-*` property on `:root`/`:host`/`html` or on a theme selector becomes a token.
+   - Values are resolved through `var()` per mode: hex, `rgb()`/`hsl()`, px/rem, numbers. Anything else (shadows, font stacks) is kept "unresolved", never guessed.
+   - A theme block that also names `:host` (for shadow roots) sets that theme, not the default.
+   - Result on Shoelace: 390 tokens (288 colours, 57 lengths), in modes default, light and dark.
+2. **The standard Custom Elements Manifest** (CEM 1.x). Before, only Carbon's older WCA format was read.
+   - Public fields become props, with their attributes.
+   - Private, static and `_`-prefixed members are not props.
+   - Class lookup in `.d.ts` files now follows re-exports (`button.d.ts` → `button.component.d.ts`).
+   - Result on Shoelace: 58 components, 490 props, 107 slots, 113 events.
+3. **Coding rules that came from Carbon.** The Web Components adapter told the model to import `…/es/components/button/index.js` and gave `--cds-` token examples. The import example and token prefix now come from the project. The first three Shoelace runs failed to build for this reason alone.
+4. **The checker read only light-DOM text and block boxes.** Shoelace draws labels and placeholders inside shadow roots.
+   - The renderer now walks the composed tree (shadow roots and slots, including `display: contents` slots, which the browser's visibility test calls hidden).
+   - It reads input placeholders and values.
+   - It records a **drawn box**: the extent of text and of elements that paint something.
+   - Layout passes when the element's box or its drawn box matches the design. A full-width checkbox host that draws a 16 px box and a label is then judged by what it draws. The Carbon mutation tests (deliberately broken components) still fail as they should.
+5. **The model gamed a check once.** When the checker could not see a real placeholder, the model faked one: placeholder text in a slot, hidden with script.
+   - Fixing the checker removed the reason.
+   - A new rule says to express a label as a label and a placeholder as a placeholder, and to pick tokens by meaning as well as value. An earlier attempt used a font-size token for padding.
+   - Generation now saves every attempt's failures (`history` in `tulpar-report.json`), which is how both problems were found.
+
+## Result
+
+A sign-in card drawn as a plain HTML mockup was given to Tulpar as a screenshot. Tulpar wrote it with Shoelace in 3 attempts:
+
+| Check | Result |
+|---|---|
+| Built, rendered | ✓ |
+| Design-system components | ✓ 5 of 5 (`sl-card`, `sl-input` ×2, `sl-checkbox`, `sl-button`), 0 invented |
+| Colours, type, spacing | ✓ 0 hard-coded values; tokens chosen by meaning |
+| Layout | ✓ 8 of 8 within the screenshot tolerance |
+| Text | ✓ 6 of 6, including labels and placeholders inside the inputs |
+| Pixels | ✓ 6.3% differ (limit 8%) |
+| Typeface, tests, states | not checked (the screenshot names no font; the Web Components adapter has no test runner yet) |
+
+The code uses the components' own API (`label`, `placeholder`, `variant="primary"`) and no script.
+
+**Still open:**
+- **Fonts.** Light-DOM text renders in the browser's default font. Shoelace expects the app to set `font-family: var(--sl-font-sans)`, and screenshot designs name no font. Next: the screenshot reader estimates the font class, and `init` records the design system's base font token so the render uses it.
+- **Token kind check.** Flag a token of the wrong kind (a font-size token used as padding) in the verifier, not only in the prompt.
+- **More libraries.** Run `init` on React and Angular libraries other than Carbon, for example MUI, Chakra, Radix Themes and PrimeNG.

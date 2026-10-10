@@ -46,9 +46,17 @@ export class Declarations {
   findClass(file: string, propNames: string[]): ClassInfo | undefined {
     const source = this.#program.getSourceFile(file);
     if (!source) return undefined;
+    // Classes declared here, and classes this file re-exports (Shoelace: button.d.ts re-exports
+    // the class from button.component.d.ts).
+    const classes = new Set(source.statements.filter((s): s is ts.ClassDeclaration => ts.isClassDeclaration(s) && !!s.name));
+    const moduleSymbol = this.#checker.getSymbolAtLocation(source);
+    for (const exported of moduleSymbol ? this.#checker.getExportsOfModule(moduleSymbol) : []) {
+      const target = exported.flags & ts.SymbolFlags.Alias ? this.#checker.getAliasedSymbol(exported) : exported;
+      for (const d of target.declarations ?? []) if (ts.isClassDeclaration(d) && d.name) classes.add(d);
+    }
     let best: { node: ts.ClassDeclaration; score: number } | undefined;
-    for (const stmt of source.statements) {
-      if (!ts.isClassDeclaration(stmt) || !stmt.name) continue;
+    for (const stmt of classes) {
+      if (!stmt.name) continue;
       const type = this.#checker.getTypeAtLocation(stmt.name);
       const statics = this.#checker.getTypeOfSymbolAtLocation(this.#checker.getSymbolAtLocation(stmt.name)!, stmt.name);
       const score = propNames.filter((p) => type.getProperty(p) || statics.getProperty(p)).length;

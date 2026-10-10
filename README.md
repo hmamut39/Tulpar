@@ -49,6 +49,11 @@ CheckoutCard
    - Tulpar builds and renders the generated component, then compares it with the Figma frame for layout, text, values and pixels.
    - It reports which design-system components were used versus invented, and which values are tokens versus hard-coded.
 
+3. **Your own design system, in one command.**
+   - Run `tulpar init` in your front-end project.
+   - It detects the framework, the component library, and the tokens (DTCG files, or CSS custom properties with their themes), plus stylesheets and Code Connect files.
+   - It writes `tulpar.json`, then shows what Tulpar can see.
+
 ## Architecture
 
 - **Core.** Framework-free: the design model from Figma, the component index, matching and verification.

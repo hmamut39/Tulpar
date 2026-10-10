@@ -139,6 +139,8 @@ function instructions(b: Brief): string {
     `- Do not set the component's own width or height from the frame's size: it fills its container, and the host decides the size. Size inner parts with layout (flex, grid, percentages, auto), not fixed numbers.`,
     `- Put data-figma-id="<id>" on the root element and on every element that renders a Figma instance or a text layer, using the ids in the outline.`,
     `- Text must match the design character for character.`,
+    `- Express what the design shows with the component's own API: a label as its label, a placeholder as its placeholder, a value as its value. Never imitate one with another (e.g. placeholder text in a slot, hidden with script) to get past a check; a reviewer rejects that even when every check passes.`,
+    `- Pick tokens by meaning as well as value: a spacing token for spacing, a font-size token for font size. When no token of the right kind has the value, use the nearest token of the right kind.`,
     `- Write exactly these files and no others: ${c.files.map((f) => f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))).join(", ")}.`,
     ...c.rules.map((r) => `- ${r.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))}`),
     `Answer with JSON: { "files": [{ "path", "content" }], "notes" }.`,

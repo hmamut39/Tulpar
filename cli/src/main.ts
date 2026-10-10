@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // tulpar CLI.
 //
+//   tulpar init [dir] [--figma <url>]    point Tulpar at your own design system: detect it, write tulpar.json, show what it sees
 //   tulpar model <fileKey> <nodeId>...   Figma frames → design model JSON, with round-trip check
 //   tulpar library <fileKey>             every component on every page → library JSON, with round-trip check
 //   tulpar index <projectDir>            the project's adapter → component index + tokens, with coverage
@@ -16,6 +17,7 @@ import { parseArgs } from "node:util";
 import { loadDotEnv } from "./env.ts";
 import { drift } from "./drift.ts";
 import { generateCommand } from "./generate.ts";
+import { initCommand } from "./init.ts";
 import { match } from "./match.ts";
 import { verifyCommand } from "./verify.ts";
 import {
@@ -55,6 +57,9 @@ const { positionals, values } = parseArgs({
     json: { type: "boolean", default: false },
     attempts: { type: "string" },
     to: { type: "string" },
+    package: { type: "string" },
+    adapter: { type: "string" },
+    force: { type: "boolean", default: false },
   },
 });
 
@@ -62,6 +67,14 @@ const [command, target, ...rest] = positionals;
 let client: FigmaClient;
 
 switch (command) {
+  case "init":
+    process.exitCode = await initCommand(target ?? ".", {
+      ...(values.figma && { figma: values.figma }),
+      ...(values.package && { package: values.package }),
+      ...(values.adapter && { adapter: values.adapter }),
+      force: values.force,
+    });
+    break;
   case "model":
     if (!target || rest.length === 0) usage();
     client = figmaClient();
@@ -124,7 +137,8 @@ function figmaClient(): FigmaClient {
 function usage(): never {
   console.error(
     [
-      "usage: tulpar model <fileKey> <nodeId>... [--offline]",
+      "usage: tulpar init [dir] [--figma <file URL>] [--package <name>] [--adapter react|angular|web-components] [--force]",
+      "       tulpar model <fileKey> <nodeId>... [--offline]",
       "       tulpar library <fileKey> [--batch 4] [--offline]",
       "       tulpar index <projectDir>",
       "       tulpar match <projectDir> [--evaluate [--rerank]]",

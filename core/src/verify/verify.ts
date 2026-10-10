@@ -172,7 +172,10 @@ export function verify(input: VerifyInput): VerifyReport {
       if (!el) continue;
       checked++;
       const t = e.node.kind === "text" ? tol.text : tol.box;
+      // The element's box, or what it draws: a design box measured from pixels (a screenshot, or
+      // auto-width text) matches the drawn extent, while a block-level element fills its row.
       const diffs = boxDiffs(e.node.box!, el.box, t);
+      if (diffs.length && el.drawnBox && !boxDiffs(e.node.box!, el.drawnBox, t).length) diffs.length = 0;
       if (!el.visible) details.push(`✗ ${e.node.name} (${e.node.id}): visible in the design, not visible in the render`);
       else if (diffs.length) details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t})`);
       else within++;

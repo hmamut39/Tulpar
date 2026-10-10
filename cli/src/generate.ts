@@ -126,7 +126,13 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     await writeFile(join(outDir, f.path), f.content);
   }
   if (png) await writeFile(join(outDir, "tulpar-render.png"), Buffer.from(png, "base64"));
-  if (result.report) await writeFile(join(outDir, "tulpar-report.json"), JSON.stringify({ status: result.status, model: result.model, usage: result.usage, attempts: result.attempts.length, report: result.report }, null, 2));
+  // Every attempt's failures, not just the last: what the repair loop saw and fixed (or didn't).
+  const history = result.attempts.map((a, i) => ({
+    attempt: i + 1,
+    ...(a.rejected.length && { rejected: a.rejected }),
+    ...(a.report && { verdict: a.report.verdict, failing: a.report.checks.filter((c) => c.status === "fail").map((c) => ({ check: c.id, summary: c.summary, details: c.details.slice(0, 20) })) }),
+  }));
+  if (result.report) await writeFile(join(outDir, "tulpar-report.json"), JSON.stringify({ status: result.status, model: result.model, usage: result.usage, attempts: result.attempts.length, history, report: result.report }, null, 2));
 
   if (!options.quiet) {
     console.log("");

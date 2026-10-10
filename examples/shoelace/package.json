@@ -1,0 +1,8 @@
+{
+  "name": "tulpar-example-shoelace",
+  "private": true,
+  "description": "A design system Tulpar was not built around, set up only with `tulpar init`.",
+  "dependencies": {
+    "@shoelace-style/shoelace": "2.20.1"
+  }
+}

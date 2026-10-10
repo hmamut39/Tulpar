@@ -118,6 +118,15 @@ describe("verify", () => {
     expect(r.checks.find((c) => c.id === "layout")!.details).toContain("✗ Button 2:1 (2:1): x 0 → 8 (+8) (tolerance ±1)");
   });
 
+  it("accepts what an element draws when its own box is wider, but not a drawn box that is also off", () => {
+    const els = good();
+    // A full-width host that draws a button-sized control: the drawn extent matches the design.
+    els[1] = { ...els[1]!, box: box(0, 0, 300, 40), drawnBox: box(0, 0, 100, 40) };
+    expect(status(verify(input(els)), "layout")).toBe("pass");
+    els[1] = { ...els[1]!, box: box(0, 0, 300, 40), drawnBox: box(8, 0, 100, 40) };
+    expect(status(verify(input(els)), "layout")).toBe("fail");
+  });
+
   it("tells a wrong design-system component from an invented one and a missing one", () => {
     const els = good().filter((e) => e.figmaId !== "2:2");
     els[1] = { ...els[1]!, component: "x-tag" };

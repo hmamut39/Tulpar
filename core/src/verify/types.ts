@@ -50,6 +50,12 @@ export interface RenderedElement {
   defined: boolean;
   /** Box relative to the frame's top-left, in design points. */
   box: Box;
+  /**
+   * The extent of what the element draws (its text, and descendants with a background, border,
+   * image or form control), through shadow roots. Can be smaller than `box`: a full-width
+   * checkbox host draws a 16 px box and a label. Absent when the renderer cannot tell.
+   */
+  drawnBox?: Box;
   text: string;
   /** Font families actually used to draw the element's text, as the renderer reports them. */
   fonts: string[];

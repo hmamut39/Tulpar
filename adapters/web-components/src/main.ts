@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
-import { indexPackage } from "./components.ts";
+import { exampleImport, indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
 import { closeBrowser, readTokens, render, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { build } from "./verify/build.ts";
@@ -19,7 +19,7 @@ interface Config {
   render?: RenderConfig;
 }
 
-const prefix = (config: Record<string, unknown>) => (config as Config).tokens?.cssPrefix ?? "";
+const prefix = (config: Record<string, unknown>) => (config as Config).tokens?.cssPrefix ?? (config as Config).tokens?.css?.prefix ?? "";
 
 const packageDirs = ({ root, config }: ProjectParams) => ((config as Config).packages ?? []).map((p) => join(root, p));
 
@@ -72,19 +72,25 @@ serve({
   },
 
   conventions: (params) => {
-    const pkg = JSON.parse(readFileSync(join(packageDirs(params)[0] ?? params.root, "package.json"), "utf8")).name as string;
+    const dir = packageDirs(params)[0] ?? params.root;
+    const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).name as string;
+    // The import path and token names come from this design system, never from another one.
+    const importLine = `import "${exampleImport(dir, pkg)}";`;
+    const p = prefix(params.config);
+    const tokenExample = p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)";
     return {
       language: "HTML, CSS and JavaScript modules",
       framework: `Web Components (${pkg})`,
       files: [{ path: "{name}.html", role: "component", description: "One HTML file: a <script type=\"module\"> that imports the design-system elements it uses, a <style> block for the component's own layout, and the markup." }],
       entry: "{name}.html",
       rules: [
-        `Import each design-system element from its module, e.g. import "${pkg}/es/components/button/index.js";`,
+        `Import each design-system element from its own module, the way the component list gives it, e.g. ${importLine}`,
         "Use the design-system custom elements (their tag names) for every mapped instance; set their attributes as the mapping gives them (kebab-case attribute names).",
         "Put data-figma-id attributes directly on the custom elements.",
-        "Write every token with its value as the fallback, the way the design system's own styles do: var(--cds-spacing-05, 1rem), var(--cds-layer-01, #f4f4f4). Spacing tokens are not global variables, so without the fallback they render nothing.",
+        `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
+        "Use only static imports at the top of the module script; no top-level await or dynamic import().",
       ],
-      importExample: `import "${pkg}/es/components/button/index.js";`,
+      importExample: importLine,
     };
   },
 

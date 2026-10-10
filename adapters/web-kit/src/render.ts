@@ -74,14 +74,72 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     const identity = await framework.identify(page);
     const measured = await page.evaluate((frameId) => {
       const frame = document.getElementById(frameId)!.getBoundingClientRect();
+      // The composed tree: shadow roots and slotted content, as the page draws it.
+      const childrenOf = (n: Node): Node[] => {
+        if (n instanceof HTMLSlotElement) {
+          const assigned = n.assignedNodes({ flatten: true });
+          return assigned.length ? assigned : [...n.childNodes];
+        }
+        if (n instanceof Element && n.shadowRoot) return [...n.shadowRoot.childNodes];
+        return [...n.childNodes];
+      };
+      const SKIP = new Set(["style", "script", "template", "link", "meta"]);
+      const visible = (el: Element) => el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+      // What is drawn inside an element: its text, and descendants that paint a background, a border,
+      // an image or a form control. A block-level host can be wider than what it draws (a checkbox and its label).
+      const drawn = (host: Element) => {
+        const text: string[] = [];
+        let box: { l: number; t: number; r: number; b: number } | undefined;
+        const add = (r: DOMRect) => {
+          if (r.width <= 0 || r.height <= 0) return;
+          box = box ? { l: Math.min(box.l, r.left), t: Math.min(box.t, r.top), r: Math.max(box.r, r.right), b: Math.max(box.b, r.bottom) } : { l: r.left, t: r.top, r: r.right, b: r.bottom };
+        };
+        let budget = 3000;
+        const visit = (n: Node) => {
+          if (--budget < 0) return;
+          if (n.nodeType === Node.TEXT_NODE) {
+            const s = n.textContent ?? "";
+            if (!s.trim()) return;
+            text.push(s);
+            const range = document.createRange();
+            range.selectNodeContents(n);
+            add(range.getBoundingClientRect());
+            return;
+          }
+          if (!(n instanceof Element) || SKIP.has(n.localName)) return;
+          // Slots and other "display: contents" elements have no box, so checkVisibility() calls them
+          // hidden; their content is visible all the same.
+          const contents = n instanceof HTMLSlotElement || getComputedStyle(n).display === "contents";
+          if (!contents && !visible(n)) return;
+          if (n !== host) {
+            const cs = getComputedStyle(n);
+            const paints = !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || ["Top", "Right", "Bottom", "Left"].some((s) => parseFloat(cs[`border${s}Width` as "borderTopWidth"]) > 0 && cs[`border${s}Style` as "borderTopStyle"] !== "none") || /^(img|svg|canvas|video|input|textarea|select)$/.test(n.localName);
+            if (paints) add(n.getBoundingClientRect());
+          }
+          if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
+            const value = n.value ? (n.type === "password" ? "•".repeat(n.value.length) : n.value) : n.placeholder;
+            if (value) text.push(value);
+            return;
+          }
+          for (const c of childrenOf(n)) visit(c);
+        };
+        visit(host);
+        return { text: text.join(" ").replace(/\s+/g, " ").trim(), box };
+      };
       return [...document.querySelectorAll<HTMLElement>("[data-figma-id]")].map((el) => {
         const r = el.getBoundingClientRect();
+        const inner = (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
+        // Light-DOM text first; a component that draws its text in its shadow root (a label or
+        // placeholder set by attribute) is read through it.
+        const d = drawn(el);
         return {
           figmaId: el.dataset.figmaId!,
           tag: el.localName,
           box: { x: r.x - frame.x, y: r.y - frame.y, width: r.width, height: r.height },
-          text: (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim(),
-          visible: el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) && r.width > 0 && r.height > 0,
+          ...(d.box && { drawnBox: { x: d.box.l - frame.x, y: d.box.t - frame.y, width: d.box.r - d.box.l, height: d.box.b - d.box.t } }),
+          // The composed text includes slotted light-DOM text, so it is used when it is the fuller reading.
+          text: el.shadowRoot && d.text.includes(inner) ? d.text : inner || d.text,
+          visible: visible(el) && r.width > 0 && r.height > 0,
         };
       });
     }, FRAME_ID);
