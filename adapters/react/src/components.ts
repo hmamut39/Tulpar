@@ -60,14 +60,34 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
   const components: CodeComponent[] = [];
   let inheritedTotal = 0;
   let viaArgumentsCount = 0;
+  // Components are exported directly (Button), as namespace members (Radix: TextField.Root), or as
+  // statics of another component (Menu.Item). Each is named the way code writes it.
+  const candidates: { name: string; symbol: ts.Symbol; propsType: ts.Type }[] = [];
+  const memberCandidates = (owner: string, members: ts.Symbol[]) => {
+    for (const m of members) {
+      const memberName = m.getName();
+      if (!/^[A-Z]/.test(memberName)) continue;
+      const ms = m.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(m) : m;
+      const mp = componentProps(checker.getTypeOfSymbolAtLocation(ms, sf), checker);
+      if (mp) candidates.push({ name: `${owner}.${memberName}`, symbol: ms, propsType: mp });
+    }
+  };
   for (const exported of checker.getExportsOfModule(moduleSymbol)) {
     const name = exported.getName();
     if (!/^[A-Z]/.test(name)) continue;
     const symbol = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
+    if (symbol.flags & ts.SymbolFlags.Module && !(symbol.flags & ts.SymbolFlags.Function)) {
+      memberCandidates(name, checker.getExportsOfModule(symbol));
+      continue;
+    }
     if (!(symbol.flags & ts.SymbolFlags.Value)) continue;
     const type = checker.getTypeOfSymbolAtLocation(symbol, sf);
     const propsType = componentProps(type, checker);
-    if (!propsType) continue;
+    if (propsType) candidates.push({ name, symbol, propsType });
+    memberCandidates(name, type.getProperties());
+  }
+
+  for (const { name, symbol, propsType } of candidates) {
 
     const props: CodeProp[] = [];
     const slots: CodeSlot[] = [];
@@ -139,7 +159,7 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
     components.push({
       id: `${pkg.name}#${name}`,
       name,
-      exportName: name,
+      exportName: name.split(".")[0]!,
       module: pkg.name,
       ...(declFile && { sourcePath: relative(packageDir, declFile).replace(/\\/g, "/") }),
       ...(docs && { description: docs }),

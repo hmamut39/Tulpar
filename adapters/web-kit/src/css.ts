@@ -17,6 +17,8 @@ const PROPERTY: [RegExp, DesignProperty][] = [
   [/^border(-(top|bottom)-(left|right))?-radius$/, "radius"],
   [/^(top|right|bottom|left|inset|translate|transform)$/, "offset"],
   [/^((min-|max-)?(width|height|inline-size|block-size))$/, "size"],
+  // Grid tracks are sizes too: "minmax(0, 310fr)" copies a 310 px measurement as a ratio.
+  [/^grid-(template-(columns|rows)|template|auto-(columns|rows))$/, "size"],
 ];
 
 export function designProperty(cssProperty: string): DesignProperty | undefined {
@@ -45,8 +47,11 @@ export function classify(cssProperty: string, value: string, prefix: string, at?
   const parts = outside.split(/[\s,/]+/).filter(Boolean);
   // In colour properties only colours count: the 1px in "border: 1px solid var(--c)" is a width, not a colour.
   const isColor = property === "fill" || property === "textColor" || property === "strokeColor";
-  const literal = parts.filter(
-    (p) => !KEYWORD.test(p) && (isColor ? COLOR_LITERAL.test(p) || NAMED_COLORS.has(p.toLowerCase()) : /[0-9#]|rgb|hsl|lab|lch|oklch|color\(/i.test(p)),
+  const isGrid = /^grid-/i.test(cssProperty.trim());
+  const literal = parts.filter((p) =>
+    isGrid
+      ? gridLiteral(p)
+      : !KEYWORD.test(p) && (isColor ? COLOR_LITERAL.test(p) || NAMED_COLORS.has(p.toLowerCase()) : /[0-9#]|rgb|hsl|lab|lch|oklch|color\(/i.test(p)),
   );
   const base = { property, written, ...(at && { at }) };
   if (literal.length) return { ...base, source: "literal" };
@@ -57,6 +62,19 @@ export function classify(cssProperty: string, value: string, prefix: string, at?
     return { ...base, source: "token", token: prefix && name.startsWith(`${prefix}-`) ? name.slice(prefix.length + 1) : name };
   }
   return { ...base, source: "keyword" };
+}
+
+/**
+ * In grid tracks, layout words (auto, min-content, minmax(0, …), repeat counts) and small whole
+ * fractions (1fr, 2fr) are how grids are written; fixed lengths and large or fractional fr values
+ * (25fr 310fr 25fr) are a measured layout in disguise.
+ */
+function gridLiteral(part: string): boolean {
+  const p = part.replace(/^(minmax|repeat|fit-content)\(/i, "").replace(/[()]/g, "");
+  if (!p || KEYWORD.test(p) || /^(min-content|max-content|auto-fill|auto-fit|subgrid|masonry|\[.*\])$/i.test(p) || /^\d+$/.test(p)) return false;
+  const fr = /^(\d*\.?\d+)fr$/i.exec(p);
+  if (fr) return Number(fr[1]) > 12 || !Number.isInteger(Number(fr[1]));
+  return /\d/.test(p);
 }
 
 function stripVars(value: string): string {

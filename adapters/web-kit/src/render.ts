@@ -62,7 +62,9 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
       warnings.push(`Theme "${params.theme}" has no class configured; rendered with the default theme.`);
     }
 
-    await page.evaluate(({ frameId, themeClass }) => themeClass && document.getElementById(frameId)!.classList.add(themeClass), { frameId: FRAME_ID, themeClass });
+    // The library's root class (Radix's <Theme> adds "radix-themes") and the theme class, as an app has them.
+    const frameClasses = [config.rootClass, themeClass].filter((c): c is string => !!c && /^[\w-]+$/.test(c));
+    await page.evaluate(({ frameId, frameClasses }) => document.getElementById(frameId)!.classList.add(...frameClasses), { frameId: FRAME_ID, frameClasses });
     warnings.push(...(await framework.settle(page, FRAME_ID)));
     await page.evaluate(async () => {
       await document.fonts.ready;
@@ -143,7 +145,15 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
         };
       });
     }, FRAME_ID);
-    const facts = measured.map(({ tag, ...m }) => ({ ...m, ...(identity[m.figmaId] ?? { component: tag, defined: true }) }));
+    // One element per id: when several carry it (a hidden input copying a component's attributes),
+    // the visible one with the largest box stands for it.
+    const best = new Map<string, (typeof measured)[number]>();
+    for (const m of measured) {
+      const prev = best.get(m.figmaId);
+      const area = (x: typeof m) => (x.visible ? 1 : 0) * 1e9 + x.box.width * x.box.height;
+      if (!prev || area(m) > area(prev)) best.set(m.figmaId, m);
+    }
+    const facts = [...best.values()].map(({ tag, ...m }) => ({ ...m, ...(identity[m.figmaId] ?? { component: tag, defined: true }) }));
 
     const styles = await styleFacts(cdp, implSheets, prefix, entry);
     const elements: RenderedElement[] = facts.map((f) => ({ ...f, styles: styles.get(f.figmaId)?.facts ?? [], fonts: styles.get(f.figmaId)?.fonts ?? [] }));

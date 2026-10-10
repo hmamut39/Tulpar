@@ -17,6 +17,8 @@ export interface RenderConfig {
    * Applied by the page, not the implementation, so it is never counted as the implementation's style.
    */
   baseFont?: string;
+  /** Class the library's root component puts on the app (e.g. "radix-themes" from Radix's <Theme>); always on the frame. */
+  rootClass?: string;
 }
 
 /** Marks the implementation's own stylesheet, so the renderer can tell it from design-system CSS. */
@@ -34,16 +36,19 @@ export interface HarnessInput {
   markup: string;
   /** Script file in outDir, loaded after the markup. */
   script: string;
+  /** Design-system stylesheets the code imported, as absolute paths; loaded like `render.stylesheets`. */
+  packageCss?: string[];
 }
 
 export async function writeHarness(h: HarnessInput): Promise<string> {
-  const links = (h.render.stylesheets ?? []).map((s) => `<link rel="stylesheet" href="${pathToFileURL(resolve(h.root, s)).href}">`).join("\n");
+  const sheets = [...new Set([...(h.render.stylesheets ?? []).map((s) => resolve(h.root, s)), ...(h.packageCss ?? [])])];
+  const links = sheets.map((s) => `<link rel="stylesheet" href="${pathToFileURL(s).href}">`).join("\n");
   const page = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 ${links}
-<style>html, body { margin: 0; padding: 0; }${h.render.baseFont && /^[\w\s"',()-]+$/.test(h.render.baseFont) ? ` body { font-family: ${h.render.baseFont}; }` : ""} #${FRAME_ID} { position: relative; overflow: hidden; width: ${h.frame.width}px; height: ${h.frame.height}px; }</style>
+<style>html, body { margin: 0; padding: 0; } #${FRAME_ID} { position: relative;${h.render.baseFont && /^[\w\s"',()-]+$/.test(h.render.baseFont) ? ` font-family: ${h.render.baseFont};` : ""} overflow: hidden; width: ${h.frame.width}px; height: ${h.frame.height}px; }</style>
 <style>${h.css}
 /*# sourceURL=${IMPL_SOURCE_URL} */</style>
 </head>

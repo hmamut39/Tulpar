@@ -14,6 +14,6 @@ export async function build(params: BuildParams, render: RenderConfig): Promise<
   const bundled = await bundle({ code, resolveDir: root, sourcefile: entry, outDir, loader: "js" });
   if (!bundled.ok) return { ok: false, log: bundled.log.join("\n") };
   const css = [...impl.styles.map((s) => s.css), bundled.css].join("\n");
-  const harness = await writeHarness({ root, outDir, frame, render, css, markup: impl.markup, script: "bundle.js" });
+  const harness = await writeHarness({ root, outDir, frame, render, css, packageCss: bundled.packageCss, markup: impl.markup, script: "bundle.js" });
   return { ok: true, log: [...bundled.log, `built ${relative(root, harness)}`].join("\n"), artifact: harness };
 }

@@ -34,6 +34,13 @@ export function reactHooks(known: Set<string>): FrameworkHooks {
         const exportsByValue = new Map<unknown, string>();
         for (const [name, value] of Object.entries((window as unknown as Record<string, Record<string, unknown>>)[global] ?? {})) {
           if (knownSet.has(name) && value && !exportsByValue.has(value)) exportsByValue.set(value, name);
+          // Namespace members and statics: TextField.Root, Menu.Item.
+          if (value && (typeof value === "object" || typeof value === "function")) {
+            for (const [member, inner] of Object.entries(value as Record<string, unknown>)) {
+              const full = `${name}.${member}`;
+              if (/^[A-Z]/.test(member) && knownSet.has(full) && inner && !exportsByValue.has(inner)) exportsByValue.set(inner, full);
+            }
+          }
         }
         const nameOf = (type: unknown): string | undefined => {
           if (!type || typeof type === "string") return undefined;
@@ -48,15 +55,22 @@ export function reactHooks(known: Set<string>): FrameworkHooks {
           const key = Object.keys(el).find((k) => k.startsWith("__reactFiber$"));
           let fiber = key ? ((el as unknown as Record<string, Fiber>)[key] ?? null) : null;
           const chain: string[] = [];
-          for (; fiber; fiber = fiber.return) {
+          // Up the tree through components that received the id. A few in between may not carry it
+          // (context providers, as inside Radix's Checkbox), so the walk steps over up to 4 of them.
+          let misses = 0;
+          for (; fiber && misses <= 4; fiber = fiber.return) {
             if (fiber.memoizedProps?.["data-figma-id"] !== id) {
-              if (typeof fiber.type === "string") continue; // DOM wrappers between components
-              break;
+              if (typeof fiber.type !== "string") misses++; // DOM wrappers between components are free
+              continue;
             }
+            misses = 0;
             const name = nameOf(fiber.type);
             if (name) chain.push(name);
           }
           const outermostKnown = [...chain].reverse().find((n) => knownSet.has(n));
+          // Several elements can carry one id (a component that copies its attributes onto a hidden
+          // input, as Radix's Checkbox does): a known component wins over an internal part.
+          if (out[id] && knownSet.has(out[id].component) && !outermostKnown) continue;
           out[id] = { component: outermostKnown ?? chain.at(-1) ?? el.localName, defined: true };
         }
         return out;

@@ -68,3 +68,32 @@ The code uses the components' own API (`label`, `placeholder`, `variant="primary
 - **Fonts.** Light-DOM text renders in the browser's default font. Shoelace expects the app to set `font-family: var(--sl-font-sans)`, and screenshot designs name no font. Next: the screenshot reader estimates the font class, and `init` records the design system's base font token so the render uses it.
 - **Token kind check.** Flag a token of the wrong kind (a font-size token used as padding) in the verifier, not only in the prompt.
 - **More libraries.** Run `init` on React and Angular libraries other than Carbon, for example MUI, Chakra, Radix Themes and PrimeNG.
+
+## Radix Themes (React), 2026-10-10
+
+The second library. `tulpar init` found it with no hand edits after these fixes:
+- **Themes vs scope classes.** A theme is a selector that redefines most of the default tokens (`.dark` redefines `:root, .light`). Accent colours and radius variants are not themes. Theme names drop filler words (`.light-theme` → light).
+- **Root class.** `.radix-themes` declares its own tokens; Radix's `<Theme>` adds it. It becomes `render.rootClass`, applied to the frame, and the page font is set on the frame too.
+- **Declared stylesheet.** The package's `style` field (`styles.css`) wins. Source copies under `src/` are ignored, and a sheet whose (theme, token) pairs are already covered is dropped. Theme sheets that repeat names, like Shoelace's light/dark, are kept.
+- **Missing `@types/react`.** `init` now says so, because without it no props can be read.
+
+Then the React adapter, for compound-component libraries generally:
+- **Namespace members and statics are components.** `TextField.Root`, `Dialog.Content`, `Menu.Item`: 134 components instead of 45. The runtime identifies them by identity too.
+- **Identity walks over wrappers.** The walk steps past a few components that don't carry the id (Radix's Checkbox passes through a context provider). Before, the checkbox was reported as its internal `CheckboxTrigger`.
+- **One element per id.** When a hidden input copies a component's attributes, the visible element stands for it.
+- **Package CSS stays the design system's.** `import "@radix-ui/themes/styles.css"` used to be folded into the component's own CSS, and every value inside Radix was blamed on it. The bundler now loads package CSS as a page stylesheet.
+
+And two checker rules that came from reading the code, not the check results:
+- **Measured layouts in disguise.** `grid-template-columns: minmax(0, 25fr) minmax(0, 310fr) …` copies pixel measurements as ratios. Grid tracks are now size values: fixed lengths and `fr` values above 12 or fractional are hard-coded. Normal grids (`repeat(3, 1fr)`, `1fr auto`) are fine.
+- **Colour feedback on pixel differences.** Each differing region now names its most common colour in the design and the render ("mostly #0284c7 in the design, #3e63dd in the render"). With this, the repair moved the button to a matching accent colour within the attempt budget.
+
+**Result:** the same sign-in screenshot, in React with Radix Themes.
+
+| Check | Result |
+|---|---|
+| Components | 6 of 6 (`Card`, `Heading`, `Text`, `TextField.Root` ×2, `Checkbox`, `Button`), 0 invented |
+| Colours, type, spacing | 0 hard-coded values, no measured grid |
+| Layout, text, typeface | 11/11, 8/8, 8/8 |
+| Pixels | 5.9% differ (limit 8%) |
+
+The code uses Radix's own API (`<Theme accentColor>`, `size`, `variant`, `TextField.Root` with `placeholder`), with labels tied to inputs.

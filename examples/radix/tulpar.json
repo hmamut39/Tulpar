@@ -1,0 +1,33 @@
+{
+  "adapter": "react",
+  "react": {
+    "packages": [
+      "node_modules/@radix-ui/themes"
+    ],
+    "styleDirs": [
+      "node_modules/@radix-ui/themes"
+    ],
+    "tokens": {
+      "css": {
+        "files": [
+          "node_modules/@radix-ui/themes/styles.css"
+        ],
+        "modes": {
+          "light": ".light",
+          "dark": ".dark"
+        }
+      }
+    },
+    "render": {
+      "stylesheets": [
+        "node_modules/@radix-ui/themes/styles.css"
+      ],
+      "themes": {
+        "light": "light",
+        "dark": "dark"
+      },
+      "baseFont": "var(--default-font-family)",
+      "rootClass": "radix-themes"
+    }
+  }
+}

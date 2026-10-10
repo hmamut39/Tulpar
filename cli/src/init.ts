@@ -65,13 +65,24 @@ export function detect(root: string, options: InitOptions = {}): Detected {
   const searchDirs = [...packageDirs, ...siblingTokenPackages(root, packages)];
   const files = searchDirs.flatMap((d) => walk(join(root, d), 6));
   const dtcg = files.filter((f) => /\.tokens?\.json$/i.test(f) || (f.endsWith(".json") && /[/\\](tokens|dtcg)[/\\]/i.test(f) && looksLikeDtcg(f)));
+  // Source copies (src/) are partial and out of context when the package ships built sheets.
+  const isSrc = (f: string) => /[/\\]src[/\\]/.test(f);
+  const builtCss = files.some((f) => f.endsWith(".css") && !isSrc(f));
   const cssTokenFiles = files
-    .filter((f) => f.endsWith(".css") && !f.includes(".min.") && statSync(f).size < 3_000_000)
+    .filter((f) => f.endsWith(".css") && !f.includes(".min.") && !(builtCss && isSrc(f)) && statSync(f).size < 3_000_000)
     .map((f) => ({ f, ...cssTokenStats(f) }))
     .filter((x) => x.count >= 20)
     // Packages often ship the same sheet twice (dist/ and cdn/): keep one per file name, preferring dist.
     .sort((a, b) => Number(/[/\\]cdn[/\\]/.test(a.f)) - Number(/[/\\]cdn[/\\]/.test(b.f)) || b.count - a.count)
     .filter((x, i, all) => all.findIndex((y) => basename(y.f) === basename(x.f)) === i)
+    // A sheet that repeats declarations already found (styles.css includes tokens.css) adds nothing.
+    // Declarations are compared per theme: a dark theme sheet repeats the light one's names on purpose.
+    .sort((a, b) => b.keys.length - a.keys.length)
+    .reduce<(CssStats & { f: string })[]>((kept, x) => {
+      const covered = new Set(kept.flatMap((k) => k.keys));
+      const fresh = x.keys.filter((k) => !covered.has(k)).length;
+      return fresh >= 0.2 * x.keys.length ? [...kept, x] : kept;
+    }, [])
     .slice(0, 4);
   const tokens: Record<string, unknown> = {};
   if (dtcg.length) {
@@ -80,6 +91,7 @@ export function detect(root: string, options: InitOptions = {}): Detected {
   }
   let themes: Record<string, string> = {};
   let baseFont: string | undefined;
+  let rootClass: string | undefined;
   if (cssTokenFiles.length) {
     const prefix = commonPrefix(cssTokenFiles.flatMap((x) => x.names));
     const modes: Record<string, string> = {};
@@ -93,17 +105,37 @@ export function detect(root: string, options: InitOptions = {}): Detected {
       baseFont = `var(${fontToken})`;
       why.push(`page font: ${baseFont} (the render sets it on the page, as an app would)`);
     }
+    const scope = cssTokenFiles.flatMap((x) => x.scopeClasses)[0];
+    if (scope) {
+      rootClass = scope.slice(1);
+      why.push(`root class: ${rootClass} (declares its own tokens; the library's root component adds it, so the render does too)`);
+    }
     themes = Object.fromEntries(Object.entries(modes).filter(([, s]) => /^\.[\w-]+$/.test(s)).map(([m, s]) => [m, s.slice(1)]));
     why.push(`tokens: custom properties in ${cssTokenFiles.map((x) => `${rel(root, x.f)} (${x.count})`).join(", ")}${prefix ? `, prefix --${prefix}-` : ""}${Object.keys(modes).length ? `, themes ${Object.keys(modes).join(", ")}` : ""}`);
   }
   if (!dtcg.length && !cssTokenFiles.length) why.push("tokens: none found (no DTCG files, no stylesheet declaring custom properties); colour and spacing checks will report hard-coded values only");
 
   // Stylesheets the render loads: the token sheets plus the package's main stylesheet.
-  const mainCss = files
-    .filter((f) => /[/\\](styles?|index|main|bundle|[\w-]*\.min)\.css$/i.test(f) && !cssTokenFiles.some((x) => x.f === f))
-    .sort((a, b) => statSync(b).size - statSync(a).size)[0];
+  // The stylesheet the package declares ("style" in package.json) wins; never a source copy under src/.
+  const declared = packages
+    .map((p) => {
+      const pkg = JSON.parse(readFileSync(join(root, "node_modules", p, "package.json"), "utf8"));
+      return typeof pkg.style === "string" ? join(root, "node_modules", p, pkg.style) : undefined;
+    })
+    .find((f) => f && existsSync(f));
+  const mainCss = declared
+    ? cssTokenFiles.some((x) => resolve(x.f) === resolve(declared))
+      ? undefined
+      : declared
+    : files
+        .filter((f) => /[/\\](styles?|index|main|bundle|[\w-]*\.min)\.css$/i.test(f) && !/[/\\]src[/\\]/.test(f) && !cssTokenFiles.some((x) => x.f === f))
+        .sort((a, b) => statSync(b).size - statSync(a).size)[0];
   const stylesheets = [...cssTokenFiles.map((x) => rel(root, x.f)), ...(mainCss ? [rel(root, mainCss)] : [])];
   if (stylesheets.length) why.push(`render loads: ${stylesheets.join(", ")}`);
+
+  if (adapter === "react" && !existsSync(join(root, "node_modules/@types/react"))) {
+    why.push("! @types/react is not installed: component props cannot be read until it is (npm install -D @types/react @types/react-dom)");
+  }
 
   // Code Connect files in the project itself (explicit Figma ↔ code links).
   const linkDirs = [...new Set(walk(root, 6).filter((f) => /\.figma\.(tsx?|jsx?)$/.test(f)).map((f) => rel(root, join(f, ".."))))];
@@ -116,7 +148,7 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     ...(linkDirs.length && { codeConnect: linkDirs }),
     ...(adapter !== "web-components" && { styleDirs: packageDirs }),
     ...(Object.keys(tokens).length && { tokens }),
-    render: { stylesheets, ...(Object.keys(themes).length && { themes }), ...(baseFont && { baseFont }) },
+    render: { stylesheets, ...(Object.keys(themes).length && { themes }), ...(baseFont && { baseFont }), ...(rootClass && { rootClass }) },
   };
   return { adapter, why, config: { adapter, ...(figmaKey && { figma: { fileKey: figmaKey } }), [adapter]: section } };
 }
@@ -205,27 +237,60 @@ function siblingTokenPackages(root: string, packages: string[]): string[] {
   return out;
 }
 
-function cssTokenStats(file: string): { count: number; names: string[]; themeSelectors: string[]; rootThemes: string[] } {
+interface CssStats {
+  count: number;
+  names: string[];
+  /** "<mode or scope>:<property>" for every declaration found: what the sheet contributes. */
+  keys: string[];
+  /** Selectors that redefine the default tokens: themes. */
+  themeSelectors: string[];
+  /** Themes declared in the same rule as :root (the default theme). */
+  rootThemes: string[];
+  /** Classes that declare their own set of tokens, such as a wrapper the library's root component adds (".radix-themes"). */
+  scopeClasses: string[];
+}
+
+function cssTokenStats(file: string): CssStats {
   const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  const names: string[] = [];
-  const themeSelectors = new Set<string>();
-  const rootThemes = new Set<string>();
+  const rootProps = new Set<string>();
+  const groups: { selectors: string[]; props: string[]; withRoot: boolean }[] = [];
   for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const props = [...block[2]!.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)].map((m) => m[1]!);
     if (!props.length) continue;
     const selectors = block[1]!.split(",").map((raw) => raw.trim().replace(/\s+/g, " "));
+    if (selectors.some((s) => [":root", ":host", "html"].includes(s))) for (const p of props) rootProps.add(p);
     // ":host" alone does not make a theme the default: libraries add it to every theme for shadow roots.
     const withRoot = selectors.some((s) => [":root", "html"].includes(s));
-    for (const s of selectors) {
-      if ([":root", ":host", "html"].includes(s)) names.push(...props);
-      else if (props.length >= 10 && /^(\.[\w-]*(theme|dark|light|mode)[\w-]*|\[data-[\w-]*(theme|mode)[\w-]*=["']?[\w-]+["']?\])$/i.test(s)) {
-        themeSelectors.add(s);
-        if (withRoot) rootThemes.add(s);
-        names.push(...props);
-      }
+    const simple = selectors.filter((s) => /^(\.[\w-]+|\[data-[\w-]+=["']?[\w-]+["']?\])$/.test(s));
+    if (simple.length && props.length >= 10) groups.push({ selectors: simple, props, withRoot });
+  }
+  const names = [...rootProps];
+  const keys = [...rootProps].map((p) => `default:${p}`);
+  const themeSelectors: string[] = [];
+  const rootThemes: string[] = [];
+  const scopeClasses: string[] = [];
+  const seen = new Set<string>();
+  for (const g of groups) {
+    // A theme redefines a large share of the default tokens (dark vs light); a variant that sets a
+    // handful (an accent colour, a radius) is not a theme. Without defaults, the selector's name decides.
+    const overlap = g.props.filter((p) => rootProps.has(p)).length;
+    const isTheme = rootProps.size ? overlap >= 0.5 * g.props.length && g.props.length >= 0.3 * rootProps.size : g.selectors.some((s) => /theme|dark|light|mode/i.test(s));
+    const first = g.selectors[0]!;
+    if (isTheme) {
+      const name = modeName(first);
+      if (seen.has(name)) continue;
+      seen.add(name);
+      themeSelectors.push(first);
+      if (g.withRoot) rootThemes.push(first);
+      names.push(...g.props);
+      keys.push(...g.props.map((p) => `${name}:${p}`));
+    } else if (g.props.length >= 20 && /^\.[\w-]*themes?[\w-]*$/.test(first)) {
+      scopeClasses.push(first);
+      names.push(...g.props);
+      keys.push(...g.props.map((p) => `${first}:${p}`));
     }
   }
-  return { count: new Set(names).size, names, themeSelectors: [...themeSelectors], rootThemes: [...rootThemes] };
+  return { count: new Set(names).size, names, keys: [...new Set(keys)], themeSelectors, rootThemes, scopeClasses };
 }
 
 /** The custom property naming the design system's body font, e.g. --sl-font-sans or --acme-font-family-base. */
@@ -244,12 +309,12 @@ export function baseFontToken(names: string[], prefix: string | undefined): stri
   return undefined;
 }
 
-/** ".sl-theme-dark" → "dark"; '[data-theme="dark"]' → "dark". */
+/** ".sl-theme-dark" → "dark"; ".light-theme" → "light"; '[data-theme="dark"]' → "dark". */
 function modeName(selector: string): string {
   const attr = /=["']?([\w-]+)["']?\]$/.exec(selector);
   if (attr) return attr[1]!;
-  const words = selector.replace(/^\./, "").split(/[-_]/);
-  return words.at(-1)!;
+  const words = selector.replace(/^\./, "").split(/[-_]/).filter((w) => !/^(theme|themes|mode|scheme)$/i.test(w));
+  return words.at(-1) ?? selector.replace(/^\./, "");
 }
 
 function commonPrefix(names: string[]): string | undefined {

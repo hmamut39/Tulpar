@@ -310,7 +310,8 @@ function visualCheck(
   const summary = `${pct(result.mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})`;
   const details = result.regions.map((r) => {
     const over = elements.filter((e) => e.visible && overlap(e.box, r) > 0.5 * r.width * r.height).sort((a, b) => a.box.width * a.box.height - b.box.width * b.box.height)[0];
-    return `${result.mismatch > limit ? "✗" : "–"} differs at (${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)})${over ? ` over <${over.component}> ${over.figmaId}` : ""}`;
+    const colors = r.design && r.render && r.design !== r.render ? `: mostly ${r.design} in the design, ${r.render} in the render` : "";
+    return `${result.mismatch > limit ? "✗" : "–"} differs at (${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)})${over ? ` over <${over.component}> ${over.figmaId}` : ""}${colors}`;
   });
   return result.mismatch > limit ? fail("visual", title, summary, details) : ok("visual", title, summary, details);
 }

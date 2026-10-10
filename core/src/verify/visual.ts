@@ -12,8 +12,11 @@ export interface VisualComparison {
   mismatch: number;
   width: number;
   height: number;
-  /** Largest areas of difference, in design points relative to the frame, biggest first. */
-  regions: Box[];
+  /**
+   * Largest areas of difference, in design points relative to the frame, biggest first, with the
+   * most common colour among the differing pixels on each side: something a repair can act on.
+   */
+  regions: (Box & { design?: string; render?: string })[];
   /** The diff image, PNG base64 (differences in red over a faded render). */
   diffPng: string;
 }
@@ -33,7 +36,13 @@ export function compareImages(renderPng: Buffer, baselinePng: Buffer, scale = 1)
     mismatch: count / (width * height),
     width,
     height,
-    regions: regions(diff, width, height).map((b) => ({ x: b.x / scale, y: b.y / scale, width: b.width / scale, height: b.height / scale })),
+    regions: regions(diff, width, height).map((b) => ({
+      x: b.x / scale,
+      y: b.y / scale,
+      width: b.width / scale,
+      height: b.height / scale,
+      ...dominantColors(b, diff, baseline, render),
+    })),
     diffPng: PNG.sync.write(diff).toString("base64"),
   };
 }
@@ -62,6 +71,35 @@ function resize(src: PNG, width: number, height: number): PNG {
     }
   }
   return out;
+}
+
+/** The most common colour (to 5 bits per channel) among a region's differing pixels, per image. */
+function dominantColors(box: Box, diff: PNG, design: PNG, render: PNG): { design?: string; render?: string } {
+  const counts = [new Map<number, number[]>(), new Map<number, number[]>()];
+  for (let y = box.y; y < box.y + box.height; y++) {
+    for (let x = box.x; x < box.x + box.width; x++) {
+      const i = (y * diff.width + x) * 4;
+      if (!(diff.data[i] === 255 && diff.data[i + 1] === 0 && diff.data[i + 2] === 0)) continue;
+      [design, render].forEach((img, side) => {
+        const [r, g, b] = [img.data[i]!, img.data[i + 1]!, img.data[i + 2]!];
+        const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+        const acc = counts[side]!.get(key) ?? [0, 0, 0, 0];
+        acc[0]! += 1;
+        acc[1]! += r;
+        acc[2]! += g;
+        acc[3]! += b;
+        counts[side]!.set(key, acc);
+      });
+    }
+  }
+  const hex = (m: Map<number, number[]>) => {
+    const top = [...m.values()].sort((a, b) => b[0]! - a[0]!)[0];
+    if (!top) return undefined;
+    return `#${[top[1]!, top[2]!, top[3]!].map((v) => Math.round(v / top[0]!).toString(16).padStart(2, "0")).join("")}`;
+  };
+  const d = hex(counts[0]!);
+  const r = hex(counts[1]!);
+  return { ...(d && { design: d }), ...(r && { render: r }) };
 }
 
 /** Group differing pixels into coarse cells, join touching cells, return their bounding boxes. */

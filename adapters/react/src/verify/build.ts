@@ -22,6 +22,6 @@ createRoot(document.getElementById(${JSON.stringify(FRAME_ID)})).render(<Impleme
 `;
   const bundled = await bundle({ code, resolveDir: root, sourcefile: "tulpar-entry.jsx", outDir, loader: "jsx" });
   if (!bundled.ok) return { ok: false, log: bundled.log.join("\n") };
-  const harness = await writeHarness({ root, outDir, frame, render, css: bundled.css, markup: "", script: "bundle.js" });
+  const harness = await writeHarness({ root, outDir, frame, render, css: bundled.css, packageCss: bundled.packageCss, markup: "", script: "bundle.js" });
   return { ok: true, log: [...bundled.log, `built ${relative(root, harness)}`].join("\n"), artifact: harness };
 }

@@ -137,6 +137,7 @@ function instructions(b: Brief): string {
     `- Use only tokens listed in this brief. A token name that is not listed does not exist; inventing one is a failure the verifier catches.`,
     `- Colours, typography and spacing come only from design tokens, written as their code reference (e.g. var(--prefix-token, fallback)). No hex, rgb or px literals except 0, and no arithmetic on tokens (calc(var(--x) * 4) is a hard-coded value in disguise).`,
     `- Do not set the component's own width or height from the frame's size: it fills its container, and the host decides the size. Size inner parts with layout (flex, grid, percentages, auto), not fixed numbers.`,
+    `- Lay out with natural flow and spacing tokens (gap, padding), the way a developer would. Never copy the design's measurements into ratios (grid tracks like 25fr 310fr 25fr, odd percentages): that is a hard-coded layout in disguise, and the verifier reports it as one.`,
     `- Put data-figma-id="<id>" on the root element and on every element that renders a Figma instance or a text layer, using the ids in the outline.`,
     `- Text must match the design character for character.`,
     `- Express what the design shows with the component's own API: a label as its label, a placeholder as its placeholder, a value as its value. Never imitate one with another (e.g. placeholder text in a slot, hidden with script) to get past a check; a reviewer rejects that even when every check passes.`,
