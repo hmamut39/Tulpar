@@ -12,6 +12,11 @@ export interface RenderConfig {
   fonts?: string[];
   /** CSS class that applies a theme, per theme name, e.g. { "g10": "cds--g10" }. */
   themes?: Record<string, string>;
+  /**
+   * The page font an app using this design system sets on its body, e.g. "var(--sl-font-sans)".
+   * Applied by the page, not the implementation, so it is never counted as the implementation's style.
+   */
+  baseFont?: string;
 }
 
 /** Marks the implementation's own stylesheet, so the renderer can tell it from design-system CSS. */
@@ -38,7 +43,7 @@ export async function writeHarness(h: HarnessInput): Promise<string> {
 <head>
 <meta charset="utf-8">
 ${links}
-<style>html, body { margin: 0; padding: 0; } #${FRAME_ID} { position: relative; overflow: hidden; width: ${h.frame.width}px; height: ${h.frame.height}px; }</style>
+<style>html, body { margin: 0; padding: 0; }${h.render.baseFont && /^[\w\s"',()-]+$/.test(h.render.baseFont) ? ` body { font-family: ${h.render.baseFont}; }` : ""} #${FRAME_ID} { position: relative; overflow: hidden; width: ${h.frame.width}px; height: ${h.frame.height}px; }</style>
 <style>${h.css}
 /*# sourceURL=${IMPL_SOURCE_URL} */</style>
 </head>

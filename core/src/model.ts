@@ -91,6 +91,8 @@ export interface StackChild {
 
 export interface TextStyle {
   fontFamily?: string;
+  /** The typeface's broad class, when the family itself is unknown (a design read from a screenshot). */
+  fontClass?: "sans-serif" | "serif" | "monospace";
   fontWeight?: number;
   italic: boolean;
   fontSize?: number;

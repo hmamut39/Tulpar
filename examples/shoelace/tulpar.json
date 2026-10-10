@@ -25,7 +25,8 @@
       "themes": {
         "light": "sl-theme-light",
         "dark": "sl-theme-dark"
-      }
+      },
+      "baseFont": "var(--sl-font-sans)"
     }
   }
 }

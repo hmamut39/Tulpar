@@ -79,6 +79,7 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     why.push(`tokens: ${dtcg.length} DTCG file(s)`);
   }
   let themes: Record<string, string> = {};
+  let baseFont: string | undefined;
   if (cssTokenFiles.length) {
     const prefix = commonPrefix(cssTokenFiles.flatMap((x) => x.names));
     const modes: Record<string, string> = {};
@@ -86,6 +87,12 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     const selectors = cssTokenFiles.flatMap((x) => x.themeSelectors).sort((a, b) => Number(cssTokenFiles.some((x) => x.rootThemes.includes(b))) - Number(cssTokenFiles.some((x) => x.rootThemes.includes(a))));
     for (const sel of selectors) modes[modeName(sel)] ??= sel;
     tokens.css = { files: cssTokenFiles.map((x) => rel(root, x.f)), ...(prefix && { prefix }), ...(Object.keys(modes).length && { modes }) };
+    // The page font an app sets on its body: the design system's base font token.
+    const fontToken = baseFontToken(cssTokenFiles.flatMap((x) => x.names), prefix);
+    if (fontToken) {
+      baseFont = `var(${fontToken})`;
+      why.push(`page font: ${baseFont} (the render sets it on the page, as an app would)`);
+    }
     themes = Object.fromEntries(Object.entries(modes).filter(([, s]) => /^\.[\w-]+$/.test(s)).map(([m, s]) => [m, s.slice(1)]));
     why.push(`tokens: custom properties in ${cssTokenFiles.map((x) => `${rel(root, x.f)} (${x.count})`).join(", ")}${prefix ? `, prefix --${prefix}-` : ""}${Object.keys(modes).length ? `, themes ${Object.keys(modes).join(", ")}` : ""}`);
   }
@@ -109,7 +116,7 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     ...(linkDirs.length && { codeConnect: linkDirs }),
     ...(adapter !== "web-components" && { styleDirs: packageDirs }),
     ...(Object.keys(tokens).length && { tokens }),
-    render: { stylesheets, ...(Object.keys(themes).length && { themes }) },
+    render: { stylesheets, ...(Object.keys(themes).length && { themes }), ...(baseFont && { baseFont }) },
   };
   return { adapter, why, config: { adapter, ...(figmaKey && { figma: { fileKey: figmaKey } }), [adapter]: section } };
 }
@@ -219,6 +226,22 @@ function cssTokenStats(file: string): { count: number; names: string[]; themeSel
     }
   }
   return { count: new Set(names).size, names, themeSelectors: [...themeSelectors], rootThemes: [...rootThemes] };
+}
+
+/** The custom property naming the design system's body font, e.g. --sl-font-sans or --acme-font-family-base. */
+export function baseFontToken(names: string[], prefix: string | undefined): string | undefined {
+  const p = prefix ? `${prefix}-` : "(?:[a-z0-9]+-)?";
+  const patterns = [
+    new RegExp(`^--${p}font-(?:family-)?(?:base|body|default|text|primary)$`),
+    new RegExp(`^--${p}font-(?:family-)?sans(?:-serif)?$`),
+    new RegExp(`^--${p}font-family$`),
+  ];
+  const unique = [...new Set(names)];
+  for (const re of patterns) {
+    const hit = unique.find((n) => re.test(n));
+    if (hit) return hit;
+  }
+  return undefined;
 }
 
 /** ".sl-theme-dark" → "dark"; '[data-theme="dark"]' → "dark". */

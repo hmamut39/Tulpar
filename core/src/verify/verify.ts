@@ -4,6 +4,7 @@
 // only from checks that ran, and the overall verdict is never "pass" while anything
 // was left unchecked (docs/00-research-and-plan.md §3).
 
+import { fontClass, type FontClass } from "./fonts.ts";
 import type { ComponentIndex, TokenSet } from "../code-model.ts";
 import type { AdapterManifest } from "../adapter/protocol.ts";
 import type { Box, DesignNode, DesignTree } from "../model.ts";
@@ -223,14 +224,23 @@ export function verify(input: VerifyInput): VerifyReport {
     for (const e of texts) {
       const el = byId.get(e.node.id);
       const families = fontFamilies(e.node);
-      if (!el || !el.text || !families.length) continue;
+      // Without a named family (a screenshot), the typeface's class (sans-serif, serif, monospace) is checked.
+      const classes = families.length ? [] : fontClasses(e.node);
+      if (!el || !el.text || (!families.length && !classes.length)) continue;
       if (!el.fonts.length) continue; // the renderer could not say
       checked++;
-      if (families.every((f) => el.fonts.includes(f))) right++;
-      else details.push(`✗ ${e.node.name} (${e.node.id}): design uses ${families.join(", ")}, drawn with ${el.fonts.join(", ")}`);
+      if (families.length) {
+        if (families.every((f) => el.fonts.includes(f))) right++;
+        else details.push(`✗ ${e.node.name} (${e.node.id}): design uses ${families.join(", ")}, drawn with ${el.fonts.join(", ")}`);
+      } else {
+        const drawn = [...new Set(el.fonts.map(fontClass))];
+        if (classes.every((c) => drawn.includes(c))) right++;
+        else details.push(`✗ ${e.node.name} (${e.node.id}): design shows ${classes.join(", ")} type, drawn in ${el.fonts.join(", ")} (${drawn.join(", ")})`);
+      }
     }
-    const summary = `typeface as designed on ${right}/${checked} elements`;
-    const designNamesFonts = texts.some((e) => fontFamilies(e.node).length > 0);
+    const byClass = texts.every((e) => !fontFamilies(e.node).length);
+    const summary = `typeface${byClass ? " class" : ""} as designed on ${right}/${checked} elements`;
+    const designNamesFonts = texts.some((e) => fontFamilies(e.node).length > 0 || fontClasses(e.node).length > 0);
     if (!checked) checks.push(skip("typeface", "Typeface", designNamesFonts ? "the renderer did not report which fonts drew the text" : "the design does not name a font family (e.g. it was read from a screenshot)"));
     else checks.push(right === checked ? ok("typeface", "Typeface", summary, details) : fail("typeface", "Typeface", summary, details));
   }
@@ -364,6 +374,18 @@ export function visibleText(n: DesignNode): string {
   };
   visit(n);
   return parts.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function fontClasses(n: DesignNode): FontClass[] {
+  const classes = new Set<FontClass>();
+  const visit = (x: DesignNode) => {
+    if (!x.visible) return;
+    if (x.kind === "text") {
+      if (x.style.fontClass) classes.add(x.style.fontClass);
+    } else x.children.forEach(visit);
+  };
+  visit(n);
+  return [...classes];
 }
 
 function fontFamilies(n: DesignNode): string[] {

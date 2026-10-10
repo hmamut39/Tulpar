@@ -38,6 +38,8 @@ interface Element {
   width: number;
   height: number;
   fill: string;
+  /** The typeface class of the element's text, or "none" when it has no text. */
+  font?: "sans-serif" | "serif" | "monospace" | "none";
   confidence: number;
 }
 
@@ -64,9 +66,10 @@ const SCHEMA = {
             width: { type: "number" },
             height: { type: "number" },
             fill: { type: "string" },
+            font: { type: "string", enum: ["sans-serif", "serif", "monospace", "none"] },
             confidence: { type: "number" },
           },
-          required: ["id", "parent", "kind", "component", "props", "text", "x", "y", "width", "height", "fill", "confidence"],
+          required: ["id", "parent", "kind", "component", "props", "text", "x", "y", "width", "height", "fill", "font", "confidence"],
           additionalProperties: false,
         },
       },
@@ -89,6 +92,7 @@ export async function readScreenshot(options: ReadScreenshotOptions): Promise<Sc
       "- Boxes (x, y, width, height) are in image pixels, measured from the image's top-left corner. Be as precise as you can.",
       "- parent is the id of the containing element, or \"\" for top-level elements. Give ids e1, e2, …",
       "- fill: the element's own background colour as #rrggbb when it clearly has one, else \"\".",
+      "- font: the class of typeface the element's text is drawn in (sans-serif, serif or monospace), or \"none\" when it has no text. Judge by the letter shapes: serifs are the small strokes at the ends of letters.",
       "- confidence: 0–1, how sure you are of the element's identity.",
       "- Do not describe a design-system component's internal parts (its label, icon, border) as separate elements: its text goes in `text`.",
       "- notes: anything ambiguous (e.g. two components that look alike).",
@@ -137,11 +141,11 @@ export function toDesign(
     const fills = hex(e.fill) ? [{ kind: "solid" as const, color: hex(e.fill)!, opacity: 1 }] : [];
     const common = { ...base, id: e.id, name: e.component || e.kind, box, fills };
     if (e.kind === "text") {
-      nodes.set(e.id, { ...common, kind: "text", characters: e.text, style: { italic: false, align: "start", verticalAlign: "top", truncate: false, tokens: {} }, runs: [] } satisfies TextNode);
+      nodes.set(e.id, { ...common, kind: "text", characters: e.text, style: { italic: false, align: "start", verticalAlign: "top", truncate: false, tokens: {}, ...(e.font && e.font !== "none" && { fontClass: e.font }) }, runs: [] } satisfies TextNode);
     } else if (e.kind === "component" && known.has(e.component)) {
       const componentId = `screenshot:${e.component}`;
       mapping.set(componentId, e.component);
-      const textChild: TextNode[] = e.text ? [{ ...base, id: `${e.id}:text`, name: "text", kind: "text", box, fills: [], characters: e.text, style: { italic: false, align: "start", verticalAlign: "top", truncate: false, tokens: {} }, runs: [] }] : [];
+      const textChild: TextNode[] = e.text ? [{ ...base, id: `${e.id}:text`, name: "text", kind: "text", box, fills: [], characters: e.text, style: { italic: false, align: "start", verticalAlign: "top", truncate: false, tokens: {}, ...(e.font && e.font !== "none" && { fontClass: e.font }) }, runs: [] }] : [];
       nodes.set(e.id, {
         ...common,
         kind: "instance",

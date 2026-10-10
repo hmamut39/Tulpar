@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fontClass } from "../src/verify/fonts.ts";
 import { verify, visibleText, type AdapterManifest, type ComponentIndex, type DesignNode, type DesignTree, type RenderedElement, type VerifyInput } from "../src/index.ts";
 
 const box = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -171,6 +172,24 @@ describe("verify", () => {
     const r = verify(input(els));
     expect(r.checks.find((c) => c.id === "text")!.summary).toBe("text differs on 1 of 3 elements");
     expect(r.checks.find((c) => c.id === "typeface")!.details).toEqual(["✗ Button 2:1 (2:1): design uses Plex, drawn with Arial"]);
+  });
+
+  it("checks the typeface class when a screenshot names no font", () => {
+    const shot = (fontClass: "sans-serif" | "serif") => ({
+      ...design,
+      root: { ...design.root, children: design.root.kind === "container" ? design.root.children.map((c) => (c.kind === "instance" ? { ...c, children: c.children.map((t) => (t.kind === "text" ? { ...t, style: { ...t.style, fontFamily: undefined, fontClass } } : t)) } : c)) : [] },
+    }) as DesignTree;
+    const els = good().map((e) => ({ ...e, fonts: ["Times New Roman"] }));
+    const r = verify(input(els, { design: shot("sans-serif") }));
+    expect(r.checks.find((c) => c.id === "typeface")).toMatchObject({ status: "fail", summary: "typeface class as designed on 0/3 elements" });
+    expect(r.checks.find((c) => c.id === "typeface")!.details[0]).toContain("design shows sans-serif type, drawn in Times New Roman (serif)");
+    expect(status(verify(input(els, { design: shot("serif") })), "typeface")).toBe("pass");
+  });
+
+  it("knows the class of common typefaces", () => {
+    expect([fontClass("Times New Roman"), fontClass("IBM Plex Serif"), fontClass('"Georgia"')]).toEqual(["serif", "serif", "serif"]);
+    expect([fontClass("JetBrains Mono"), fontClass("Consolas"), fontClass("monospace")]).toEqual(["monospace", "monospace", "monospace"]);
+    expect([fontClass("IBM Plex Sans"), fontClass("Inter"), fontClass("Noto Sans Serif Display")]).toEqual(["sans-serif", "sans-serif", "sans-serif"]);
   });
 
   it("says 'not checked' for everything a failed build prevents", () => {

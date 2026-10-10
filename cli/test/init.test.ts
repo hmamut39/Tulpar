@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { detect } from "../src/init.ts";
+import { baseFontToken, detect } from "../src/init.ts";
 
 function project(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "tulpar-init-"));
@@ -49,6 +49,12 @@ describe("tulpar init", () => {
     });
     expect(section.render.themes).toEqual({ light: "acme-theme-light", dark: "acme-theme-dark" });
     expect(section.render.stylesheets).toEqual(["node_modules/@acme/tokens/css/theme.css", "node_modules/@acme/ui/dist/styles.css"]);
+  });
+
+  it("finds the page font token, preferring a base or body font over sans", () => {
+    expect(baseFontToken(["--sl-font-mono", "--sl-font-sans", "--sl-font-serif"], "sl")).toBe("--sl-font-sans");
+    expect(baseFontToken(["--acme-font-family-sans", "--acme-font-family-base"], "acme")).toBe("--acme-font-family-base");
+    expect(baseFontToken(["--acme-color-1"], "acme")).toBeUndefined();
   });
 
   it("finds the project's own Code Connect files", () => {
