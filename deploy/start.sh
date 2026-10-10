@@ -5,6 +5,7 @@ set -e
 cd /app
 mkdir -p data/figma data/out
 # The Figma library read from the Carbon kit ships with the image; a newer image refreshes it.
-if [ deploy/seed/library.json -nt data/out/library.json ]; then cp deploy/seed/library.json data/out/library.json; fi
+# (dash, the image's sh, treats -nt as false when the target is missing, so check that first.)
+if [ ! -f data/out/library.json ] || [ deploy/seed/library.json -nt data/out/library.json ]; then cp deploy/seed/library.json data/out/library.json; fi
 chown -R node:node data
 exec setpriv --reuid=node --regid=node --init-groups node web/src/server.ts
