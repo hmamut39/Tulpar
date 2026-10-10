@@ -33,7 +33,7 @@ const post = (body: Record<string, unknown>) => fetch(`${server.url}/api/jobs`, 
 describe("web API", () => {
   beforeAll(async () => {
     llm = new ScriptedLlm([answer]);
-    server = await startServer({ repoRoot: repo, llm: () => llm, accessCode: "open-sesame", runsPerHour: 2, resultsRoot: resolve(tmpdir(), "tulpar-web-test"), log: (l) => logged.push(l) }, 0);
+    server = await startServer({ repoRoot: repo, llm: () => llm, accessCode: "open-sesame", runsPerHour: 2, resultsRoot: resolve(tmpdir(), "tulpar-web-test"), log: (l) => logged.push(l), rerank: false }, 0);
   });
   afterAll(() => server.close());
 

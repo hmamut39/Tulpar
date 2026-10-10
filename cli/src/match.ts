@@ -3,10 +3,10 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { evaluate, matchLibrary, type Evaluation, type Library, type MatchResult } from "@tulpar/core";
+import { OpenAiLlm, createMatcher, evaluate, evaluateRerank, labelled, matchLibrary, type Evaluation, type Library, type MatchResult, type RerankEvaluation } from "@tulpar/core";
 import { loadProject, withAdapter } from "./project.ts";
 
-export async function match(projectDir: string, outDir: string, doEvaluate: boolean): Promise<number> {
+export async function match(projectDir: string, outDir: string, doEvaluate: boolean, doRerank = false): Promise<number> {
   const project = await loadProject(projectDir);
   const libraryPath = join(outDir, "library.json");
   if (!existsSync(libraryPath)) {
@@ -45,6 +45,20 @@ export async function match(projectDir: string, outDir: string, doEvaluate: bool
     if (dev.size) console.log(`\n${dev.size} labels are the development set: the matcher was tuned while looking at them.`);
     await writeFile(join(out, "evaluation.json"), JSON.stringify(results, null, 2));
     console.log(`\nWritten to ${join(out, "evaluation.json")}`);
+    if (doRerank) {
+      const llm = OpenAiLlm.fromEnv();
+      if (!llm) {
+        console.log("\n– re-ranking: not checked (no OPENAI_API_KEY)");
+        return 1;
+      }
+      const { items } = labelled(library, index, links.links);
+      const prior = createMatcher(index);
+      const rankings = new Map(items.map((it) => [it.def.id, prior.rank(it.def)]));
+      const r = await evaluateRerank(items, rankings, index, llm);
+      printRerank(r, llm.name);
+      await writeFile(join(out, "rerank.json"), JSON.stringify(r, null, 2));
+      console.log(`Written to ${join(out, "rerank.json")}`);
+    }
     // The gate (Likely ≥ 95% precision) can only pass on a calibrated, large enough evaluation.
     return results.some((e) => e.calibration) ? 0 : 1;
   }
@@ -54,6 +68,16 @@ export async function match(projectDir: string, outDir: string, doEvaluate: bool
   printMatches(results);
   console.log(`\nWritten to ${join(out, "matches.json")}`);
   return 0;
+}
+
+function printRerank(r: RerankEvaluation, model: string): void {
+  const pct = (x: number, n = 1) => `${Math.round((x / (n || 1)) * 100)}%`;
+  console.log(`\nRe-ranking the top 3 with ${model} (all ${r.labelled} labels; the model never sees them)`);
+  console.log(`  top-1 correct: matcher ${pct(r.before.top1)} → with the model ${pct(r.after.top1)}`);
+  console.log(`  model picked ${r.after.picked}, correct ${r.after.pickedCorrect} (${pct(r.after.pickedCorrect, r.after.picked)}); said none ${r.after.abstained}`);
+  console.log(`  high confidence ${r.after.high}, correct ${r.after.highCorrect} (${pct(r.after.highCorrect, r.after.high)})`);
+  console.log(`  tokens: ${r.usage.inputTokens} in, ${r.usage.outputTokens} out`);
+  for (const c of r.changes) console.log(`  ${c.right ? "✓" : "✗"} ${c.figma}: matcher ${c.matcher}, model ${c.model ?? "none"} (${c.confidence}); expected ${c.expected.join(" | ")}`);
 }
 
 function printEvaluation(e: Evaluation): void {

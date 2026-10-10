@@ -60,7 +60,7 @@ Nothing from steps 0–6 is replaced. Each phase adds to what exists.
 | G10 | **More stacks** | Vue, Svelte, plain HTML/CSS; then non-JavaScript UI stacks: Flutter (Dart), Jetpack Compose (Kotlin), SwiftUI, Blazor (C#), and Python and Java UI frameworks. One adapter each; the core doesn't change (proven in step 5) | Ongoing, one stack at a time |
 | G11 | **Pixel comparison and token identity** | Compare the render with Figma's image of the frame; check the *right* token is used, not just *a* token | When the Figma budget allows |
 | G12 | **Reports and project page** | HTML report pages; a public page with the proof results | With G4 |
-| — | **Matcher scored run** | 25 of 54 Figma pages read. Held-out top-1: 68% (WC) and 70% (React); the right answer was in the top 3 in 93–100% of cases. The errors were "X item" → X. Fix (2026-10-10): "item" is a part word, not filler. After the fix, top-1 is 86% (WC) and 74% (React), but those labels informed the fix, so they are now dev round 2. Next: an LLM re-ranker of the top 3; read the other 29 pages (Figma budget) as the clean test. | 🔄 In progress |
+| — | **Matcher scored run** | 25 of 54 Figma pages read. Held-out top-1: 68% (WC) and 70% (React); the right answer was in the top 3 in 93–100% of cases. The errors were "X item" → X. Fix (2026-10-10): "item" is a part word, not filler. After the fix, top-1 is 86% (WC) and 74% (React), but those labels informed the fix, so they are now dev round 2. An LLM re-ranker of the top 3 (docs/04) raised top-1 to 91% (WC) and 90% (React); all 27 high-confidence picks were right. It now runs in generation for components with no link. Next: read the other 29 pages (Figma budget) as the clean test. | 🔄 In progress |
 
 ### About "every language"
 

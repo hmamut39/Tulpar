@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage } from "@tulpar/core";
-import { loadContext, loadScreenshotContext, verifyEntry } from "./pipeline.ts";
+import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
 
@@ -33,6 +33,8 @@ export interface GenerateCommandOptions {
   /** A model to use instead of OpenAI (tests, offline development). */
   llm?: Llm;
   quiet?: boolean;
+  /** Skip asking the model to choose components that no explicit link covers. */
+  noRerank?: boolean;
   onEvent?: (e: GenerationEvent) => void;
 }
 
@@ -72,6 +74,11 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) }, options.out, options.cache)
       : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out);
     if (ctx.source === "figma" && image?.mime === "image/png") ctx.baseline = { png: image.base64, source: "screenshot" };
+    if (ctx.source === "figma" && !options.noRerank) {
+      const picked = await rerankUnlinked(ctx, llm);
+      ctx.notes.push(...picked.notes);
+      if (picked.notes.length) log(`Asked ${llm.name} to choose components the design system doesn't link: ${picked.notes.length} chosen.`);
+    }
     if (ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
   note: ${n}`).join("")}`);
     const conventions = await host.call("conventions", project.params);

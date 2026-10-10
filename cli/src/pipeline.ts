@@ -8,7 +8,9 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   FigmaClient,
+  createMatcher,
   matchLibrary,
+  rerank,
   nodeOwners,
   normalizeTree,
   readScreenshot,
@@ -165,6 +167,44 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
   const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
   const notes = links.length ? [] : ["This project has no explicit Figma ↔ code links (no Code Connect files): the Figma → component mapping comes from the matcher's uncalibrated proposals and is unconfirmed."];
   return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), source: "figma", notes };
+}
+
+/**
+ * Asks the model to choose among the matcher's top candidates for each Figma component in the
+ * frame that no explicit link covers. On Carbon its picks were right 65 of 67 times, and every
+ * high-confidence pick was right (docs/04). Picks below medium confidence are not used.
+ * Returns one note per decision, for the report; the mapping is updated in place.
+ */
+export async function rerankUnlinked(ctx: Context, llm: Llm, options: { max?: number } = {}): Promise<{ notes: string[]; usage: { inputTokens: number; outputTokens: number } }> {
+  const usage = { inputTokens: 0, outputTokens: 0 };
+  if (!ctx.library || ctx.source !== "figma") return { notes: [], usage };
+  const owners = nodeOwners(ctx.library);
+  const linked = new Set(ctx.links.map((l) => owners.get(l.figma.nodeId)?.id).filter(Boolean));
+  const defs = new Map<string, NonNullable<ReturnType<typeof owners.get>>>();
+  const visit = (n: DesignTree["root"]) => {
+    if (n.kind === "instance") {
+      const def = owners.get(n.component.id) ?? (n.component.set && owners.get(n.component.set.id));
+      if (def && !linked.has(def.id)) defs.set(def.id, def);
+    }
+    if (n.kind !== "text") n.children.forEach(visit);
+  };
+  visit(ctx.design.root);
+  const matcher = createMatcher(ctx.index);
+  const todo = [...defs.values()].slice(0, options.max ?? 12);
+  const notes: string[] = [];
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    for (let def = todo.shift(); def; def = todo.shift()) {
+      // A second opinion that fails is skipped, never a reason to stop the generation.
+      const r = await rerank(def, matcher.rank(def), ctx.index, llm).catch(() => undefined);
+      if (!r) continue;
+      usage.inputTokens += r.usage.inputTokens;
+      usage.outputTokens += r.usage.outputTokens;
+      if (!r.choice || r.confidence === "low") continue;
+      for (const id of [def.id, ...def.variants.map((v) => v.id)]) ctx.mapping.set(id, r.choice);
+      notes.push(`"${def.name}" → ${r.choice}: the model's pick among the matcher's top 3 (${r.confidence} confidence), not confirmed by a link. ${r.reason}`);
+    }
+  }));
+  return { notes: notes.sort(), usage };
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */

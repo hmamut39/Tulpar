@@ -38,7 +38,7 @@ const call = (name: string, args: Record<string, unknown>) => client.callTool({ 
 describe("Tulpar MCP server", () => {
   beforeAll(async () => {
     const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-    await createServer({ repoRoot: repo, llm: new ScriptedLlm([answer]) }).connect(serverSide);
+    await createServer({ repoRoot: repo, llm: new ScriptedLlm([answer]), rerank: false }).connect(serverSide);
     client = new Client({ name: "test", version: "1.0.0" });
     await client.connect(clientSide);
   });

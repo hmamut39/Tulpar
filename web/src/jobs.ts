@@ -44,9 +44,12 @@ export class JobQueue {
   readonly #onFinish: ((job: Job, ms: number) => void) | undefined;
   #idle: (() => void)[] = [];
 
-  constructor(options: { repoRoot: string; llm: () => Llm | undefined; onFinish?: (job: Job, ms: number) => void }) {
+  readonly #rerank: boolean;
+
+  constructor(options: { repoRoot: string; llm: () => Llm | undefined; onFinish?: (job: Job, ms: number) => void; rerank?: boolean }) {
     this.#repoRoot = options.repoRoot;
     this.#llm = options.llm;
+    this.#rerank = options.rerank ?? true;
     this.#onFinish = options.onFinish;
   }
 
@@ -118,6 +121,7 @@ export class JobQueue {
         ...(job.input.image && { image: job.input.image }),
         ...(llm && { llm }),
         quiet: true,
+        ...(!this.#rerank && { noRerank: true }),
         onEvent: (e) => this.#log(job, describe(e)),
       });
       if (outcome.error) {

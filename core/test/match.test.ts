@@ -10,7 +10,9 @@ import {
   matchLibrary,
   normValue,
   prepareCode,
+  rerank,
   score,
+  ScriptedLlm,
   valueOverlap,
   type CodeComponent,
   type ComponentDef,
@@ -204,5 +206,32 @@ describe("evaluate", () => {
   it("scores only held-out labels when asked, still training on the rest", () => {
     const e = evaluate(library, index, links, "leave-one-out", { scoreOnly: new Set(["1:1"]) });
     expect(e).toMatchObject({ subset: "held-out", labelled: 1 });
+  });
+});
+
+describe("re-ranking with a model", () => {
+  const def = () => library.components[2]!; // "Data table toolbar item": the matcher ranks the parent table first
+  const ranked = () => createMatcher(index).rank(def());
+
+  it("moves the model's pick first, and shows it only the top candidates", async () => {
+    const llm = new ScriptedLlm([{ choice: "x-table-toolbar", confidence: "high", reason: "an item of the toolbar" }]);
+    const before = ranked();
+    const r = await rerank(def(), before, index, llm);
+    expect(before[0]!.component).toBe("x-table");
+    expect(r).toMatchObject({ choice: "x-table-toolbar", confidence: "high" });
+    expect(r.ranked[0]!.component).toBe("x-table-toolbar");
+    expect(r.ranked).toHaveLength(before.length);
+    const asked = llm.requests[0]!;
+    expect(asked.text).toContain("name: Data table toolbar item");
+    const choices = (asked.schema.schema as { properties: { choice: { enum: string[] } } }).properties.choice.enum;
+    expect(choices).toEqual([...before.slice(0, 3).map((c) => c.component), "none"]);
+  });
+
+  it("keeps the matcher's order when the model says none fits, or answers off the list", async () => {
+    for (const choice of ["none", "x-made-up"]) {
+      const r = await rerank(def(), ranked(), index, new ScriptedLlm([{ choice, confidence: "low", reason: "" }]));
+      expect(r.choice).toBeNull();
+      expect(r.ranked.map((c) => c.component)).toEqual(ranked().map((c) => c.component));
+    }
   });
 });

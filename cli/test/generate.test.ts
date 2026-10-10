@@ -48,7 +48,7 @@ const answer = (tsx: string, extra: { path: string; content: string }[] = []) =>
 describe.skipIf(!ready)("tulpar generate on Carbon React", () => {
   it("catches a bad first answer, feeds the failures back, and verifies the repair", async () => {
     const llm = new ScriptedLlm([answer(bad), answer(good)]);
-    const { result, outDir } = await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, quiet: true });
+    const { result, outDir } = await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, quiet: true, noRerank: true });
 
     expect(result!.attempts).toHaveLength(2);
     const first = result!.attempts[0]!.report!;
@@ -70,7 +70,7 @@ describe.skipIf(!ready)("tulpar generate on Carbon React", () => {
 
   it("rejects files it did not ask for, and gives up honestly when attempts run out", async () => {
     const llm = new ScriptedLlm([answer(bad, [{ path: "../../escape.ts", content: "x" }])]);
-    const { result, code } = await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, attempts: 1, quiet: true });
+    const { result, code } = await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, attempts: 1, quiet: true, noRerank: true });
     expect(code).toBe(1);
     expect(result!.status).toBe("failed");
     expect(result!.attempts[0]!.rejected).toEqual(['Unexpected file "../../escape.ts"; only ModalActions.tsx, ModalActions.css, ModalActions.test.tsx may be written.']);
@@ -79,7 +79,7 @@ describe.skipIf(!ready)("tulpar generate on Carbon React", () => {
 
   it("gives the model the translated props and the design-system API", async () => {
     const llm = new ScriptedLlm([answer(good)]);
-    await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, attempts: 1, quiet: true });
+    await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, attempts: 1, quiet: true, noRerank: true });
     const text = llm.requests[0]!.text;
     expect(text).toContain('→ Button props {"hasIconOnly":false,"kind":"secondary","size":"xl"}');
     expect(text).toContain("ROOT maps to: ModalFooter");

@@ -40,6 +40,8 @@ export interface ServerOptions {
   trustProxy?: boolean;
   /** Where job log lines go; default stdout. */
   log?: (line: string) => void;
+  /** Ask the model to choose components no explicit link covers (default true; tests with a scripted model turn it off). */
+  rerank?: boolean;
   /** Where generation results go; default out/<project>/generated/<name>. */
   resultsRoot?: string;
 }
@@ -82,6 +84,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const queue = new JobQueue({
     repoRoot: options.repoRoot,
     llm,
+    ...(options.rerank === false && { rerank: false }),
     onFinish: (job, ms) => {
       const r = job.result;
       log(JSON.stringify({

@@ -96,3 +96,23 @@ npm run tulpar -- match examples/carbon --evaluate
 
 - **Step 4, the verifier:** build, render and compare against the Figma frame. It needs no new Figma calls for the frames we already have, except rendering Figma images, which uses the same budget. It can start now.
 - **Step 3's scored run:** in October, per the runbook above.
+
+## Re-ranking the top 3 with a model (2026-10-10)
+
+The scored matcher puts the right component in its top 3 far more often than first. So a language model gets the Figma component and the top 3 code candidates side by side, picks one or answers "none", and states its confidence. The code is `core/src/match/rerank.ts`, run with `tulpar match <project> --evaluate --rerank`. The prompt was written before any answers were seen, and the model never sees labels. These labels did shape the head-word fix, so treat the numbers as indicative until the unread Figma pages give a clean test.
+
+| gpt-6-astra, all labels | Matcher top-1 | With the model | Model's picks right | High-confidence picks right | Said "none" |
+|---|---|---|---|---|---|
+| Web Components (34) | 85% | **91%** | 31 / 31 | 18 / 18 | 3 |
+| React (39) | 77% | **90%** | 34 / 36 | 9 / 9 | 3 |
+
+- **Cost:** about 350 input and 80 output tokens per component.
+- **What it fixes:** "X item" vs X, "Content switcher" vs Switcher, "AI popover actions" vs Popover, and cell vs row.
+- **Its two wrong picks are arguable labels:** Modal vs ComposedModal, and DataTable vs Table.
+- **"None" fell only on cases where the matcher's first choice was wrong.** In every one, the right answer was outside what the model was shown, or the label is arguable.
+
+**In generation:** `rerankUnlinked` (cli/src/pipeline.ts) asks about each Figma component in the frame that no explicit link covers, up to 12 per frame.
+- It uses picks of medium or high confidence.
+- Each pick goes into the report as a note saying it is the model's choice, not confirmed by a link.
+- A failed call is skipped.
+- This matters most for design systems without Code Connect files (G9): there, it is the main source of the mapping.

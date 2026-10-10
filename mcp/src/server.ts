@@ -22,6 +22,8 @@ export interface TulparMcpOptions {
   repoRoot: string;
   /** A model to use instead of OpenAI (tests). */
   llm?: Llm;
+  /** Ask the model to choose components no explicit link covers (default true). */
+  rerank?: boolean;
   /** Extra project directories (each with a tulpar.json), e.g. the user's own repository. */
   projectDirs?: string[];
 }
@@ -124,6 +126,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
         ...(args.screenshot && { image: args.screenshot }),
         ...(args.attempts && { attempts: args.attempts }),
         ...(options.llm && { llm: options.llm }),
+        ...(options.rerank === false && { noRerank: true }),
       });
       if (outcome.error || !outcome.result) return error(outcome.error ?? "Generation failed.");
       const r = outcome.result;

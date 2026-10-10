@@ -4,7 +4,7 @@
 //   tulpar model <fileKey> <nodeId>...   Figma frames → design model JSON, with round-trip check
 //   tulpar library <fileKey>             every component on every page → library JSON, with round-trip check
 //   tulpar index <projectDir>            the project's adapter → component index + tokens, with coverage
-//   tulpar match <projectDir>            Figma library ↔ code components; --evaluate scores against known links
+//   tulpar match <projectDir>            Figma library ↔ code components; --evaluate scores against known links (--rerank: with the model's second opinion)
 //   tulpar verify <projectDir> <impl> --frame <nodeId>   build, render and check an implementation against a Figma frame
 //   tulpar drift <projectDir> --from <v> --to <v>         what changed between two releases, and which mappings it touches
 //
@@ -43,6 +43,7 @@ const { positionals, values } = parseArgs({
     batch: { type: "string", default: "4" },
     offline: { type: "boolean", default: false },
     evaluate: { type: "boolean", default: false },
+    rerank: { type: "boolean", default: false },
     frame: { type: "string" },
     theme: { type: "string" },
     from: { type: "string" },
@@ -77,7 +78,7 @@ switch (command) {
     break;
   case "match":
     if (!target) usage();
-    process.exitCode = await match(target, values.out, values.evaluate);
+    process.exitCode = await match(target, values.out, values.evaluate, values.rerank);
     break;
   case "generate": {
     const ref = values.figma ? parseFigmaUrl(values.figma) : undefined;
@@ -126,7 +127,7 @@ function usage(): never {
       "usage: tulpar model <fileKey> <nodeId>... [--offline]",
       "       tulpar library <fileKey> [--batch 4] [--offline]",
       "       tulpar index <projectDir>",
-      "       tulpar match <projectDir> [--evaluate]",
+      "       tulpar match <projectDir> [--evaluate [--rerank]]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--test <test file>] [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
       "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3]",
