@@ -28,7 +28,10 @@ export function tokens(name: string): string[] {
 }
 
 // Words design kits add to component names that say nothing about which component it is.
-const FIGMA_NOISE = new Set(["item", "items", "base", "bases", "default", "component", "variant", "variants", "master", "template"]);
+// "item" is not filler: "Accordion item" is accordion-item, not accordion (held-out evaluation, 2026-10-10).
+const FIGMA_NOISE = new Set(["base", "bases", "default", "component", "variant", "variants", "master", "template"]);
+/** Words that name a part of something; the word before them may also be the head ("toolbar item" → toolbar). */
+const PART_WORDS = new Set(["item", "items", "row", "cell", "element"]);
 
 /** Tokens of a Figma component or page name, without kit filler words. */
 export function figmaNameTokens(name: string): string[] {
@@ -43,8 +46,19 @@ export function figmaNameTokens(name: string): string[] {
  * so only the part before " - " counts.
  */
 export function headToken(name: string): string | undefined {
+  return headTokens(name)[0];
+}
+
+/**
+ * Acceptable heads, best first: the last word, and when that word names a part ("item"),
+ * the word before it as well. "Accordion item" → [item, accordion]; "Data table toolbar item" → [item, toolbar].
+ */
+export function headTokens(name: string): string[] {
   const primary = name.split(/\s[-–—/]\s/)[0] ?? name;
-  return figmaNameTokens(primary).at(-1);
+  const words = figmaNameTokens(primary);
+  const last = words.at(-1);
+  if (!last) return [];
+  return PART_WORDS.has(last) && words.length > 1 ? [last, words.at(-2)!] : [last];
 }
 
 /** Jaro-Winkler similarity in [0, 1]. */

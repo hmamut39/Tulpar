@@ -60,11 +60,42 @@ Nothing from steps 0–6 is replaced. Each phase adds to what exists.
 | G10 | **More stacks** | Vue, Svelte, plain HTML/CSS; then non-JavaScript UI stacks: Flutter (Dart), Jetpack Compose (Kotlin), SwiftUI, Blazor (C#), and Python and Java UI frameworks. One adapter each; the core doesn't change (proven in step 5) | Ongoing, one stack at a time |
 | G11 | **Pixel comparison and token identity** | Compare the render with Figma's image of the frame; check the *right* token is used, not just *a* token | When the Figma budget allows |
 | G12 | **Reports and project page** | HTML report pages; a public page with the proof results | With G4 |
-| — | **Matcher scored run** | Fetch the 40 missing Figma pages; measure precision on about 78 held-out Carbon labels (docs/04) | October (Figma budget reset) |
+| — | **Matcher scored run** | 25 of 54 Figma pages read. Held-out top-1: 68% (WC) and 70% (React); the right answer was in the top 3 in 93–100% of cases. The errors were "X item" → X. Fix (2026-10-10): "item" is a part word, not filler. After the fix, top-1 is 86% (WC) and 74% (React), but those labels informed the fix, so they are now dev round 2. Next: an LLM re-ranker of the top 3; read the other 29 pages (Figma budget) as the clean test. | 🔄 In progress |
 
 ### About "every language"
 
 Tulpar generates **user interfaces**, so each language arrives through its UI frameworks: TypeScript and JavaScript (React, Angular, Vue, Svelte), Dart (Flutter), Kotlin (Compose), Swift (SwiftUI), C# (Blazor, XAML), and Python and Java through the UI frameworks teams use there. **Back-end code** (APIs, services), which the owner asked about earlier, is a separate kind of generation. It needs its own verification (contract tests instead of rendering), so it is planned as its own module after the UI flow is solid.
+
+## Roadmap v2 (2026-10-10): what makes senior developers and leads adopt it
+
+v1 proved the flow end to end: Figma or a screenshot in, verified code out, in three frameworks, from the web, the CLI and the editor. What senior developers and leads ask next is different, and the plan follows their questions.
+
+| They ask | What we build | Today's tech, used where it really helps |
+|---|---|---|
+| "Does it work with **our** design system?" | **G9: bring your own design system.** `tulpar init` detects the stack and the component library in a repository and writes `tulpar.json`. Indexing, tokens and mapping then run on the team's own code. | — |
+| "Will it write code **the way we do**?" | **Repository RAG.** Before generating, retrieve real usage of each design-system component from the team's repo (props they use, wrappers, layout patterns) and the team's earlier accepted components, and put them in the brief as examples. | RAG over the codebase: retrieval of real examples, not a vector-database demo. Starts with lexical retrieval, then embeddings. |
+| "Can we trust the numbers?" | **An eval benchmark.** A fixed set of frames × frameworks, run on every change of prompt or model: pass rate per check, attempts, cost. Plus the matcher's scored run (unblocked: Figma reset on Oct 1). | Evals are how AI products earn trust; models and prompts change monthly. |
+| "Does it **keep** our codebase clean, not just new code?" | **The CI check.** A GitHub Action and `tulpar check` that review every pull request, **including code written by people**: invented components, hard-coded colours, undefined tokens. Optionally compared with the Figma frame linked in the PR. | The verifier is already built; this puts it where leads enforce standards. |
+| "What does it give **me** as a lead?" | **A design-system health dashboard.** Adoption (design-system vs invented), hard-coded values over time, drift between Figma and code per release. | — |
+| "Will output get better without us babysitting?" | **A smarter agent loop.** The repair step looks at the visual diff image (vision), not just text. Best-of-N candidates, picked by verifier score. Whole pages decomposed into components, generated and composed. A cheaper model for easy steps (model routing) and per-run cost shown. | Agentic loops with a real verifier as the reward signal: Tulpar's core advantage. |
+| "Can our AI tools use it?" | **MCP++.** Done: `tulpar_generate`, `tulpar_verify`, `tulpar_projects`. Next: MCP *resources* (the team's component catalogue and tokens, so any assistant writes design-system code even without calling generate) and a `tulpar_check` tool. Research: reading Figma through Figma's own Dev Mode MCP server, which would avoid the REST budget (earlier research found it allow-lists clients; re-check). | MCP is the standard way assistants use tools. |
+| "Is our code safe?" | **Privacy and self-hosting.** A clear data policy (OpenAI `store: false` is already set), self-hosted mode (the same Docker image inside a company network), bring-your-own model key, and Azure OpenAI / other providers behind the same `Llm` interface. | — |
+| "Will it learn our style?" | **The data flywheel, then fine-tuning.** Record (design, accepted code, verifier report) and thumbs-up/down, with consent. **Fine-tuning comes later:** it needs thousands of good examples to beat retrieval plus a strong model, and the verifier already fixes most errors. When the data exists: preference tuning (DPO) of a smaller, cheaper model on verified outputs. | Fine-tuning is real, but premature today. RAG and verification give more value per dollar now. |
+
+### Launch plan
+
+| Stage | When | What |
+|---|---|---|
+| **Private beta** | As soon as hosting exists (an account is needed) | Hosted at the chosen domain, behind invite codes and a spending cap. 5–10 front-end developers and leads try it on real work, and their feedback goes into the plan. |
+| **Public beta** | After G9, the CI check and the eval benchmark meet their targets | GitHub sign-in, per-user limits, VS Code Marketplace listing, docs site. |
+| **1.0** | After the public beta shows retention | Pricing (e.g. free for individuals, paid for teams with CI, dashboard and self-hosting), licence decided (open core is likely). |
+
+### Domain (checked 2026-10-10 by DNS, not a registrar)
+
+- **Taken:** `tulpar.ai` (parked for sale at a broker), `tulpar.dev`, `tulpar.app`, `tulpar.io`.
+- **Appear free:** `gettulpar.com`, `usetulpar.com`, `tulparhq.com`.
+- **Unclear:** `tulparai.com`. Check it at a registrar.
+- **Before buying:** "Tulpar" is a common name (airlines and trains in Kazakhstan and Türkiye use it). Search trademarks in software (class 9/42) before committing to the name for a company.
 
 ## Ideas from the owner
 

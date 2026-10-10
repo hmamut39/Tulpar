@@ -19,7 +19,7 @@ import {
   type Features,
   type Library,
 } from "../src/index.ts";
-import { commonPrefix, figmaNameTokens, headToken, jaroWinkler, tokens } from "../src/match/text.ts";
+import { commonPrefix, figmaNameTokens, headToken, headTokens, jaroWinkler, tokens } from "../src/match/text.ts";
 
 describe("names and values", () => {
   it("tokenises names written in any convention", () => {
@@ -31,11 +31,13 @@ describe("names and values", () => {
   });
 
   it("finds the head word and drops kit filler", () => {
-    expect(figmaNameTokens("Data table toolbar item")).toEqual(["data", "table", "toolbar"]);
-    expect(headToken("Data table toolbar item")).toBe("toolbar");
+    expect(figmaNameTokens("Data table toolbar base")).toEqual(["data", "table", "toolbar"]);
+    expect(headToken("Data table toolbar item")).toBe("item");
+    expect(headTokens("Data table toolbar item")).toEqual(["item", "toolbar"]);
+    expect(headTokens("Accordion item")).toEqual(["item", "accordion"]);
     expect(headToken("Tag - Read-only")).toBe("tag");
     expect(headToken("Text input / Fluid")).toBe("input");
-    expect(headToken("_Modal footer item")).toBe("footer");
+    expect(headTokens("_Modal footer item")).toEqual(["item", "footer"]);
   });
 
   it("normalises size vocabularies and compares value sets", () => {
@@ -122,13 +124,13 @@ describe("features", () => {
 });
 
 describe("matching", () => {
-  it("sees the head word, but with prior weights a parent sharing the props still wins (known limit)", () => {
+  it("gives the word before a part word partial head credit, but with prior weights a parent sharing the props still wins (known limit)", () => {
     // Figma "Data table toolbar item" has Size values the parent table shares and the toolbar lacks.
-    // The head-word signal points at the toolbar; the hand-set prior lets props outvote it.
+    // "item" is a part word, so the toolbar earns partial head credit (0.7); the hand-set prior lets props outvote it.
     // On Carbon, the fitted leave-one-out model ranks the toolbar first (docs/04).
     const ranked = createMatcher(index).rank(library.components[2]!);
     const at = (name: string) => ranked.find((c) => c.component === name)!;
-    expect(at("x-table-toolbar").features.head).toBe(1);
+    expect(at("x-table-toolbar").features.head).toBe(0.7);
     expect(at("x-table").features.head).toBe(0);
     expect(ranked[0]!.component).toBe("x-table");
   });

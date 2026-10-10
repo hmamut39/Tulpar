@@ -5,7 +5,7 @@
 
 import type { CodeComponent, CodeProp } from "../code-model.ts";
 import type { ComponentDef, PropDef } from "../model.ts";
-import { containment, figmaNameTokens, headToken, normValue, tokenOverlap, tokens, valueOverlap } from "./text.ts";
+import { containment, figmaNameTokens, headTokens, normValue, tokenOverlap, tokens, valueOverlap } from "./text.ts";
 
 export const FEATURES = ["docLink", "description", "props", "values", "name", "head", "nameContained", "page"] as const;
 export type FeatureName = (typeof FEATURES)[number];
@@ -48,7 +48,7 @@ export function prepareCode(component: CodeComponent, prefix: string | undefined
 export function features(figma: ComponentDef, code: CodeSide): PairEvidence {
   const figmaTokens = figmaNameTokens(figma.name);
   const pageTokens = figmaNameTokens(figma.page);
-  const head = headToken(figma.name);
+  const heads = headTokens(figma.name);
   const { score: props, pairs } = alignProps(figma.props, code);
 
   return {
@@ -58,7 +58,8 @@ export function features(figma: ComponentDef, code: CodeSide): PairEvidence {
       props,
       values: variantValues(figma.props, code),
       name: tokenOverlap(figmaTokens, code.nameTokens),
-      head: head ? (code.nameTokens.at(-1) === head ? 1 : 0) : null,
+      // The exact head scores 1; the word before a part word ("toolbar" in "toolbar item") scores 0.7.
+      head: heads.length ? (code.nameTokens.at(-1) === heads[0] ? 1 : heads[1] && code.nameTokens.at(-1) === heads[1] ? 0.7 : 0) : null,
       nameContained: containment(code.nameTokens, [...figmaTokens, ...pageTokens]),
       page: pageTokens.length ? tokenOverlap(pageTokens, code.nameTokens) : null,
     },
