@@ -117,6 +117,9 @@ describe("hosting rules", () => {
     expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(page.headers.get("x-frame-options")).toBe("DENY");
     expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+    const head = await fetch(`${hosted.url}/`, { method: "HEAD" });
+    expect(head.status).toBe(200);
+    expect(head.headers.get("content-type")).toMatch(/text\/html/);
   });
 
   it("accepts any invite code, and turns work away when the queue is full", async () => {

@@ -183,7 +183,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         return res.end(zip);
       }
 
-      if (req.method === "GET") return serveStatic(res, publicDir, path === "/" ? "/index.html" : path);
+      if (req.method === "GET" || req.method === "HEAD") return serveStatic(res, publicDir, path === "/" ? "/index.html" : path, req.method === "HEAD");
       return json(res, 404, { error: "Not found." });
     } catch (err) {
       const status = err instanceof HttpError ? err.status : 500;
@@ -285,11 +285,11 @@ function securityHeaders(res: ServerResponse): void {
 
 const TYPES: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png" };
 
-async function serveStatic(res: ServerResponse, dir: string, path: string): Promise<void> {
+async function serveStatic(res: ServerResponse, dir: string, path: string, headOnly = false): Promise<void> {
   const file = resolve(dir, `.${decodeURIComponent(path)}`);
   if (!file.startsWith(dir) || !existsSync(file) || !TYPES[extname(file)]) return json(res, 404, { error: "Not found." });
   res.writeHead(200, { "content-type": TYPES[extname(file)]!, "x-content-type-options": "nosniff" });
-  res.end(await readFile(file));
+  res.end(headOnly ? undefined : await readFile(file));
 }
 
 // `node web/src/server.ts`

@@ -44,12 +44,13 @@ jobs:
           if docker run --rm -e NODE_ENV=production tulpar:ci; then echo "started without access codes"; exit 1; fi
       - name: Serves the page and the health check
         run: |
+          set -x
           docker run -d --name tulpar-smoke -p 8080:8080 -e TULPAR_ACCESS_CODES=ci-code tulpar:ci
           for i in $(seq 1 30); do curl -fs localhost:8080/healthz && break; sleep 2; done
           curl -fs localhost:8080/healthz
-          curl -fs localhost:8080/ | grep -q "<title>Tulpar</title>"
-          curl -fs localhost:8080/api/config | grep -q '"accessCodeRequired":true'
-          curl -fsI localhost:8080/ | grep -qi "content-security-policy"
+          curl -fs localhost:8080/ -o page.html && grep -q "<title>Tulpar</title>" page.html
+          curl -fs localhost:8080/api/config -o config.json && grep -q '"accessCodeRequired":true' config.json
+          curl -fsI localhost:8080/ -o headers.txt && grep -qi "content-security-policy" headers.txt
           docker exec tulpar-smoke test -f /app/data/out/library.json
       - if: failure()
         run: docker logs tulpar-smoke || true
