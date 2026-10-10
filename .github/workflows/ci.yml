@@ -1,0 +1,55 @@
+# Every push and pull request: typecheck and tests, then build the production image and
+# smoke-test it (it must refuse to start without access codes, and serve the page with them).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run typecheck
+      # Tests that need the Carbon examples installed or the Figma cache skip themselves here.
+      - run: npm test
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: tulpar:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Refuses to start in production without access codes
+        run: |
+          if docker run --rm -e NODE_ENV=production tulpar:ci; then echo "started without access codes"; exit 1; fi
+      - name: Serves the page and the health check
+        run: |
+          docker run -d --name t -p 8080:8080 -e TULPAR_ACCESS_CODES=ci-code tulpar:ci
+          for i in $(seq 1 30); do curl -fs localhost:8080/healthz && break; sleep 2; done
+          curl -fs localhost:8080/healthz
+          curl -fs localhost:8080/ | grep -q "<title>Tulpar</title>"
+          curl -fs localhost:8080/api/config | grep -q '"accessCodeRequired":true'
+          curl -fsI localhost:8080/ | grep -qi "content-security-policy"
+          docker exec t test -f /app/data/out/library.json
+      - if: failure()
+        run: docker logs t || true

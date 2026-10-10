@@ -22,6 +22,8 @@ export interface JobInput {
 export interface Job {
   id: string;
   input: JobInput;
+  /** What the design came from; kept after the image itself is dropped. */
+  source: "figma" | "screenshot" | "both";
   state: "queued" | "running" | "done" | "error";
   createdAt: number;
   events: { at: number; text: string }[];
@@ -39,14 +41,29 @@ export class JobQueue {
   readonly #repoRoot: string;
   readonly #llm: () => Llm | undefined;
 
-  constructor(options: { repoRoot: string; llm: () => Llm | undefined }) {
+  readonly #onFinish: ((job: Job, ms: number) => void) | undefined;
+  #idle: (() => void)[] = [];
+
+  constructor(options: { repoRoot: string; llm: () => Llm | undefined; onFinish?: (job: Job, ms: number) => void }) {
     this.#repoRoot = options.repoRoot;
     this.#llm = options.llm;
+    this.#onFinish = options.onFinish;
+  }
+
+  /** Jobs waiting or running. */
+  get pending(): number {
+    return this.#waiting.length + (this.#running ? 1 : 0);
+  }
+
+  /** Resolves when nothing is running or waiting (for a graceful shutdown). */
+  idle(): Promise<void> {
+    return this.pending ? new Promise((r) => this.#idle.push(r)) : Promise.resolve();
   }
 
   add(input: JobInput): string {
     this.#sweep();
-    const job: Job = { id: randomUUID(), input, state: "queued", createdAt: Date.now(), events: [] };
+    const source = input.frame && input.image ? "both" : input.image ? "screenshot" : "figma";
+    const job: Job = { id: randomUUID(), input, source, state: "queued", createdAt: Date.now(), events: [] };
     this.#jobs.set(job.id, job);
     this.#waiting.push(job);
     this.#log(job, this.#running ? "Queued behind another generation." : "Starting.");
@@ -86,6 +103,7 @@ export class JobQueue {
     if (!job) return;
     this.#running = true;
     job.state = "running";
+    const started = Date.now();
     try {
       const llm = this.#llm();
       const outcome = await generateCommand(job.input.projectDir, {
@@ -119,6 +137,12 @@ export class JobQueue {
       delete job.input.figmaToken;
       delete job.input.image;
       this.#running = false;
+      try {
+        this.#onFinish?.(job, Date.now() - started);
+      } catch {
+        /* logging must never break the queue */
+      }
+      if (!this.#waiting.length) for (const r of this.#idle.splice(0)) r();
       void this.#next();
     }
   }

@@ -1,7 +1,8 @@
 # Tulpar web page, as a container. Build: docker build -t tulpar .
 # Run:  docker run -p 8080:8080 --env-file .env -v tulpar-data:/app/data tulpar
 #
-# Needs at runtime: OPENAI_API_KEY and TULPAR_ACCESS_CODE (see .env.example).
+# Needs at runtime: OPENAI_API_KEY and TULPAR_ACCESS_CODES (see .env.example); in production the
+# server refuses to start without access codes. Hosting: fly.toml and docs/14-deploy.md.
 # Figma data (the cache and the library read from it) lives in the /app/data volume.
 
 FROM node:24-bookworm-slim
@@ -34,9 +35,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 COPY . .
 
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
+# deploy/start.sh prepares the volume as root, then runs the server as the "node" user.
 RUN mkdir -p data/figma data/out && ln -s /app/data/figma .cache/figma && ln -s /app/data/out out \
- && chown -R node:node /app
-USER node
+ && chown -R node:node /app && chmod +x deploy/start.sh
 
 EXPOSE 8080
-CMD ["node", "web/src/server.ts"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD node -e "fetch('http://localhost:'+(process.env.PORT||8080)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+CMD ["deploy/start.sh"]

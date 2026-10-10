@@ -27,12 +27,13 @@ const answer = { files: [{ path: "ModalActions.tsx", content: tsx }, { path: "Mo
 
 let server: { url: string; close: () => Promise<void> };
 let llm: ScriptedLlm;
+const logged: string[] = [];
 const post = (body: Record<string, unknown>) => fetch(`${server.url}/api/jobs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 describe("web API", () => {
   beforeAll(async () => {
     llm = new ScriptedLlm([answer]);
-    server = await startServer({ repoRoot: repo, llm: () => llm, accessCode: "open-sesame", runsPerHour: 2, resultsRoot: resolve(tmpdir(), "tulpar-web-test") }, 0);
+    server = await startServer({ repoRoot: repo, llm: () => llm, accessCode: "open-sesame", runsPerHour: 2, resultsRoot: resolve(tmpdir(), "tulpar-web-test"), log: (l) => logged.push(l) }, 0);
   });
   afterAll(() => server.close());
 
@@ -75,6 +76,11 @@ describe("web API", () => {
     expect(job.result.status).toBe("unchecked-remain");
     expect(job.result.report.checks.filter((c: { status: string }) => c.status === "fail")).toEqual([]);
     expect(JSON.stringify(job)).not.toContain("figd_secret");
+    // One usage line per job: what ran and how it went, never the token, the code or the files.
+    const line = JSON.parse(logged.at(-1)!);
+    expect(line).toMatchObject({ event: "job", project: "carbon-react", source: "figma", state: "done", status: "unchecked-remain", attempts: 1 });
+    expect(line.invite).toMatch(/^[a-f0-9]{8}$/);
+    expect(logged.join()).not.toMatch(/figd_secret|open-sesame|ModalFooter/);
 
     const png = await fetch(`${server.url}/api/jobs/${id}/render.png`);
     expect(png.headers.get("content-type")).toBe("image/png");
@@ -89,5 +95,53 @@ describe("web API", () => {
     let last = 0;
     for (let i = 0; i < 3; i++) last = (await post({ accessCode: "open-sesame", project: "carbon-react", figmaUrl: FRAME, name: "Card" })).status;
     expect(last).toBe(429);
+  });
+});
+
+describe("hosting rules", () => {
+  let hosted: { url: string; close: () => Promise<void> };
+  const lines: string[] = [];
+  const send = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+    fetch(`${hosted.url}/api/jobs`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ project: "carbon-react", name: "Card", ...body }) });
+  beforeAll(async () => {
+    // A model that never answers keeps jobs pending, so queue and caps can be counted.
+    const never = { name: "never", generate: () => new Promise<never>(() => {}) } as unknown as ScriptedLlm;
+    hosted = await startServer({ repoRoot: repo, llm: () => never, accessCode: ["alice-1", "bob-2"], runsPerHour: 100, runsPerDay: 3, maxQueue: 2, log: (l) => lines.push(l) }, 0);
+  });
+  afterAll(() => hosted.close());
+
+  it("answers a health check and sends security headers", async () => {
+    const res = await fetch(`${hosted.url}/healthz`);
+    expect(await res.json()).toMatchObject({ ok: true });
+    const page = await fetch(`${hosted.url}/`);
+    expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(page.headers.get("x-frame-options")).toBe("DENY");
+    expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+  });
+
+  it("accepts any invite code, and turns work away when the queue is full", async () => {
+    expect((await send({ accessCode: "carol-3", figmaUrl: FRAME })).status).toBe(401);
+    expect((await send({ accessCode: "alice-1", figmaUrl: FRAME })).status).toBe(202);
+    expect((await send({ accessCode: "bob-2", figmaUrl: FRAME })).status).toBe(202);
+    expect((await send({ accessCode: "bob-2", figmaUrl: FRAME })).status).toBe(503);
+  });
+
+  it("caps generations per day across all visitors", async () => {
+    // Two accepted above; the queue is full, so the cap is checked first once it is reached.
+    const capped = await startServer({ repoRoot: repo, llm: () => ({ name: "never", generate: () => new Promise<never>(() => {}) }) as unknown as ScriptedLlm, accessCode: "x", runsPerDay: 1, maxQueue: 10 }, 0);
+    const go = () => fetch(`${capped.url}/api/jobs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accessCode: "x", project: "carbon-react", name: "Card", figmaUrl: FRAME }) });
+    expect((await go()).status).toBe(202);
+    const res = await go();
+    expect(res.status).toBe(429);
+    expect((await res.json()).error).toMatch(/today's generation limit/);
+    await capped.close();
+  });
+
+  it("does not let a faked x-forwarded-for escape the hourly limit", async () => {
+    const limited = await startServer({ repoRoot: repo, llm: () => ({ name: "never", generate: () => new Promise<never>(() => {}) }) as unknown as ScriptedLlm, accessCode: "x", runsPerHour: 1, maxQueue: 10 }, 0);
+    const go = (ip: string) => fetch(`${limited.url}/api/jobs`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip }, body: JSON.stringify({ accessCode: "x", project: "carbon-react", name: "Card", figmaUrl: FRAME }) });
+    expect((await go("1.1.1.1")).status).toBe(202);
+    expect((await go("2.2.2.2")).status).toBe(429);
+    await limited.close();
   });
 });
