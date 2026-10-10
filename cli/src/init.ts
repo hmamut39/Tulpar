@@ -26,7 +26,69 @@ export interface Detected {
   adapter: Adapter;
   why: string[];
   config: Record<string, unknown>;
+  /** Files to create next to tulpar.json (a setup file), never overwriting one that exists. */
+  files: Record<string, string>;
 }
+
+/**
+ * Libraries that build their theme in JavaScript when their provider starts: nothing on disk holds
+ * the tokens, so the render needs the provider (a setup file) and tokens are read from a probe page.
+ * The setup uses the library's default theme; a team points it at its own.
+ */
+const RUNTIME_RECIPES: { package: string; needs?: string; adapter: Adapter; file: string; setup: string; prefix: string; modes: Record<string, string> }[] = [
+  {
+    package: "@mui/material",
+    adapter: "react",
+    file: "tulpar.setup.tsx",
+    prefix: "mui",
+    modes: { dark: "dark" },
+    setup: `// How Tulpar renders components: inside the app's MUI theme. Replace createTheme(...) with your
+// own theme (keep cssVariables on, so Tulpar can read its tokens).
+import type { ReactNode } from "react";
+import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+
+const theme = createTheme({ cssVariables: { colorSchemeSelector: "class" }, colorSchemes: { light: true, dark: true } });
+
+export default function Setup({ children }: { children: ReactNode }) {
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+}
+`,
+  },
+  {
+    package: "@chakra-ui/react",
+    adapter: "react",
+    file: "tulpar.setup.tsx",
+    prefix: "chakra",
+    modes: { dark: "dark" },
+    setup: `// How Tulpar renders components: inside the app's Chakra system. Replace defaultSystem with your own.
+import type { ReactNode } from "react";
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
+
+export default function Setup({ children }: { children: ReactNode }) {
+  return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
+}
+`,
+  },
+  {
+    package: "primeng",
+    needs: "@primeuix/themes",
+    adapter: "angular",
+    file: "tulpar.setup.ts",
+    prefix: "p",
+    modes: { dark: "p-dark" },
+    setup: `// How Tulpar renders components: with the app's PrimeNG theme. Replace Aura with your own preset.
+import { providePrimeNG } from "primeng/config";
+import Aura from "@primeuix/themes/aura";
+
+export const providers = [providePrimeNG({ theme: { preset: Aura, options: { darkModeSelector: ".p-dark" } } })];
+`,
+  },
+];
 
 // Dependencies that are never the design system.
 const NOT_A_DESIGN_SYSTEM = /^(react|react-dom|react-is|scheduler|@angular\/.*|rxjs|zone\.js|tslib|typescript|vite|vitest|webpack|esbuild|rollup|parcel|eslint.*|prettier|jest|@types\/.*|@testing-library\/.*|@vitest\/.*|playwright|@playwright\/.*|lit|lit-html|lit-element|@lit\/.*|next|@next\/.*|vue|svelte|@babel\/.*|postcss.*|autoprefixer|sass|less|tailwindcss|core-js|regenerator-runtime|lodash.*|clsx|classnames)$/;
@@ -113,7 +175,7 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     themes = Object.fromEntries(Object.entries(modes).filter(([, s]) => /^\.[\w-]+$/.test(s)).map(([m, s]) => [m, s.slice(1)]));
     why.push(`tokens: custom properties in ${cssTokenFiles.map((x) => `${rel(root, x.f)} (${x.count})`).join(", ")}${prefix ? `, prefix --${prefix}-` : ""}${Object.keys(modes).length ? `, themes ${Object.keys(modes).join(", ")}` : ""}`);
   }
-  if (!dtcg.length && !cssTokenFiles.length) why.push("tokens: none found (no DTCG files, no stylesheet declaring custom properties); colour and spacing checks will report hard-coded values only");
+  if (!dtcg.length && !cssTokenFiles.length && !RUNTIME_RECIPES.some((rc) => packages.includes(rc.package))) why.push("tokens: none found (no DTCG files, no stylesheet declaring custom properties); colour and spacing checks will report hard-coded values only");
 
   // Stylesheets the render loads: the token sheets plus the package's main stylesheet.
   // The stylesheet the package declares ("style" in package.json) wins; never a source copy under src/.
@@ -142,15 +204,30 @@ export function detect(root: string, options: InitOptions = {}): Detected {
   if (linkDirs.length) why.push(`Code Connect: ${linkDirs.length} folder(s)`);
   else why.push("Code Connect: none; the Figma → code mapping will come from the matcher and the model, reported as unconfirmed");
 
+  // A library that builds its theme at runtime: a setup file, and tokens read from a probe page.
+  const extraFiles: Record<string, string> = {};
+  const recipe = RUNTIME_RECIPES.find((rc) => packages.includes(rc.package) && rc.adapter === adapter);
+  let setup: string | undefined;
+  if (recipe && !dtcg.length && !cssTokenFiles.length) {
+    if (recipe.needs && !existsSync(join(root, "node_modules", recipe.needs))) {
+      why.push(`! ${recipe.package} builds its theme at runtime from ${recipe.needs}, which is not installed; install it, then run tulpar init again`);
+    } else {
+      setup = recipe.file;
+      extraFiles[recipe.file] = recipe.setup;
+      tokens.runtime = { prefix: recipe.prefix, modes: recipe.modes };
+      why.push(`tokens: built by ${recipe.package} at runtime (--${recipe.prefix}-*), read from a probe page; setup: ${recipe.file} (the library's default theme: point it at yours)`);
+    }
+  }
+
   const figmaKey = options.figma ? (parseFigmaUrl(options.figma)?.fileKey ?? options.figma) : undefined;
   const section: Record<string, unknown> = {
     packages: packageDirs,
     ...(linkDirs.length && { codeConnect: linkDirs }),
     ...(adapter !== "web-components" && { styleDirs: packageDirs }),
     ...(Object.keys(tokens).length && { tokens }),
-    render: { stylesheets, ...(Object.keys(themes).length && { themes }), ...(baseFont && { baseFont }), ...(rootClass && { rootClass }) },
+    render: { stylesheets, ...(Object.keys(themes).length && { themes }), ...(baseFont && { baseFont }), ...(rootClass && { rootClass }), ...(setup && { setup }) },
   };
-  return { adapter, why, config: { adapter, ...(figmaKey && { figma: { fileKey: figmaKey } }), [adapter]: section } };
+  return { adapter, why, config: { adapter, ...(figmaKey && { figma: { fileKey: figmaKey } }), [adapter]: section }, files: extraFiles };
 }
 
 export async function initCommand(dir: string, options: InitOptions = {}): Promise<number> {
@@ -170,6 +247,13 @@ export async function initCommand(dir: string, options: InitOptions = {}): Promi
   for (const line of found.why) console.log(`  ${line}`);
   await writeFile(target, JSON.stringify(found.config, null, 2) + "\n");
   console.log(`\nWrote ${target}`);
+  for (const [file, content] of Object.entries(found.files)) {
+    if (existsSync(join(root, file))) console.log(`Kept your ${file}`);
+    else {
+      await writeFile(join(root, file), content);
+      console.log(`Wrote ${join(root, file)}`);
+    }
+  }
   if (options.noCheck) return 0;
 
   // Prove it: what the adapter reads with this configuration.

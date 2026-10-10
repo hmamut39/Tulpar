@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Tulpar adapter for React. Speaks the adapter protocol on stdio.
 
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
-import { closeBrowser, readTokens, render, runVitestBrowser, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
 import { analyzeReact } from "./verify/analyze.ts";
@@ -21,7 +22,7 @@ interface Config {
 }
 
 const config = (p: ProjectParams) => p.config as Config;
-const prefix = (p: ProjectParams) => config(p).tokens?.cssPrefix ?? "";
+const prefix = (p: ProjectParams) => tokenPrefix(config(p).tokens);
 
 let cachedIndex: { key: string; index: ComponentIndex } | undefined;
 function index(params: ProjectParams): ComponentIndex {
@@ -63,10 +64,18 @@ serve({
 
   index,
 
-  tokens: (params) => {
+  tokens: async (params) => {
     const c = config(params);
     if (!c.tokens) return { adapter: "react", modes: [], tokens: [], gaps: ['No "tokens" configured.'] };
-    return readTokens(params.root, c.tokens, (c.styleDirs ?? []).map((d) => join(params.root, d)), "react");
+    const set = readTokens(params.root, c.tokens, (c.styleDirs ?? []).map((d) => join(params.root, d)), "react");
+    if (!c.tokens.runtime) return set;
+    // Tokens the library injects when its provider starts: render an empty component with the setup and read them.
+    const dir = join(params.root, ".tulpar", "probe");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "Probe.tsx"), "export default function Probe() { return null; }\n");
+    const built = await build({ ...params, entry: ".tulpar/probe/Probe.tsx", frame: { width: 200, height: 200 } }, c.render ?? {}, c.packages ?? []);
+    if (!built.ok) return { ...set, gaps: [...set.gaps, `Runtime tokens not read: the probe page did not build (${built.log.split("\n")[0]})`] };
+    return mergeTokens(set, await probeTokens(built.artifact as string, c.render ?? {}, reactHooks(new Set()), c.tokens.runtime));
   },
 
   links: (params) => {
@@ -99,7 +108,7 @@ serve({
         "Default-export a function component named {name} with no required props.",
         'Import "./{name}.css" from {name}.tsx.',
         `Design-system components pass unknown props such as data-figma-id through to their root element; put data-figma-id directly on them.`,
-        "Write every token with its value as the fallback, the way the design system's own styles do: var(--cds-spacing-05, 1rem), var(--cds-layer-01, #f4f4f4). Spacing tokens are not global variables, so without the fallback they render nothing.",
+        `Write every token with its value as the fallback, e.g. ${prefix(params) ? `var(--${prefix(params)}-…, <its value>)` : "var(--token-name, <its value>)"}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
         'In {name}.test.tsx import { render, screen } from "@testing-library/react", { describe, it, expect } from "vitest", and the component from "./{name}".',
       ],
       importExample: `import { Button } from "${pkg}";`,
@@ -107,6 +116,7 @@ serve({
   },
 
   shutdown: async () => {
+    await closeProbeBrowser();
     await closeBrowser();
     return null;
   },

@@ -97,3 +97,15 @@ And two checker rules that came from reading the code, not the check results:
 | Pixels | 5.9% differ (limit 8%) |
 
 The code uses Radix's own API (`<Theme accentColor>`, `size`, `variant`, `TextField.Root` with `placeholder`), with labels tied to inputs.
+
+## MUI (React): tokens that exist only at runtime, 2026-10-10
+
+MUI, Chakra and PrimeNG build their theme in JavaScript when their provider starts. No file holds the tokens, and components are unstyled without the provider.
+
+- **Setup file** (`render.setup`). A project file that sets the app up as the design system needs: for React a wrapper component (MUI's `ThemeProvider`), for Angular a module exporting `providers`. The render wraps the implementation in it.
+- **Runtime tokens** (`tokens.runtime`). The adapter builds a probe page (an empty component, with the setup applied) and reads every custom property with the prefix declared on `:root`, `html`, `:host` or the root class. It uses computed values, then reads them again with each dark-mode class applied. On MUI: 203 tokens, light and dark. `--mui-palette-primary-main` is `#1976d2` in light and `#90caf9` in dark.
+- **Recipes in `tulpar init`.** For MUI, Chakra and PrimeNG, `init` writes the setup file with the library's default theme (a comment says to point it at the team's own) and turns on runtime tokens with the library's prefix and dark-mode class.
+- **Scale units.** MUI's `--mui-spacing` is a unit (8px) meant to be multiplied (`theme.spacing(3)`). Whole multiples of a token named as a unit (`-spacing`, `-unit`, with no step) are now tokens. Other arithmetic on tokens is still hard-coded.
+- **Invisible characters.** MUI's outlined input draws a zero-width space. It is stripped from rendered text, and an input's placeholder is read in light DOM as well as shadow DOM.
+
+**Result (MUI, same screenshot):** 9/9 components, 0 hard-coded values (spacing written as `calc(var(--mui-spacing) * 3)`), layout 10/10, text 8/8, 7.0% pixel difference.

@@ -17,6 +17,11 @@ export interface RenderConfig {
    * Applied by the page, not the implementation, so it is never counted as the implementation's style.
    */
   baseFont?: string;
+  /**
+   * A project file that sets the app up the way the design system needs: for React, a component
+   * that wraps the app (a theme provider); for Angular, a module exporting `providers`.
+   */
+  setup?: string;
   /** Class the library's root component puts on the app (e.g. "radix-themes" from Radix's <Theme>); always on the frame. */
   rootClass?: string;
 }

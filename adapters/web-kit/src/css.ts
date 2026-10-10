@@ -30,6 +30,9 @@ const COLOR_LITERAL = /^#[0-9a-f]{3,8}$|^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|co
 // The CSS named colours people actually hard-code; transparent and currentColor are keywords.
 const NAMED_COLORS = new Set(["black", "white", "red", "green", "blue", "gray", "grey", "yellow", "orange", "purple", "pink", "brown", "navy", "teal", "silver", "maroon", "olive", "lime", "aqua", "fuchsia", "cyan", "magenta", "gold", "indigo", "violet", "crimson", "coral", "salmon", "tomato", "lightgray", "lightgrey", "darkgray", "darkgrey", "whitesmoke", "gainsboro"]);
 
+/** A token that names a scale unit rather than a step on the scale: --mui-spacing, --spacing, --ds-space-unit. */
+const UNIT_TOKEN = /(^|-)(spacing|space-unit|spacing-unit|unit|grid-unit)$/i;
+
 const KEYWORD = /^(inherit|initial|unset|revert|revert-layer|auto|none|normal|transparent|currentcolor|0|0px|0rem|0%|100%|50%|solid|dashed|dotted)$/i;
 
 /**
@@ -48,15 +51,25 @@ export function classify(cssProperty: string, value: string, prefix: string, at?
   // In colour properties only colours count: the 1px in "border: 1px solid var(--c)" is a width, not a colour.
   const isColor = property === "fill" || property === "textColor" || property === "strokeColor";
   const isGrid = /^grid-/i.test(cssProperty.trim());
-  const literal = parts.filter((p) =>
-    isGrid
-      ? gridLiteral(p)
-      : !KEYWORD.test(p) && (isColor ? COLOR_LITERAL.test(p) || NAMED_COLORS.has(p.toLowerCase()) : /[0-9#]|rgb|hsl|lab|lch|oklch|color\(/i.test(p)),
-  );
-  const base = { property, written, ...(at && { at }) };
-  if (literal.length) return { ...base, source: "literal" };
   // calc(var(--spacing-13) * 4) is a hard-coded 640px wearing a token: arithmetic on tokens is not a token.
-  if (vars.length && /calc\(/i.test(written) && /[*/]/.test(outside)) return { ...base, source: "literal" };
+  // The exception is a scale unit, meant to be multiplied (MUI's --mui-spacing: theme.spacing(3) is
+  // calc(3 * var(--mui-spacing))): whole or half multiples of unit tokens are tokens.
+  const arithmetic = vars.length > 0 && /calc\(/i.test(written) && /[*/]/.test(outside);
+  const unitMultiple =
+    arithmetic &&
+    vars.every((v) => UNIT_TOKEN.test(v)) &&
+    !/\//.test(outside) &&
+    !/[a-z%]/i.test(outside.replace(/calc/gi, "")) &&
+    (outside.match(/\d*\.?\d+/g) ?? []).every((n) => Number.isInteger(Number(n) * 2) && Number(n) <= 64);
+  const literal = unitMultiple
+    ? []
+    : parts.filter((p) =>
+        isGrid
+          ? gridLiteral(p)
+          : !KEYWORD.test(p) && (isColor ? COLOR_LITERAL.test(p) || NAMED_COLORS.has(p.toLowerCase()) : /[0-9#]|rgb|hsl|lab|lch|oklch|color\(/i.test(p)),
+      );
+  const base = { property, written, ...(at && { at }) };
+  if (literal.length || (arithmetic && !unitMultiple)) return { ...base, source: "literal" };
   if (vars.length) {
     const name = vars[0]!;
     return { ...base, source: "token", token: prefix && name.startsWith(`${prefix}-`) ? name.slice(prefix.length + 1) : name };

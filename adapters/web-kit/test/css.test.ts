@@ -17,3 +17,13 @@ describe("grid tracks", () => {
     expect(source("grid-template-columns", "1.5fr 1fr")).toBe("literal");
   });
 });
+
+describe("arithmetic on tokens", () => {
+  it("allows whole multiples of a scale unit, and nothing else", () => {
+    expect(source("padding", "calc(var(--mui-spacing, 8px) * 3)")).toBe("token");
+    expect(source("gap", "calc(1.5 * var(--x-spacing))")).toBe("token");
+    expect(source("padding", "calc(var(--x-spacing-05) * 4)")).toBe("literal");
+    expect(source("padding", "calc(var(--mui-spacing) * 3 + 2px)")).toBe("literal");
+    expect(source("padding", "calc(var(--mui-spacing) / 3)")).toBe("literal");
+  });
+});

@@ -5,12 +5,15 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readDtcg, type DtcgDocument, type TokenSet, type TokenValue } from "@tulpar/core";
 import { readCssTokens, type CssTokenConfig } from "./css-tokens.ts";
+import type { RuntimeTokenConfig } from "./runtime-tokens.ts";
 
 export interface TokenConfig {
   /** DTCG token files. */
   files?: string[];
   /** Stylesheets that declare tokens as custom properties; used for tokens the DTCG files lack. */
   css?: CssTokenConfig;
+  /** Tokens the library defines at runtime (PrimeNG, MUI, Chakra): read from a probe page. */
+  runtime?: RuntimeTokenConfig;
   references?: string[];
   modesExtension?: string;
   modes?: string[];
@@ -77,4 +80,20 @@ function cssCustomProperties(packageDirs: string[]): Set<string> {
     }
   }
   return names;
+}
+
+/** Tokens from a second source added to a set, skipping any whose code reference it already has. */
+export function mergeTokens(base: TokenSet, extra: { tokens: TokenSet["tokens"]; modes: string[]; gaps: string[] }): TokenSet {
+  const known = new Set(base.tokens.map((t) => t.codeRef));
+  return {
+    ...base,
+    modes: [...new Set([...base.modes, ...extra.modes])],
+    tokens: [...base.tokens, ...extra.tokens.filter((t) => !known.has(t.codeRef))],
+    gaps: [...base.gaps, ...extra.gaps],
+  };
+}
+
+/** The CSS custom property prefix of a project's tokens, from whichever source names one. */
+export function tokenPrefix(config: TokenConfig | undefined): string {
+  return config?.cssPrefix ?? config?.css?.prefix ?? config?.runtime?.prefix ?? "";
 }

@@ -1,0 +1,23 @@
+{
+  "adapter": "react",
+  "react": {
+    "packages": [
+      "node_modules/@mui/material"
+    ],
+    "styleDirs": [
+      "node_modules/@mui/material"
+    ],
+    "tokens": {
+      "runtime": {
+        "prefix": "mui",
+        "modes": {
+          "dark": "dark"
+        }
+      }
+    },
+    "render": {
+      "stylesheets": [],
+      "setup": "tulpar.setup.tsx"
+    }
+  }
+}

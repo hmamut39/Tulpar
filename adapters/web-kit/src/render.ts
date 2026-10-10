@@ -86,6 +86,8 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
         return [...n.childNodes];
       };
       const SKIP = new Set(["style", "script", "template", "link", "meta"]);
+      // Invisible characters libraries draw for layout (MUI's outlined input holds a zero-width space).
+      const ZERO_WIDTH = /[​-‍﻿]/g;
       const visible = (el: Element) => el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
       // What is drawn inside an element: its text, and descendants that paint a background, a border,
       // an image or a form control. A block-level host can be wider than what it draws (a checkbox and its label).
@@ -126,11 +128,11 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
           for (const c of childrenOf(n)) visit(c);
         };
         visit(host);
-        return { text: text.join(" ").replace(/\s+/g, " ").trim(), box };
+        return { text: text.join(" ").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim(), box };
       };
       return [...document.querySelectorAll<HTMLElement>("[data-figma-id]")].map((el) => {
         const r = el.getBoundingClientRect();
-        const inner = (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
+        const inner = (el.innerText || el.textContent || "").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
         // Light-DOM text first; a component that draws its text in its shadow root (a label or
         // placeholder set by attribute) is read through it.
         const d = drawn(el);
@@ -140,7 +142,9 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
           box: { x: r.x - frame.x, y: r.y - frame.y, width: r.width, height: r.height },
           ...(d.box && { drawnBox: { x: d.box.l - frame.x, y: d.box.t - frame.y, width: d.box.r - d.box.l, height: d.box.b - d.box.t } }),
           // The composed text includes slotted light-DOM text, so it is used when it is the fuller reading.
-          text: el.shadowRoot && d.text.includes(inner) ? d.text : inner || d.text,
+          // The drawn reading adds what innerText leaves out (an input's placeholder or value), so it
+          // wins when it contains the plain text; it also covers text drawn inside shadow roots.
+          text: d.text.includes(inner) && d.text.length > inner.length ? d.text : inner || d.text,
           visible: visible(el) && r.width > 0 && r.height > 0,
         };
       });

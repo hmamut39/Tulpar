@@ -18,7 +18,8 @@ export async function build(params: BuildParams, render: RenderConfig, packages:
 import Implementation from ${JSON.stringify(`./${entry.replace(/\\/g, "/")}`)};
 ${names.map((n, i) => `import * as ds${i} from ${JSON.stringify(n)};`).join("\n")}
 window.${DESIGN_SYSTEM_GLOBAL} = Object.assign({}, ${names.map((_, i) => `ds${i}`).join(", ") || "{}"});
-createRoot(document.getElementById(${JSON.stringify(FRAME_ID)})).render(<Implementation />);
+${render.setup ? `import Setup from ${JSON.stringify(`./${render.setup.replace(/\\/g, "/")}`)};` : ""}
+createRoot(document.getElementById(${JSON.stringify(FRAME_ID)})).render(${render.setup ? "<Setup><Implementation /></Setup>" : "<Implementation />"});
 `;
   const bundled = await bundle({ code, resolveDir: root, sourcefile: "tulpar-entry.jsx", outDir, loader: "jsx" });
   if (!bundled.ok) return { ok: false, log: bundled.log.join("\n") };
