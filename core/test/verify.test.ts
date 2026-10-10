@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fontClass } from "../src/verify/fonts.ts";
+import { tokenKind } from "../src/verify/token-kind.ts";
 import { verify, visibleText, type AdapterManifest, type ComponentIndex, type DesignNode, type DesignTree, type RenderedElement, type VerifyInput } from "../src/index.ts";
 
 const box = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -163,6 +164,27 @@ describe("verify", () => {
     expect(r.checks.find((c) => c.id === "spacing")!.details.join()).toContain("no such token");
     els[1] = { ...els[1]!, styles: [fact("var(--x-page-var)", "page-var", true)] };
     expect(status(verify(input(els, { tokens })), "spacing")).toBe("pass");
+  });
+
+  it("fails a token of the wrong kind, but only when a token of the right kind exists", () => {
+    const token = (name: string, type: string) => ({ name, path: [name], type, values: {}, provenance: { source: "t", confidence: "high" as const } });
+    const withSpacing = { adapter: "t", modes: [], gaps: [], tokens: [token("ds-spacing-large", "dimension"), token("ds-font-size-x-large", "dimension"), token("ds-line-height-normal", "number")] };
+    const fact = (property: "padding" | "lineHeight" | "gap", name: string) => ({ property, written: `var(--${name}, 24px)`, source: "token" as const, token: name, defined: true });
+    const els = good();
+    els[1] = { ...els[1]!, styles: [fact("padding", "ds-font-size-x-large")] };
+    const r = verify(input(els, { tokens: withSpacing }));
+    expect(r.checks.find((c) => c.id === "spacing")).toMatchObject({ status: "fail", summary: "0 hard-coded spacing or size values, 1 token of the wrong kind" });
+    expect(r.checks.find((c) => c.id === "spacing")!.details.join()).toContain("a font-size token used for padding; use a spacing token");
+    els[1] = { ...els[1]!, styles: [fact("padding", "ds-spacing-large"), fact("lineHeight", "ds-line-height-normal")] };
+    expect(verify(input(els, { tokens: withSpacing })).checks.filter((c) => c.status === "fail")).toEqual([]);
+    // No spacing tokens at all: a font-size token for a gap is not judged.
+    const noSpacing = { ...withSpacing, tokens: [token("ds-font-size-x-large", "dimension")] };
+    els[1] = { ...els[1]!, styles: [fact("gap", "ds-font-size-x-large")] };
+    expect(status(verify(input(els, { tokens: noSpacing })), "spacing")).toBe("pass");
+  });
+
+  it("tells a token's kind from its name", () => {
+    expect(["cds-spacing-05", "sl-font-size-small", "sl-border-radius-medium", "sl-panel-border-width", "sl-toggle-size-medium", "cds-layer-01", "body-compact-01"].map((n) => tokenKind(n, n === "cds-layer-01" ? "color" : "dimension"))).toEqual(["spacing", "font-size", "radius", "border-width", "size", "color", undefined]);
   });
 
   it("checks text exactly and the typeface actually drawn", () => {

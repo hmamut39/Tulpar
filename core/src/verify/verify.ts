@@ -5,6 +5,7 @@
 // was left unchecked (docs/00-research-and-plan.md §3).
 
 import { fontClass, type FontClass } from "./fonts.ts";
+import { tokenKind, wrongKind, type TokenKind } from "./token-kind.ts";
 import type { ComponentIndex, TokenSet } from "../code-model.ts";
 import type { AdapterManifest } from "../adapter/protocol.ts";
 import type { Box, DesignNode, DesignTree } from "../model.ts";
@@ -135,6 +136,9 @@ export function verify(input: VerifyInput): VerifyReport {
   // 4–6. Hard-coded values (runtime provenance on rendered elements, plus the static scan of all code)
   const provenance = capabilities.runtimeStyleProvenance || capabilities.staticProvenance;
   const facts = dedupe([...(elements ?? []).flatMap((e) => e.styles), ...(input.analysis?.literals ?? [])]);
+  // Token kinds the design system has, for the wrong-kind rule (a font-size token used as padding).
+  const tokenType = new Map((input.tokens?.tokens ?? []).map((t) => [t.name, t.type]));
+  const kinds = new Set((input.tokens?.tokens ?? []).map((t) => tokenKind(t.name, t.type)).filter((k): k is TokenKind => !!k));
   const hardCoded = (id: Check["id"], title: string, props: DesignProperty[], noun: string) => {
     if (!provenance) return skip(id, title, "the adapter cannot tell tokens from literals");
     if (!elements && !input.analysis) return skip(id, title, "nothing was rendered or analysed");
@@ -145,7 +149,8 @@ export function verify(input: VerifyInput): VerifyReport {
     const known = input.tokens ? new Set(input.tokens.tokens.map((t) => t.name)) : undefined;
     const hasFallback = (f: StyleFact) => /var\(\s*--[a-zA-Z0-9-]+\s*,/.test(f.written);
     const undefinedTokens = tokens.filter((f) => f.defined === false && !(known?.has(f.token ?? "") && hasFallback(f)));
-    const summary = `${literal.length} hard-coded ${noun}${undefinedTokens.length ? `, ${undefinedTokens.length} undefined token${undefinedTokens.length === 1 ? "" : "s"}` : ""}`;
+    const misused = input.tokens ? tokens.filter((f) => f.defined !== false || known?.has(f.token ?? "")).map((f) => ({ f, why: f.token ? wrongKind(f.property, f.token, tokenType.get(f.token), kinds) : undefined })).filter((m) => m.why) : [];
+    const summary = `${literal.length} hard-coded ${noun}${undefinedTokens.length ? `, ${undefinedTokens.length} undefined token${undefinedTokens.length === 1 ? "" : "s"}` : ""}${misused.length ? `, ${misused.length} token${misused.length === 1 ? "" : "s"} of the wrong kind` : ""}`;
     const details = [
       ...literal.map((f) => `✗ ${f.property}: ${f.written}${f.at ? ` at ${f.at}` : ""}`),
       ...undefinedTokens.map((f) =>
@@ -153,9 +158,10 @@ export function verify(input: VerifyInput): VerifyReport {
           ? `✗ ${f.property}: ${f.written} — no such token (misspelt or invented)${f.at ? ` at ${f.at}` : ""}`
           : `✗ ${f.property}: ${f.written} — the token is not defined on the page; write its fallback, e.g. var(--token, value)${f.at ? ` at ${f.at}` : ""}`,
       ),
-      ...tokens.filter((f) => f.defined !== false).map((f) => `✓ ${f.property}: token ${f.token}`),
+      ...misused.map(({ f, why }) => `✗ ${f.property}: ${f.written} — ${why}${f.at ? ` at ${f.at}` : ""}`),
+      ...tokens.filter((f) => f.defined !== false && !misused.some((m) => m.f === f)).map((f) => `✓ ${f.property}: token ${f.token}`),
     ];
-    return literal.length || undefinedTokens.length ? fail(id, title, summary, details) : ok(id, title, summary, details);
+    return literal.length || undefinedTokens.length || misused.length ? fail(id, title, summary, details) : ok(id, title, summary, details);
   };
   checks.push(hardCoded("colors", "Colours from tokens", COLOR_PROPERTIES, "colours"));
   checks.push(hardCoded("type", "Type styles from tokens", TYPE_PROPERTIES, "type styles"));
