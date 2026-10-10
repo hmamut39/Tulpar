@@ -1,0 +1,15 @@
+{
+  "name": "tulpar-example-chakra",
+  "private": true,
+  "description": "Chakra UI v3 (React), set up with `tulpar init`: tokens come from the system at runtime.",
+  "dependencies": {
+    "@chakra-ui/react": "3.27.1",
+    "@emotion/react": "11.14.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2"
+  }
+}

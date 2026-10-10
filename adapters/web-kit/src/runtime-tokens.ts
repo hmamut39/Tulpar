@@ -48,7 +48,9 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
         const visit = (rules: CSSRuleList) => {
           for (const rule of Array.from(rules)) {
             if (rule instanceof CSSStyleRule) {
-              if (!rule.selectorText.split(",").some((s) => scopes.has(s.trim()))) continue;
+              // ":where(:root, :host)" (Chakra) and ":is(...)" wrap the same scopes.
+              const selectors = rule.selectorText.replace(/:(where|is)\(([^()]*)\)/g, "$2").split(",");
+              if (!selectors.some((s) => scopes.has(s.trim()))) continue;
               for (let i = 0; i < rule.style.length; i++) {
                 const n = rule.style.item(i);
                 if (n.startsWith(prefix)) names.add(n);

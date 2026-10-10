@@ -1,0 +1,23 @@
+{
+  "adapter": "react",
+  "react": {
+    "packages": [
+      "node_modules/@chakra-ui/react"
+    ],
+    "styleDirs": [
+      "node_modules/@chakra-ui/react"
+    ],
+    "tokens": {
+      "runtime": {
+        "prefix": "chakra",
+        "modes": {
+          "dark": "dark"
+        }
+      }
+    },
+    "render": {
+      "stylesheets": [],
+      "setup": "tulpar.setup.tsx"
+    }
+  }
+}

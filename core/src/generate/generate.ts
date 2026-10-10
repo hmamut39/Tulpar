@@ -113,7 +113,10 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     if (!attempt.rejected.length && !attempt.report.checks.some((c) => c.status === "fail")) break;
   }
 
-  const last = [...attempts].reverse().find((a) => a.report) ?? attempts.at(-1)!;
+  // The best attempt is delivered, not the last: a repair can make things worse. Fewest failing
+  // checks wins; on a tie, the later attempt (it saw more feedback).
+  const failures = (a: Attempt) => (a.report ? a.rejected.length + a.report.checks.filter((c) => c.status === "fail").length : Infinity);
+  const last = attempts.reduce<Attempt | undefined>((best, a) => (!best || failures(a) <= failures(best) ? a : best), undefined) ?? attempts.at(-1)!;
   const failing = !last.report || last.rejected.length > 0 || last.report.checks.some((c) => c.status === "fail");
   return {
     status: failing ? "failed" : last.report!.verdict === "pass" ? "verified" : "unchecked-remain",

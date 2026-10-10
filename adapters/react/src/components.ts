@@ -62,14 +62,16 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
   let viaArgumentsCount = 0;
   // Components are exported directly (Button), as namespace members (Radix: TextField.Root), or as
   // statics of another component (Menu.Item). Each is named the way code writes it.
-  const candidates: { name: string; symbol: ts.Symbol; propsType: ts.Type }[] = [];
+  const candidates: { name: string; symbol: ts.Symbol; type: ts.Type; propsType: ts.Type }[] = [];
   const memberCandidates = (owner: string, members: ts.Symbol[]) => {
     for (const m of members) {
       const memberName = m.getName();
-      if (!/^[A-Z]/.test(memberName)) continue;
+      // Context objects (X.Provider, X.Consumer) are plumbing, not design-system components.
+      if (!/^[A-Z]/.test(memberName) || memberName === "Provider" || memberName === "Consumer") continue;
       const ms = m.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(m) : m;
-      const mp = componentProps(checker.getTypeOfSymbolAtLocation(ms, sf), checker);
-      if (mp) candidates.push({ name: `${owner}.${memberName}`, symbol: ms, propsType: mp });
+      const mt = checker.getTypeOfSymbolAtLocation(ms, sf);
+      const mp = componentProps(mt, checker);
+      if (mp) candidates.push({ name: `${owner}.${memberName}`, symbol: ms, type: mt, propsType: mp });
     }
   };
   for (const exported of checker.getExportsOfModule(moduleSymbol)) {
@@ -83,12 +85,46 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
     if (!(symbol.flags & ts.SymbolFlags.Value)) continue;
     const type = checker.getTypeOfSymbolAtLocation(symbol, sf);
     const propsType = componentProps(type, checker);
-    if (propsType) candidates.push({ name, symbol, propsType });
+    if (propsType) candidates.push({ name, symbol, type, propsType });
     memberCandidates(name, type.getProperties());
   }
 
-  for (const { name, symbol, propsType } of candidates) {
+  // Props declared once and shared by most components are a style system (Chakra's color, margin,
+  // padding… on every component), like React's DOM attributes: not what tells components apart.
+  const declKey = (p: ts.Symbol) => {
+    const d = p.valueDeclaration ?? p.declarations?.[0];
+    return d ? `${d.getSourceFile().fileName}:${d.pos}` : p.getName();
+  };
+  const sharedBy = new Map<string, number>();
+  if (candidates.length >= 20) {
+    for (const c of candidates) for (const k of new Set(propertiesOf(c.propsType, checker).map(declKey))) sharedBy.set(k, (sharedBy.get(k) ?? 0) + 1);
+  }
+  const isSystemProp = (p: ts.Symbol) => (sharedBy.get(declKey(p)) ?? 0) >= 0.4 * candidates.length;
+  let systemTotal = 0;
+  const systemExamples = new Set<string>();
 
+  // One entry per component: libraries export parts twice (Chakra: AccordionItem and Accordion.Item;
+  // Carbon: Table and DataTable.Table). The flat name is kept: it always imports, and links written
+  // against it (Code Connect) keep resolving. Parts exported only in a namespace keep the dotted name.
+  const declOf = (s: ts.Symbol) => s.valueDeclaration ?? s.declarations?.[0];
+  // A static re-exposing a flat export under the same name (Carbon's DataTable.Table, typed
+  // `typeof Table`) is that export.
+  const flatNames = new Set(candidates.filter((c) => !c.name.includes(".")).map((c) => c.name));
+  const byDecl = new Map<ts.Node | ts.Symbol, (typeof candidates)[number]>();
+  let sameName = 0;
+  for (const c of candidates) {
+    if (c.name.includes(".") && flatNames.has(c.name.split(".").at(-1)!)) {
+      sameName++;
+      continue;
+    }
+    const key = declOf(c.symbol) ?? c.symbol;
+    const prev = byDecl.get(key);
+    if (!prev || (!c.name.includes(".") && prev.name.includes("."))) byDecl.set(key, c);
+  }
+  const duplicates = candidates.length - sameName - byDecl.size + sameName;
+  if (duplicates) gaps.push(`${duplicates} components are exported under two names; each is listed once, by its flat name.`);
+
+  for (const { name, symbol, propsType } of byDecl.values()) {
     const props: CodeProp[] = [];
     const slots: CodeSlot[] = [];
     const events: CodeEvent[] = [];
@@ -114,6 +150,11 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
       const propName = prop.getName();
       if (isReactDecl(prop) && propName !== "children") {
         inheritedTotal++;
+        continue;
+      }
+      if (propName !== "children" && isSystemProp(prop)) {
+        systemTotal++;
+        if (systemExamples.size < 6) systemExamples.add(propName);
         continue;
       }
       const decl = prop.valueDeclaration ?? decls[0];
@@ -171,6 +212,14 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
     });
   }
   if (viaArgumentsCount) gaps.push(`${viaArgumentsCount} components' props were read from a type argument of their props type (polymorphic typing hides them otherwise); medium confidence.`);
+  if (systemTotal) gaps.push(`${systemTotal} style-system props shared by most components were omitted (e.g. ${[...systemExamples].join(", ")}); they set styles, not what a component is.`);
+  // Keep the index readable and sendable: some type texts expand to thousands of characters.
+  for (const c of components) {
+    for (const prop of c.props) {
+      if (prop.typeText && prop.typeText.length > 400) prop.typeText = `${prop.typeText.slice(0, 399)}…`;
+      if (prop.type?.kind === "enum" && prop.type.values.length > 100) prop.type = { ...prop.type, values: prop.type.values.slice(0, 100), open: true };
+    }
+  }
   if (inheritedTotal) gaps.push(`${inheritedTotal} props inherited from React's DOM attribute types were omitted (on average ${Math.round(inheritedTotal / Math.max(1, components.length))} per component).`);
   return { components, pkg };
 }
@@ -185,6 +234,8 @@ function componentProps(type: ts.Type, checker: ts.TypeChecker): ts.Type | undef
     const construct = type.getConstructSignatures().includes(sig);
     // Polymorphic components are often typed `=> React.ReactElement | any`, which reads as `any`.
     if (!construct && !/ReactNode|ReactElement|Element|null|^any$/.test(ret)) continue;
+    // A class is a component only if its instances render (React class components); data classes are not.
+    if (construct && !sig.getReturnType().getProperty("render")) continue;
     const props = checker.getTypeOfSymbol(param);
     if (props.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown) || !(props.flags & ts.TypeFlags.Object || props.isUnionOrIntersection())) continue;
     return props;

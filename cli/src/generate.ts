@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage } from "@tulpar/core";
+import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type VerifyReport } from "@tulpar/core";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
@@ -68,6 +68,8 @@ export async function generateCommand(projectDir: string, options: GenerateComma
 
   let result: GenerationResult;
   let png: string | undefined;
+  // Each attempt's render, so the delivered attempt (the best, not always the last) keeps its own.
+  const pngs = new Map<VerifyReport, string>();
   try {
     result = await withAdapter(project, async (host) => {
     const ctx = options.frame
@@ -109,7 +111,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
         const testSpec = conventions.files.find((f) => f.role === "test");
         const testFile = testSpec && join(workDir, testSpec.path.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");
         const verified = await verifyEntry(host, project, ctx, entry, options.theme, testFile && files.some((f) => testFile.endsWith(f.path)) ? testFile : undefined);
-        png = verified.png;
+        if (verified.png) pngs.set(verified.report, verified.png);
         return verified.report;
       },
     });
@@ -117,6 +119,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err));
   }
+  png = result.report ? pngs.get(result.report) : undefined;
 
   const outDir = options.resultsDir ?? join(options.out, basename(project.root), "generated", options.name);
   await rm(outDir, { recursive: true, force: true });

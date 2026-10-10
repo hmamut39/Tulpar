@@ -109,3 +109,13 @@ MUI, Chakra and PrimeNG build their theme in JavaScript when their provider star
 - **Invisible characters.** MUI's outlined input draws a zero-width space. It is stripped from rendered text, and an input's placeholder is read in light DOM as well as shadow DOM.
 
 **Result (MUI, same screenshot):** 9/9 components, 0 hard-coded values (spacing written as `calc(var(--mui-spacing) * 3)`), layout 10/10, text 8/8, 7.0% pixel difference.
+
+## Chakra UI v3 (React): indexed, not yet passing, 2026-10-10
+
+- **Index.** Chakra components accept every CSS property as a style prop, and the index grew past Node's string limit. Props declared once and shared by 40% or more of components are now treated as a style system and omitted, like React's DOM attributes: 441,082 occurrences, counted in a gap note. Very long type texts are capped.
+- **Duplicates.** Parts exported twice are listed once. When the same declaration is exported flat and namespaced (`AccordionItem`, `Accordion.Item`), the flat name is kept, because it always imports. A namespaced static that re-exposes a flat export of the same name (Carbon's `DataTable.Table`) is dropped, so Carbon's Code Connect links and matcher accuracy are unchanged (top-1 77%). React context objects (`.Provider`, `.Consumer`) and data classes are not components.
+- **Tokens.** Chakra declares its variables under `:where(:root, :host)`, which the probe now unwraps: 493 tokens, light and dark.
+- **Result:** 669 components. The sign-in card uses 11/11 Chakra components with 0 hard-coded values and text 8/8, but the pixel check fails (12.6% at best). **Not passing yet.**
+- **Best attempt, not last.** The third repair made the Chakra card worse (12.6% → 22.4%). Generation now delivers the attempt with the fewest failing checks (the later one on a tie), with that attempt's own render.
+
+**Still to do:** Chakra fidelity; PrimeNG, which needs the Angular adapter to apply the setup's providers and run the token probe (the recipe in `tulpar init` is ready).
