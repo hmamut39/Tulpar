@@ -22,6 +22,8 @@ export interface JobInput {
 export interface Job {
   id: string;
   input: JobInput;
+  /** Jumps ahead of ordinary jobs in the queue (Pro accounts, invite codes). */
+  priority?: boolean;
   /** What the design came from; kept after the image itself is dropped. */
   source: "figma" | "screenshot" | "both";
   state: "queued" | "running" | "done" | "error";
@@ -63,12 +65,15 @@ export class JobQueue {
     return this.pending ? new Promise((r) => this.#idle.push(r)) : Promise.resolve();
   }
 
-  add(input: JobInput): string {
+  /** Queues a job. A priority job (Pro, invite) waits only behind other priority jobs. */
+  add(input: JobInput, options: { priority?: boolean } = {}): string {
     this.#sweep();
     const source = input.frame && input.image ? "both" : input.image ? "screenshot" : "figma";
-    const job: Job = { id: randomUUID(), input, source, state: "queued", createdAt: Date.now(), events: [] };
+    const job: Job = { id: randomUUID(), input, source, state: "queued", createdAt: Date.now(), events: [], priority: !!options.priority };
     this.#jobs.set(job.id, job);
-    this.#waiting.push(job);
+    const firstOrdinary = job.priority ? this.#waiting.findIndex((w) => !w.priority) : -1;
+    if (firstOrdinary >= 0) this.#waiting.splice(firstOrdinary, 0, job);
+    else this.#waiting.push(job);
     this.#log(job, this.#running ? "Queued behind another generation." : "Starting.");
     void this.#next();
     return job.id;

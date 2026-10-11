@@ -12,8 +12,13 @@
 //   proxy); otherwise anyone could fake the header to escape the limits;
 // - a visitor's Figma token is used for their job only: never stored, logged or returned;
 // - generated code is only bundled and rendered in headless Chromium with the network blocked;
-// - one JSON log line per finished job (project, source, status, attempts, tokens, time, which invite):
-//   never the token, the image, the code or the files.
+// - one JSON log line per finished job (project, source, status, attempts, tokens, time, which invite
+//   or account): never the token, the image, the code or the files.
+//
+// Accounts and payments, when configured (GITHUB_CLIENT_ID/SECRET + TULPAR_SESSION_SECRET; STRIPE_*):
+// - visitors sign in with GitHub and get a free trial; Pro is a Stripe subscription (accounts.ts);
+// - each generation is counted against the account's allowance, and refunded if it fails before
+//   reaching the model; invite codes still work and are not counted (owner, testers).
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -22,6 +27,9 @@ import { basename, extname, join, resolve } from "node:path";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
 import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, type Llm } from "@tulpar/core";
+import { Accounts } from "./accounts.ts";
+import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, startSignIn, type AuthConfig } from "./auth.ts";
+import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, verifyWebhook, type BillingConfig } from "./billing.ts";
 import { JobQueue, type JobInput } from "./jobs.ts";
 import { zipFiles } from "./zip.ts";
 
@@ -44,6 +52,16 @@ export interface ServerOptions {
   rerank?: boolean;
   /** Where generation results go; default out/<project>/generated/<name>. */
   resultsRoot?: string;
+  /** GitHub sign-in; default from the environment. `null` turns it off. */
+  auth?: AuthConfig | null;
+  /** Stripe payments; default from the environment. `null` turns them off. */
+  billing?: BillingConfig | null;
+  /** The accounts store; default out/accounts.db when sign-in is on. */
+  accounts?: Accounts;
+  /** Replaces fetch for GitHub and Stripe calls (tests). */
+  fetch?: typeof fetch;
+  /** What the pricing section shows for Pro, e.g. "$29". */
+  proPriceLabel?: string;
 }
 
 export interface ProjectInfo {
@@ -81,6 +99,11 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const runs = new Map<string, number[]>();
   const today: number[] = [];
   const invites = new Map<string, string>(); // job id → which invite (a hash, never the code)
+  const auth = options.auth === undefined ? authFromEnv() : (options.auth ?? undefined);
+  const billing = options.billing === undefined ? billingFromEnv() : (options.billing ?? undefined);
+  const accounts = auth ? (options.accounts ?? new Accounts(join(options.repoRoot, "out", "accounts.db"))) : undefined;
+  const jobAccounts = new Map<string, { id: number; login: string }>(); // job id → the account it counts against
+  const proPrice = options.proPriceLabel ?? process.env.TULPAR_PRO_PRICE_LABEL ?? "$29";
   const queue = new JobQueue({
     repoRoot: options.repoRoot,
     llm,
@@ -97,8 +120,13 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         ...(job.error && { error: job.error.slice(0, 200) }),
         ms,
         invite: invites.get(job.id) ?? null,
+        account: jobAccounts.get(job.id)?.login ?? null,
       }));
+      // Failed before the model ran (e.g. the Figma frame could not be read): the generation is given back.
+      const owner = jobAccounts.get(job.id);
+      if (owner && job.state === "error" && !r) accounts?.refund(owner.id);
       invites.delete(job.id);
+      jobAccounts.delete(job.id);
     },
   });
   const publicDir = resolve(import.meta.dirname, "../public");
@@ -115,18 +143,69 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const model = llm();
         return json(res, 200, {
           projects: projects.map(({ id, adapter, label }) => ({ id, adapter, label })),
-          accessCodeRequired: codes.length > 0,
+          accessCodeRequired: codes.length > 0 && !auth,
+          inviteCodes: codes.length > 0,
+          signIn: !!auth,
+          billing: !!billing,
+          pricing: { trialGenerations: Number(process.env.TULPAR_TRIAL_GENERATIONS || 20), proGenerations: Number(process.env.TULPAR_PRO_GENERATIONS || 300), proPrice },
           model: model ? model.name : null,
           defaultModel: DEFAULT_OPENAI_MODEL,
           figmaTokenOnServer: !!process.env.FIGMA_TOKEN,
         });
       }
 
+      // ---- Accounts: GitHub sign-in, who am I, payments ----
+      if (auth && accounts) {
+        if (req.method === "GET" && path === "/auth/github") return startSignIn(res, auth);
+        if (req.method === "GET" && path === "/auth/github/callback") {
+          try {
+            const user = await finishSignIn(req, auth, options.fetch);
+            const account = accounts.signIn(user);
+            log(JSON.stringify({ event: "sign-in", at: new Date().toISOString(), account: account.login, new: Date.now() - Date.parse(account.createdAt) < 10_000 }));
+            return setSession(res, account.id, auth);
+          } catch (err) {
+            res.writeHead(302, { location: `/?signin_error=${encodeURIComponent((err as Error).message)}`, "cache-control": "no-store" });
+            return res.end();
+          }
+        }
+        if (req.method === "POST" && path === "/auth/logout") return clearSession(res, auth);
+        if (req.method === "GET" && path === "/api/me") {
+          const id = sessionAccount(req, auth);
+          const account = id === undefined ? undefined : accounts.get(id);
+          if (!account) return json(res, 200, { signedIn: false });
+          return json(res, 200, { signedIn: true, login: account.login, name: account.name, allowance: accounts.allowance(account), subscription: account.subscriptionStatus, canManageBilling: !!billing && !!account.stripeCustomer });
+        }
+        if (req.method === "POST" && (path === "/api/billing/checkout" || path === "/api/billing/portal")) {
+          if (!billing) return json(res, 503, { error: "Payments are not set up yet." });
+          const id = sessionAccount(req, auth);
+          const account = id === undefined ? undefined : accounts.get(id);
+          if (!account) return json(res, 401, { error: "Sign in first.", signIn: true });
+          const go = path.endsWith("checkout") ? checkoutUrl : portalUrl;
+          return json(res, 200, { url: await go(account, accounts, billing, options.fetch) });
+        }
+      }
+      if (billing && accounts && req.method === "POST" && path === "/api/stripe/webhook") {
+        const raw = await readRaw(req);
+        if (!verifyWebhook(raw, req.headers["stripe-signature"] as string | undefined, billing.webhookSecret)) return json(res, 400, { error: "Bad signature." });
+        const event = JSON.parse(raw);
+        log(JSON.stringify({ event: "stripe", at: new Date().toISOString(), type: event.type, result: applyEvent(event, accounts) }));
+        return json(res, 200, { received: true });
+      }
+
       if (req.method === "POST" && path === "/api/jobs") {
         const body = await readJson(req);
         const given = String(body.accessCode ?? "");
-        const code = codes.find((c) => sameSecret(given, c));
-        if (codes.length && !code) return json(res, 401, { error: "Wrong or missing access code." });
+        const code = given ? codes.find((c) => sameSecret(given, c)) : undefined;
+        if (given && !code) return json(res, 401, { error: "That invite code is not valid." });
+        // Who pays for this run: an invite code (not counted), or a signed-in account's allowance.
+        const accountId = !code && auth ? sessionAccount(req, auth) : undefined;
+        const account = accountId === undefined ? undefined : accounts?.get(accountId);
+        if (!code && auth && !account) return json(res, 401, { error: "Sign in with GitHub to start your free trial.", signIn: true });
+        if (!code && !auth && codes.length) return json(res, 401, { error: "Wrong or missing access code." });
+        if (account) {
+          const allowance = accounts!.allowance(account);
+          if (allowance.blocked) return json(res, 402, { error: allowance.blocked, upgrade: !!billing });
+        }
         const visitor = clientId(req, trustProxy);
         const recent = (runs.get(visitor) ?? []).filter((t) => Date.now() - t < 3_600_000);
         if (recent.length >= runsPerHour) return json(res, 429, { error: `Limit reached: ${runsPerHour} generations per hour.` });
@@ -162,8 +241,13 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           ...((typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN ? { figmaToken: (typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN! } : {}),
           ...(image && { image }),
         };
-        const id = queue.add(input);
+        if (account) {
+          const counted = accounts!.consume(account.id);
+          if (!counted.consumed) return json(res, 402, { error: counted.blocked, upgrade: !!billing });
+        }
+        const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro") });
         if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
+        if (account) jobAccounts.set(id, { id: account.id, login: account.login });
         return json(res, 202, { id });
       }
 
@@ -219,7 +303,8 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+/** The request body as text, exactly as sent (Stripe signs the raw bytes). */
+async function readRaw(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
@@ -227,8 +312,13 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
     if (size > MAX_BODY) throw new HttpError(413, "Request too large (12 MB max).");
     chunks.push(chunk as Buffer);
   }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const raw = await readRaw(req);
   try {
-    const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const value = JSON.parse(raw);
     if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error();
     return value as Record<string, unknown>;
   } catch {
@@ -295,7 +385,7 @@ async function serveStatic(res: ServerResponse, dir: string, path: string, headO
 // `node web/src/server.ts`
 if (import.meta.filename === resolve(process.argv[1] ?? "")) {
   loadDotEnv();
-  if (process.env.NODE_ENV === "production" && !accessCodes().length && process.env.TULPAR_PUBLIC !== "1") {
+  if (process.env.NODE_ENV === "production" && !accessCodes().length && !authFromEnv() && process.env.TULPAR_PUBLIC !== "1") {
     console.error("Refusing to start: NODE_ENV=production and no TULPAR_ACCESS_CODES, so anyone could spend the OpenAI key. Set invite codes, or TULPAR_PUBLIC=1 if the page is meant to be open.");
     process.exit(1);
   }

@@ -34,11 +34,88 @@ async function init() {
   fillProjects();
   $("stacks").innerHTML = [...new Set(config.projects.map((p) => FRAMEWORKS[p.adapter] ?? p.adapter))].map((f) => `<li>${esc(f)}</li>`).join("");
   $("accessField").hidden = !config.accessCodeRequired;
+  // With sign-in on, invite codes still work, behind a small link.
+  $("inviteToggle").hidden = !(config.signIn && config.inviteCodes);
+  await initAccount(config);
   $("modelNote").textContent = config.model ? `Runs on ${config.model.replace(/^openai:/, "OpenAI ")}` : "Generation is off: the server has no OpenAI key.";
   $("submit").disabled = !config.model;
   $("tokenHint").textContent = config.figmaTokenOnServer ? "optional" : "needed for new frames";
   const saved = storage.get(TOKEN_KEY);
   if (saved) { $("figmaToken").value = saved; $("rememberToken").checked = true; }
+}
+
+// ---- Account: sign-in, what is left, upgrade, billing ----
+let me = { signedIn: false };
+async function initAccount(config) {
+  if (!config.signIn) return;
+  $("account").hidden = false;
+  $("pricing").hidden = false;
+  $("pricingLink").hidden = false;
+  $("trialCount").textContent = config.pricing.trialGenerations;
+  $("proCount").textContent = config.pricing.proGenerations;
+  $("proPrice").textContent = config.pricing.proPrice;
+  me = await (await fetch("/api/me")).json();
+  $("signIn").hidden = me.signedIn;
+  $("me").hidden = !me.signedIn;
+  if (me.signedIn) {
+    const a = me.allowance;
+    $("meName").textContent = me.login;
+    $("meLeft").textContent = a.plan === "pro" ? `Pro · ${a.remaining} left this month` : `Trial · ${a.remaining} of ${a.limit} left`;
+    $("upgradeBtn").hidden = !config.billing || a.plan === "pro";
+    $("billingBtn").hidden = !me.canManageBilling;
+    $("trialCta").textContent = a.plan === "pro" ? "Your trial is behind you" : "You're on the free trial";
+    $("trialCta").removeAttribute("href");
+    $("proCta").textContent = a.plan === "pro" ? "Manage your plan" : "Upgrade to Pro";
+  }
+  $("proCta").disabled = !config.billing;
+  if (!config.billing) $("proCta").textContent = "Coming very soon";
+  const params = new URLSearchParams(location.search);
+  if (params.get("upgraded")) showNotice("Welcome to Pro. Your monthly generations are ready.", "", null);
+  if (params.get("signin_error")) showNotice(params.get("signin_error"), "Try again", () => (location.href = "/auth/github"));
+  if (params.size) history.replaceState(null, "", location.pathname + location.hash);
+}
+
+async function refreshAllowance() {
+  me = await (await fetch("/api/me")).json();
+  if (!me.signedIn) return;
+  const a = me.allowance;
+  $("meLeft").textContent = a.plan === "pro" ? `Pro · ${a.remaining} left this month` : `Trial · ${a.remaining} of ${a.limit} left`;
+}
+
+async function upgrade() {
+  if (!me.signedIn) return (location.href = "/auth/github");
+  await goTo("/api/billing/checkout");
+}
+async function goTo(endpoint) {
+  try {
+    const res = await fetch(endpoint, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+    location.href = data.url;
+  } catch (err) {
+    showNotice(err.message, "", null);
+  }
+}
+$("upgradeBtn").addEventListener("click", upgrade);
+$("billingBtn").addEventListener("click", () => goTo("/api/billing/portal"));
+$("proCta").addEventListener("click", () => (me.allowance?.plan === "pro" ? goTo("/api/billing/portal") : upgrade()));
+$("signOut").addEventListener("click", async () => {
+  await fetch("/auth/logout", { method: "POST", redirect: "manual" });
+  location.reload();
+});
+$("inviteToggle").addEventListener("click", () => {
+  $("accessField").hidden = false;
+  $("inviteToggle").hidden = true;
+  $("accessCode").focus();
+});
+
+function showNotice(text, actionLabel, action) {
+  $("noticeText").textContent = text;
+  $("noticeAction").hidden = !actionLabel;
+  $("noticeAction").textContent = actionLabel || "";
+  $("noticeAction").onclick = action;
+  $("notice").hidden = false;
+  $("notice").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 // Framework first, then the design systems built for it. Labels drop the framework, shown already.
@@ -112,6 +189,14 @@ $("form").addEventListener("submit", async (e) => {
   try {
     const res = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const data = await res.json();
+    if (res.status === 401 && data.signIn) {
+      showNotice(data.error, "Sign in with GitHub", () => (location.href = "/auth/github"));
+      throw new Error(data.error);
+    }
+    if (res.status === 402) {
+      showNotice(data.error, data.upgrade ? "Upgrade to Pro" : "", data.upgrade ? upgrade : null);
+      throw new Error(data.error);
+    }
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
     current = data.id;
     show("progress");
@@ -134,6 +219,7 @@ async function poll(id) {
   $("events").innerHTML = job.events.map((e) => `<li>${esc(e.text)}</li>`).join("");
   if (running) return setTimeout(() => poll(id), 1000);
   setBusy(false);
+  if (me.signedIn) refreshAllowance();
   if (job.state === "error") { show("empty"); return showError(job.error); }
   showResult(job);
 }
