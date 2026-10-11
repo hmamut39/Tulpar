@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Tulpar adapter for Angular. Speaks the adapter protocol on stdio.
 
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
-import { closeBrowser, readTokens, render, runVitestBrowser, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { indexPackage } from "./components.ts";
 import { analyzeAngular } from "./verify/analyze.ts";
 import { build } from "./verify/build.ts";
@@ -19,7 +19,7 @@ interface Config {
 }
 
 const config = (p: ProjectParams) => p.config as Config;
-const prefix = (p: ProjectParams) => config(p).tokens?.cssPrefix ?? "";
+const prefix = (p: ProjectParams) => tokenPrefix(config(p).tokens);
 
 let cached: { key: string; index: ComponentIndex } | undefined;
 function index(params: ProjectParams): ComponentIndex {
@@ -57,13 +57,21 @@ serve({
 
   index,
 
-  tokens: (params) => {
+  tokens: async (params) => {
     const c = config(params);
     if (!c.tokens) return { adapter: "angular", modes: [], tokens: [], gaps: ['No "tokens" configured.'] };
-    return readTokens(params.root, c.tokens, (c.styleDirs ?? []).map((d) => join(params.root, d)), "angular");
+    const set = readTokens(params.root, c.tokens, (c.styleDirs ?? []).map((d) => join(params.root, d)), "angular");
+    if (!c.tokens.runtime) return set;
+    // Tokens the library injects when the app starts (PrimeNG's theme): bootstrap an empty component with the setup's providers.
+    const dir = join(params.root, ".tulpar", "probe");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "probe.component.ts"), 'import { Component } from "@angular/core";\n@Component({ selector: "tulpar-probe", standalone: true, template: "" })\nexport class ProbeComponent {}\n');
+    const built = await build({ ...params, entry: ".tulpar/probe/probe.component.ts", frame: { width: 200, height: 200 } }, c.render ?? {}, c.packages ?? []);
+    if (!built.ok) return { ...set, gaps: [...set.gaps, `Runtime tokens not read: the probe page did not build (${built.log.split("\n")[0]})`] };
+    return mergeTokens(set, await probeTokens(built.artifact as string, c.render ?? {}, angularHooks(new Set()), c.tokens.runtime));
   },
 
-  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? []),
+  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? [], [...new Set(index(params).components.map((c) => c.module))]),
 
   render: (params) => render(params, config(params).render ?? {}, prefix(params), angularHooks(new Set(index(params).components.map((c) => c.name)))),
 
@@ -109,6 +117,7 @@ serve({
   },
 
   shutdown: async () => {
+    await closeProbeBrowser();
     await closeBrowser();
     return null;
   },

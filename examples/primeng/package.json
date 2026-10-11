@@ -1,0 +1,19 @@
+{
+  "name": "tulpar-example-primeng",
+  "private": true,
+  "description": "PrimeNG (Angular), set up with `tulpar init`: tokens come from the theme preset at runtime.",
+  "dependencies": {
+    "@angular/animations": "22.2.0",
+    "@angular/cdk": "22.2.0",
+    "@angular/common": "22.2.0",
+    "@angular/compiler": "22.2.0",
+    "@angular/core": "22.2.0",
+    "@angular/forms": "22.2.0",
+    "@angular/platform-browser": "22.2.0",
+    "@angular/router": "22.2.0",
+    "@primeuix/themes": "3.0.1",
+    "primeng": "22.1.2",
+    "rxjs": "7.8.2",
+    "zone.js": "0.16.3"
+  }
+}

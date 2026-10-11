@@ -119,3 +119,11 @@ MUI, Chakra and PrimeNG build their theme in JavaScript when their provider star
 - **Best attempt, not last.** The third repair made the Chakra card worse (12.6% → 22.4%). Generation now delivers the attempt with the fewest failing checks (the later one on a tie), with that attempt's own render.
 
 **Still to do:** Chakra fidelity; PrimeNG, which needs the Angular adapter to apply the setup's providers and run the token probe (the recipe in `tulpar init` is ready).
+
+## PrimeNG (Angular): indexed, not yet passing, 2026-10-11
+
+- **Entry points.** PrimeNG publishes each component as its own entry point (`primeng/button`) and nothing at the root. The Angular indexer now reads every subpath in the package's `exports` map and records each component's real import path: 307 components.
+- **Signal inputs.** `size = input<"small" | "large">()` is typed `InputSignal<…>`. The value type is unwrapped, as is the accepted type of a transform: 157 props now show their allowed values.
+- **Setup and runtime tokens.** The setup's `providers` (`providePrimeNG({ theme: { preset: Aura } })`) go into the bootstrap. Tokens are read from a probe page: 407 `--p-*` tokens, light and dark.
+- **Identity.** The render page exposes the entry points the implementation imports. All of them would pull in optional peers such as `primeng/chart` → chart.js.
+- **Result:** 4/5 components (the password field used `InputText` instead of `Password`), 0 hard-coded values, layout 11/11, text 8/8, typeface 8/8. Pixels differ by 16.5%, mostly because PrimeNG's default theme (Aura) is emerald and the design is sky blue. **Not passing yet**; with a team's own preset in the setup file the colours would come from their theme.

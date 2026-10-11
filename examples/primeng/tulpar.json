@@ -1,0 +1,23 @@
+{
+  "adapter": "angular",
+  "angular": {
+    "packages": [
+      "node_modules/primeng"
+    ],
+    "styleDirs": [
+      "node_modules/primeng"
+    ],
+    "tokens": {
+      "runtime": {
+        "prefix": "p",
+        "modes": {
+          "dark": "p-dark"
+        }
+      }
+    },
+    "render": {
+      "stylesheets": [],
+      "setup": "tulpar.setup.ts"
+    }
+  }
+}

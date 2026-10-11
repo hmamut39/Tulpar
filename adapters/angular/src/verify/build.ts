@@ -16,10 +16,17 @@ import { FRAME_ID, writeHarness, type RenderConfig } from "@tulpar/web-kit";
 export const DESIGN_SYSTEM_GLOBAL = "__tulparDesignSystem";
 export const READY_FLAG = "__tulparReady";
 
-export async function build(params: BuildParams, render: RenderConfig, packages: string[]): Promise<BuildResult> {
+export async function build(params: BuildParams, render: RenderConfig, packages: string[], modules: string[] = []): Promise<BuildResult> {
   const { root, entry, frame } = params;
   const outDir = join(root, ".tulpar", "build", basename(entry).replace(/\.[^.]+$/, ""));
-  const names = packages.map((dir) => JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8")).name as string);
+  // Every module the index found components in: the package roots, and secondary entry points
+  // (PrimeNG publishes each component as its own, primeng/button, and nothing at the root).
+  const roots = packages.map((dir) => JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8")).name as string);
+  // Only the entry points the implementation imports: importing all of them would pull in every optional
+  // peer (primeng/chart needs chart.js), and only components the code uses need identifying.
+  const implSource = readFileSync(join(root, entry), "utf8");
+  const used = modules.filter((m) => implSource.includes(`"${m}"`) || implSource.includes(`'${m}'`));
+  const names = [...new Set([...roots, ...used])];
   const stylesheets: { file: string; css: string }[] = [];
   const logs: string[] = [];
 
@@ -29,12 +36,13 @@ import { provideZoneChangeDetection, reflectComponentType, ApplicationRef } from
 import { bootstrapApplication } from "@angular/platform-browser";
 ${names.map((n, i) => `import * as ds${i} from ${JSON.stringify(n)};`).join("\n")}
 import * as implementation from ${JSON.stringify(`./${entry.replace(/\\/g, "/")}`)};
+${render.setup ? `import { providers as setupImport } from ${JSON.stringify(`./${render.setup.replace(/\\/g, "/")}`)};\nconst setupProviders = setupImport ?? [];` : "const setupProviders = [];"}
 window.${DESIGN_SYSTEM_GLOBAL} = Object.assign({}, ${names.map((_, i) => `ds${i}`).join(", ") || "{}"});
 const component = Object.values(implementation).find((v) => typeof v === "function" && reflectComponentType(v));
 if (!component) throw new Error("The implementation exports no Angular component.");
 const selector = reflectComponentType(component).selector.split(",")[0].trim();
 document.getElementById(${JSON.stringify(FRAME_ID)}).appendChild(document.createElement(selector));
-bootstrapApplication(component, { providers: [provideZoneChangeDetection()] })
+bootstrapApplication(component, { providers: [provideZoneChangeDetection(), ...setupProviders] })
   .then((app) => app.injector.get(ApplicationRef).whenStable())
   .then(() => (window.${READY_FLAG} = true), (e) => { window.${READY_FLAG} = String((e && e.stack) || e); });
 `;

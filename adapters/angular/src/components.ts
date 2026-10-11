@@ -22,24 +22,32 @@ export interface IndexedPackage {
 export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage {
   const pkgJson = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8"));
   const pkg = { name: pkgJson.name as string, version: pkgJson.version as string };
-  const typesEntry = [pkgJson.types, pkgJson.typings, "index.d.ts"].find((p) => p && existsSync(join(packageDir, p)));
-  if (!typesEntry) {
+  // Entry points: the package root, and every subpath its "exports" map declares types for. Libraries
+  // like PrimeNG publish each component as its own entry point (primeng/button) and nothing at the root.
+  const entries: { file: string; importPath: string }[] = [];
+  const rootTypes = [pkgJson.types, pkgJson.typings, "index.d.ts"].find((p) => p && existsSync(join(packageDir, p)));
+  if (rootTypes) entries.push({ file: join(packageDir, rootTypes), importPath: pkg.name });
+  for (const [subpath, target] of Object.entries((pkgJson.exports ?? {}) as Record<string, unknown>)) {
+    if (subpath === "." || !subpath.startsWith("./") || subpath.includes("*")) continue;
+    const types = typeof target === "object" && target ? (target as Record<string, unknown>).types : undefined;
+    if (typeof types === "string" && types.endsWith(".d.ts") && existsSync(join(packageDir, types))) entries.push({ file: join(packageDir, types), importPath: `${pkg.name}/${subpath.slice(2)}` });
+  }
+  if (!entries.length) {
     gaps.push(`${pkg.name}: no TypeScript declarations found; components not read.`);
     return { components: [], pkg };
   }
-  const entry = join(packageDir, typesEntry);
-  const program = ts.createProgram([entry], { noEmit: true, skipLibCheck: true, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler });
+  const program = ts.createProgram(entries.map((e) => e.file), { noEmit: true, skipLibCheck: true, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler });
   const checker = program.getTypeChecker();
-  const moduleSymbol = checker.getSymbolAtLocation(program.getSourceFile(entry)!);
-  if (!moduleSymbol) {
-    gaps.push(`${pkg.name}: ${typesEntry} is not a module.`);
-    return { components: [], pkg };
-  }
 
   const components: CodeComponent[] = [];
   const seen = new Set<ts.Symbol>();
   let skippedHosts = 0;
-  for (const exported of checker.getExportsOfModule(moduleSymbol)) {
+  const exportsWithEntry = entries.flatMap(({ file, importPath }) => {
+    const sf = program.getSourceFile(file);
+    const moduleSymbol = sf && checker.getSymbolAtLocation(sf);
+    return moduleSymbol ? checker.getExportsOfModule(moduleSymbol).map((exported) => ({ exported, importPath })) : [];
+  });
+  for (const { exported, importPath } of exportsWithEntry) {
     const symbol = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
     if (!(symbol.flags & ts.SymbolFlags.Class) || seen.has(symbol)) continue;
     seen.add(symbol);
@@ -58,7 +66,7 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
     for (const input of meta.inputs) {
       const member = instance.getProperty(input.property);
       const memberDecl = member?.valueDeclaration ?? member?.declarations?.[0];
-      const shape = member ? typeShape(memberDecl, checker.getTypeOfSymbolAtLocation(member, decl), checker) : { typeText: "" };
+      const shape = member ? typeShape(memberDecl, unwrapSignal(checker.getTypeOfSymbolAtLocation(member, decl), checker), checker) : { typeText: "" };
       const doc = member ? ts.displayPartsToString(member.getDocumentationComment(checker)).trim() : "";
       const tags = member?.getJsDocTags(checker) ?? [];
       props.push({
@@ -75,7 +83,9 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
     const slots: CodeSlot[] = meta.contentSelectors.map((s) => ({ name: s === "*" ? "" : s, provenance: DTS }));
     const file = decl.getSourceFile().fileName;
     const rel = relative(packageDir, file).replace(/\\/g, "/");
-    const entryPoint = rel.includes("/") ? `${pkg.name}/${rel.split("/")[0]}` : pkg.name;
+    // Carbon's root re-exports everything; the folder names its secondary entry point. Otherwise the
+    // entry point it was found through is the import path.
+    const entryPoint = importPath !== pkg.name ? importPath : rel.includes("/") ? `${pkg.name}/${rel.split("/")[0]}` : pkg.name;
     const docs = ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim();
     const deprecated = symbol.getJsDocTags(checker).find((t) => t.name === "deprecated");
     components.push({
@@ -151,4 +161,17 @@ export function markupFor(selector: string): string {
   const attr = /^([a-z][a-z0-9-]*)?\[([A-Za-z-]+)(?:=[^\]]*)?\]$/.exec(first);
   if (attr) return attr[1] ? `<${attr[1]} ${attr[2]}>` : `attribute directive ${attr[2]}: add it to the native element it enhances (e.g. <button ${attr[2]}>)`;
   return `<${first}>`;
+}
+
+/**
+ * Signal inputs (`size = input<"small" | "large">()`, model(), and inputs with a transform) are typed
+ * InputSignal<T>, InputSignalWithTransform<T, W> or ModelSignal<T>; the value a template sets is T,
+ * or W, the type the transform accepts.
+ */
+function unwrapSignal(type: ts.Type, checker: ts.TypeChecker): ts.Type {
+  const name = (type.aliasSymbol ?? type.getSymbol())?.getName();
+  if (!name || !/^(InputSignal|InputSignalWithTransform|ModelSignal)$/.test(name)) return type;
+  const args = type.aliasTypeArguments ?? checker.getTypeArguments(type as ts.TypeReference);
+  const value = name === "InputSignalWithTransform" ? args[1] : args[0];
+  return value ?? type;
 }
