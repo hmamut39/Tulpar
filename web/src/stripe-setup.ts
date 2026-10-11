@@ -28,7 +28,9 @@ type List<T> = { data: T[] };
 // Product and price: found by a metadata marker, so a second run reuses them.
 const products = await stripe<List<{ id: string; metadata: Record<string, string> }>>(config, "GET", "/products", { limit: 100, active: true });
 let product = products.data.find((p) => p.metadata.tulpar_plan === "pro");
-product ??= await stripe<{ id: string; metadata: Record<string, string> }>(config, "POST", "/products", { name: "Tulpar Pro", description: `${process.env.TULPAR_PRO_GENERATIONS || 300} verified component generations a month`, metadata: { tulpar_plan: "pro" } });
+product ??= await stripe<{ id: string; metadata: Record<string, string> }>(config, "POST", "/products", { name: "Tulpar Pro", description: `${process.env.TULPAR_PRO_GENERATIONS || 300} verified component generations a month`, statement_descriptor: "TULPAR", metadata: { tulpar_plan: "pro" } });
+// Card statements say TULPAR even when the Stripe account is shared with another product.
+if ((product as { statement_descriptor?: string }).statement_descriptor !== "TULPAR") await stripe(config, "POST", `/products/${product.id}`, { statement_descriptor: "TULPAR" });
 console.log(`✓ product ${product.id}`);
 
 const amount = Number(values.price);
