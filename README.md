@@ -64,6 +64,10 @@ CheckoutCard
 
 **Later targets:** Compose, then Vue, Svelte, Angular, Flutter, SwiftUI, .NET and Rust.
 
+## Creator
+
+Tulpar was created by **Mamuti Aishan (Hasan)** ([GitHub](https://github.com/hmamut39)). Live at **[tulparsi.com](https://tulparsi.com)**.
+
 ## License
 
 No license has been chosen yet. Until one is added, all rights are reserved.

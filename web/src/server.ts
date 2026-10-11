@@ -74,7 +74,7 @@ export interface ProjectInfo {
 
 const MAX_BODY = 12 * 1024 * 1024;
 /** Clean URLs for the site's pages. */
-const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html" };
+const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html", "/about": "/about.html" };
 
 export function listProjects(repoRoot: string): ProjectInfo[] {
   // The built-in examples, then design systems added from the page (out/projects).
@@ -424,7 +424,7 @@ function securityHeaders(res: ServerResponse): void {
   if (process.env.NODE_ENV === "production") res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
 }
 
-const TYPES: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png" };
+const TYPES: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".txt": "text/plain; charset=utf-8", ".xml": "application/xml; charset=utf-8" };
 
 async function serveStatic(res: ServerResponse, dir: string, path: string, headOnly = false): Promise<void> {
   const file = resolve(dir, `.${decodeURIComponent(path)}`);

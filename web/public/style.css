@@ -283,3 +283,14 @@ code { font: 13px/1.65 "JetBrains Mono", ui-monospace, Consolas, monospace; colo
 .add-ds-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 8px; }
 .add-ds-row .btn-secondary { height: 44px; border: 0; cursor: pointer; font: inherit; font-weight: 600; }
 @media (max-width: 520px) { .add-ds-row { grid-template-columns: 1fr 1fr; } .add-ds-row input:first-child { grid-column: 1 / -1; } }
+
+/* ---- About page and credit ---- */
+.credit { display: inline-block; margin-top: 6px; }
+.credit a { color: var(--muted); }
+.about { max-width: 720px; margin: 40px auto 24px; padding: 0 16px; }
+.about h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.03em; line-height: 1.15; margin: 10px 0 12px; }
+.about section { margin-top: 28px; }
+.about h2 { font-size: 18px; margin: 0 0 8px; }
+.about p { line-height: 1.7; color: var(--text); }
+.about .lede { color: var(--muted); }
+.about .lede { margin-left: 0; margin-right: 0; text-align: left; }
