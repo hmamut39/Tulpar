@@ -64,7 +64,7 @@ export async function checkoutUrl(account: Account, accounts: Accounts, config: 
       line_items: [{ price: config.priceId, quantity: 1 }],
       allow_promotion_codes: true,
       success_url: `${config.origin}/?upgraded=1`,
-      cancel_url: `${config.origin}/#pricing`,
+      cancel_url: `${config.origin}/pricing`,
     },
     fetchImpl,
   );

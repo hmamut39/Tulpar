@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tulpar Pricing</title>
+<meta name="description" content="Tulpar pricing: a free trial with no card, then Pro for teams who generate components every day.">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/">
+      <svg class="brand-mark" viewBox="0 0 64 64" role="img" aria-label="Tulpar, a rearing horse"><rect width="64" height="64" rx="16" fill="#4F46E5"/><g fill="#fff" transform="translate(6.5 3.5) scale(0.58)"><path d="M87 25 C88 28 86 30 83 30 L79 30 C75 29 71 27 69 24 C67 30 67 36 66 42 C66 44 65 45 64 46 C69 45 74 44 77 46 C79 47 79 50 77 52 L76 57 C77 59 76 61 74 61 C72 60 72 58 73 55 L74 51 C72 49 69 49 64 50 C57 53 50 56 42 58 C38 61 37 65 37 69 C36 74 33 77 33 81 L36 90 L38.5 95.5 L33 96 L31 91 L29 86 C27 83 25 80 25 77 C23 73 22 68 22 62 C22 56 25 51 30 48 C38 42 46 36 52 32 C58 28 62 20 64 14 C65 11 66 9 67 7 L67 2.5 L70.5 6.5 C75 11 81 17 87 25 Z"/> <path d="M67 42 C71 39 76 37 80 38 C82 39 82 42 81 44 L82 49 C83 51 82 53 80 52 C78 51 78 49 79 47 L78 43 C75 42 71 43 68 45 Z"/> <path d="M41 59 C43 65 44 71 42 77 L44.5 87 L48 94.5 L42.5 95 L40 89 L37.5 80 C36.5 75 37 69 38 63 Z"/> <path d="M67 8 C58 8 50 13 45 21 C41 27 36 30 30 31 C37 33 43 31 47 28 C44 34 39 38 34 40 C41 41 47 38 51 34 C50 39 47 42 44 45 C50 44 55 40 57 35 C60 27 63 17 67 8 Z"/> <path d="M28 50 C20 49 12 52 6 58 C4 60 2 61 0 62 C5 64 10 62 13 60 C9 66 5 70 1 73 C9 73 15 69 19 64 C21 60 24 56 28 54 Z"/> </g></svg>
+      <span>Tulpar</span>
+      <span class="badge">Beta</span>
+    </a>
+    <nav class="nav-links">
+      <a href="/">Generate</a>
+      <a href="/pricing" id="pricingLink" aria-current="page">Pricing</a>
+      <div class="account" id="account" hidden>
+        <a class="btn-github" id="signIn" href="/auth/github" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+          Sign in with GitHub
+        </a>
+        <div class="me" id="me" hidden>
+          <span class="me-name" id="meName"></span>
+          <span class="me-left" id="meLeft"></span>
+          <button type="button" class="link-btn" id="upgradeBtn" hidden>Upgrade</button>
+          <button type="button" class="link-btn" id="billingBtn" hidden>Billing</button>
+          <button type="button" class="link-btn muted" id="signOut">Sign out</button>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="notice" id="notice" hidden><span id="noticeText"></span><button type="button" class="link-btn" id="noticeAction" hidden></button></div>
+
+<main class="pricing" aria-labelledby="pricing-title">
+  <p class="eyebrow">Pricing</p>
+  <h1 id="pricing-title">Start free. Pay when it's part of your day.</h1>
+  <p class="lede">Every generation is built, rendered and checked against the design before you see it, on every plan.</p>
+  <div class="plans">
+    <article class="plan">
+      <h2>Free trial</h2>
+      <p class="price"><span>$0</span></p>
+      <ul>
+        <li><b id="trialCount">20</b> verified generations</li>
+        <li>Every framework and design system</li>
+        <li>Figma links and screenshots</li>
+        <li>Download, CLI, VS Code and MCP</li>
+        <li>No card needed</li>
+      </ul>
+      <a class="btn-plan secondary" id="trialCta" href="/auth/github">Start free with GitHub</a>
+    </article>
+    <article class="plan featured">
+      <h2>Pro <span class="badge">Most popular</span></h2>
+      <p class="price"><span data-pro-price>$29</span> / month</p>
+      <ul>
+        <li><b id="proCount">300</b> verified generations every month</li>
+        <li>Everything in the free trial</li>
+        <li>Priority in the generation queue</li>
+        <li>Email support from the people who build it</li>
+        <li>Cancel any time, from your billing page</li>
+      </ul>
+      <button type="button" class="btn-plan" id="proCta">Upgrade to Pro</button>
+    </article>
+  </div>
+  <p class="hint center">Teams and companies: <a href="mailto:hmamut39@gmail.com?subject=Tulpar%20for%20teams">talk to us</a> about shared design systems, the CI check and invoices.</p>
+
+  <section class="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title">Questions</h2>
+    <details><summary>What counts as a generation?</summary><p>One run: Tulpar reads your design, writes the component, then builds, renders and checks it, repairing it up to three times. Repairs are part of the same generation. If a run fails before the model starts (for example, the Figma frame can't be read), it isn't counted.</p></details>
+    <details><summary>What happens when my trial ends?</summary><p>Nothing is charged. You keep everything you generated, and you can upgrade to Pro whenever you want to keep going.</p></details>
+    <details><summary>Can I cancel?</summary><p>Yes, any time, from <b>Billing</b> in the top bar. Pro stays active until the end of the month you paid for.</p></details>
+    <details><summary>Do unused Pro generations roll over?</summary><p>No. The monthly allowance resets at the start of each billing month.</p></details>
+    <details><summary>Who handles my card?</summary><p>Stripe. Tulpar never sees or stores card details. Charges appear on your statement as TULPAR.</p></details>
+    <details><summary>Is my design or code kept?</summary><p>Results are kept for an hour so you can download them, then forgotten. A Figma token you enter is used for that run only and never stored.</p></details>
+  </section>
+</main>
+
+<footer class="foot">Tulpar never says something is right unless it has checked. Where it can't check, it says so.</footer>
+<script type="module" src="/pricing.js"></script>
+</body>
+</html>

@@ -72,6 +72,8 @@ export interface ProjectInfo {
 }
 
 const MAX_BODY = 12 * 1024 * 1024;
+/** Clean URLs for the site's pages. */
+const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html" };
 
 export function listProjects(repoRoot: string): ProjectInfo[] {
   const base = join(repoRoot, "examples");
@@ -267,7 +269,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         return res.end(zip);
       }
 
-      if (req.method === "GET" || req.method === "HEAD") return serveStatic(res, publicDir, path === "/" ? "/index.html" : path, req.method === "HEAD");
+      if (req.method === "GET" || req.method === "HEAD") return serveStatic(res, publicDir, PAGES[path] ?? path, req.method === "HEAD");
       return json(res, 404, { error: "Not found." });
     } catch (err) {
       const status = err instanceof HttpError ? err.status : 500;
