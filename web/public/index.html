@@ -37,13 +37,19 @@
   <section class="panel form-panel" aria-labelledby="form-title">
     <h2 id="form-title" class="sr-only">Generate a component</h2>
     <form id="form" novalidate>
-      <div class="field">
-        <label for="project" class="label"><span class="step">1</span>Design system</label>
-        <div class="select-wrap"><select id="project" required></select></div>
+      <div class="field-row">
+        <div class="field">
+          <label for="framework" class="label"><span class="step">1</span>Framework</label>
+          <div class="select-wrap"><select id="framework"></select></div>
+        </div>
+        <div class="field">
+          <label for="project" class="label"><span class="step">2</span>Design system</label>
+          <div class="select-wrap"><select id="project" required></select></div>
+        </div>
       </div>
 
       <div class="field">
-        <span class="label"><span class="step">2</span>Design</span>
+        <span class="label"><span class="step">3</span>Design</span>
         <div class="segmented" role="radiogroup" aria-label="Design source">
           <label><input type="radio" name="mode" value="figma" checked><span>Figma link</span></label>
           <label><input type="radio" name="mode" value="image"><span>Screenshot</span></label>
@@ -80,7 +86,7 @@
       </div>
 
       <div class="field">
-        <label for="name" class="label"><span class="step">3</span>Component name</label>
+        <label for="name" class="label"><span class="step">4</span>Component name</label>
         <input id="name" type="text" placeholder="CheckoutCard" autocomplete="off" spellcheck="false">
         <p class="hint">PascalCase. Used for file names and the class.</p>
       </div>

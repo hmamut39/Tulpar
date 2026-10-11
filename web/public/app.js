@@ -2,7 +2,17 @@
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
+const FRAMEWORK_KEY = "tulpar.framework";
 const FRAMEWORKS = { react: "React", angular: "Angular", "web-components": "Web Components" };
+// Shown so people know what is coming, but never selectable before an adapter exists for it.
+const COMING_SOON = ["Vue", "Svelte"];
+// Product names for known packages; anything else shows its package name.
+const PRODUCTS = {
+  "@carbon/react": "Carbon (IBM)", "@carbon/web-components": "Carbon (IBM)", "carbon-components-angular": "Carbon (IBM)",
+  "@mui/material": "Material UI (MUI)", "@chakra-ui/react": "Chakra UI", "@radix-ui/themes": "Radix Themes",
+  "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG",
+};
+let projects = [];
 let current = null; // the job being shown
 let files = [];
 let screenshot = null; // File
@@ -14,7 +24,14 @@ const storage = {
 
 async function init() {
   const config = await (await fetch("/api/config")).json();
-  $("project").innerHTML = config.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
+  projects = config.projects;
+  const adapters = [...new Set(projects.map((p) => p.adapter))];
+  $("framework").innerHTML =
+    adapters.map((a) => `<option value="${esc(a)}">${esc(FRAMEWORKS[a] ?? a)}</option>`).join("") +
+    COMING_SOON.map((f) => `<option disabled>${esc(f)} (coming soon)</option>`).join("");
+  const savedFramework = storage.get(FRAMEWORK_KEY);
+  if (savedFramework && adapters.includes(savedFramework)) $("framework").value = savedFramework;
+  fillProjects();
   $("stacks").innerHTML = [...new Set(config.projects.map((p) => FRAMEWORKS[p.adapter] ?? p.adapter))].map((f) => `<li>${esc(f)}</li>`).join("");
   $("accessField").hidden = !config.accessCodeRequired;
   $("modelNote").textContent = config.model ? `Runs on ${config.model.replace(/^openai:/, "OpenAI ")}` : "Generation is off: the server has no OpenAI key.";
@@ -23,6 +40,23 @@ async function init() {
   const saved = storage.get(TOKEN_KEY);
   if (saved) { $("figmaToken").value = saved; $("rememberToken").checked = true; }
 }
+
+// Framework first, then the design systems built for it. Labels drop the framework, shown already.
+function fillProjects() {
+  const adapter = $("framework").value;
+  $("project").innerHTML = projects
+    .filter((p) => p.adapter === adapter)
+    .map((p) => {
+      const pkg = p.label.split(" · ").slice(1).join(" · ") || p.label;
+      const [, name, version] = /^(.+)@([^@]+)$/.exec(pkg) ?? [pkg, pkg, ""];
+      return `<option value="${esc(p.id)}">${esc(PRODUCTS[name] ?? name)}${version ? ` · v${esc(version)}` : ""}</option>`;
+    })
+    .join("");
+}
+$("framework").addEventListener("change", () => {
+  storage.set(FRAMEWORK_KEY, $("framework").value);
+  fillProjects();
+});
 
 // Design source: Figma link, screenshot, or both.
 function mode() { return document.querySelector('input[name="mode"]:checked').value; }
