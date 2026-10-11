@@ -275,3 +275,11 @@ code { font: 13px/1.65 "JetBrains Mono", ui-monospace, Consolas, monospace; colo
 .faq details[open] summary::after { content: "–"; }
 .faq summary::-webkit-details-marker { display: none; }
 .faq p { margin: 10px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+/* ---- Add a design system from npm ---- */
+.add-ds { border: 1px dashed var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 10px; background: var(--accent-soft); }
+.add-ds[hidden] { display: none !important; }
+.add-ds-title { margin: 0; font-weight: 600; font-size: 14px; }
+.add-ds-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 8px; }
+.add-ds-row .btn-secondary { height: 44px; border: 0; cursor: pointer; font: inherit; font-weight: 600; }
+@media (max-width: 520px) { .add-ds-row { grid-template-columns: 1fr 1fr; } .add-ds-row input:first-child { grid-column: 1 / -1; } }

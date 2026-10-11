@@ -10,7 +10,9 @@ export async function build(params: BuildParams, render: RenderConfig): Promise<
   const { root, entry, frame } = params;
   const impl = parseImplementation(await readFile(join(root, entry), "utf8"));
   const outDir = join(root, ".tulpar", "build", basename(entry).replace(/\.[^.]+$/, ""));
-  const code = impl.scripts.map((s) => s.code).join("\n");
+  // The project's setup (e.g. Fluent's setTheme) runs before the implementation's own scripts.
+  const setup = render.setup ? `import ${JSON.stringify(`./${render.setup.replace(/\\/g, "/")}`)};\n` : "";
+  const code = setup + impl.scripts.map((s) => s.code).join("\n");
   const bundled = await bundle({ code, resolveDir: root, sourcefile: entry, outDir, loader: "js" });
   if (!bundled.ok) return { ok: false, log: bundled.log.join("\n") };
   const css = [...impl.styles.map((s) => s.css), bundled.css].join("\n");

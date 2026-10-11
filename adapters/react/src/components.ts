@@ -76,7 +76,8 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
   };
   for (const exported of checker.getExportsOfModule(moduleSymbol)) {
     const name = exported.getName();
-    if (!/^[A-Z]/.test(name)) continue;
+    // React contexts (MantineContext) render as providers but are plumbing, not design-system components.
+    if (!/^[A-Z]/.test(name) || /Context$/.test(name)) continue;
     const symbol = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
     if (symbol.flags & ts.SymbolFlags.Module && !(symbol.flags & ts.SymbolFlags.Function)) {
       memberCandidates(name, checker.getExportsOfModule(symbol));

@@ -61,6 +61,15 @@
           <div class="select-wrap"><select id="project" required></select></div>
         </div>
       </div>
+      <div class="add-ds" id="addDs" hidden>
+        <p class="add-ds-title">Add your design system from npm</p>
+        <div class="add-ds-row">
+          <input id="addPackage" type="text" placeholder="@acme/ui" autocomplete="off" spellcheck="false" aria-label="npm package name">
+          <input id="addVersion" type="text" placeholder="latest" autocomplete="off" spellcheck="false" aria-label="Version (optional)">
+          <button type="button" class="btn-secondary" id="addGo">Add</button>
+        </div>
+        <p class="hint" id="addStatus">Tulpar installs it, reads its components and tokens, and adds it to the list. Public npm packages only.</p>
+      </div>
 
       <div class="field">
         <span class="label"><span class="step">3</span>Design</span>

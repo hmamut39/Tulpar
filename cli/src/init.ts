@@ -35,7 +35,37 @@ export interface Detected {
  * the tokens, so the render needs the provider (a setup file) and tokens are read from a probe page.
  * The setup uses the library's default theme; a team points it at its own.
  */
-const RUNTIME_RECIPES: { package: string; needs?: string; adapter: Adapter; file: string; setup: string; prefix: string; modes: Record<string, string> }[] = [
+const RUNTIME_RECIPES: { package: string; needs?: string; adapter: Adapter; file: string; setup: string; prefix?: string; modes: Record<string, string>; staticTokens?: boolean }[] = [
+  {
+    // Mantine's tokens are in its stylesheet (found on disk), but its components need the provider.
+    package: "@mantine/core",
+    adapter: "react",
+    file: "tulpar.setup.tsx",
+    staticTokens: true,
+    modes: {},
+    setup: `// How Tulpar renders components: inside the app's MantineProvider. Pass your own theme to it.
+import type { ReactNode } from "react";
+import { MantineProvider } from "@mantine/core";
+import "@mantine/core/styles.css";
+
+export default function Setup({ children }: { children: ReactNode }) {
+  return <MantineProvider>{children}</MantineProvider>;
+}
+`,
+  },
+  {
+    package: "@fluentui/web-components",
+    needs: "@fluentui/tokens",
+    adapter: "web-components",
+    file: "tulpar.setup.js",
+    modes: {},
+    setup: `// How Tulpar renders components: with the app's Fluent theme. Replace webLightTheme with yours.
+import { setTheme } from "@fluentui/web-components";
+import { webLightTheme } from "@fluentui/tokens";
+
+setTheme(webLightTheme);
+`,
+  },
   {
     package: "@mui/material",
     adapter: "react",
@@ -208,14 +238,16 @@ export function detect(root: string, options: InitOptions = {}): Detected {
   const extraFiles: Record<string, string> = {};
   const recipe = RUNTIME_RECIPES.find((rc) => packages.includes(rc.package) && rc.adapter === adapter);
   let setup: string | undefined;
-  if (recipe && !dtcg.length && !cssTokenFiles.length) {
+  if (recipe && (recipe.staticTokens || (!dtcg.length && !cssTokenFiles.length))) {
     if (recipe.needs && !existsSync(join(root, "node_modules", recipe.needs))) {
       why.push(`! ${recipe.package} builds its theme at runtime from ${recipe.needs}, which is not installed; install it, then run tulpar init again`);
     } else {
       setup = recipe.file;
       extraFiles[recipe.file] = recipe.setup;
-      tokens.runtime = { prefix: recipe.prefix, modes: recipe.modes };
-      why.push(`tokens: built by ${recipe.package} at runtime (--${recipe.prefix}-*), read from a probe page; setup: ${recipe.file} (the library's default theme: point it at yours)`);
+      if (!recipe.staticTokens) {
+        tokens.runtime = { ...(recipe.prefix && { prefix: recipe.prefix }), modes: recipe.modes };
+        why.push(`tokens: built by ${recipe.package} at runtime (${recipe.prefix ? `--${recipe.prefix}-*` : "custom properties"}), read from a probe page; setup: ${recipe.file} (the library's default theme: point it at yours)`);
+      } else why.push(`setup: ${recipe.file}, the provider ${recipe.package} needs (pass it your own theme)`);
     }
   }
 

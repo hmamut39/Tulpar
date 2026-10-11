@@ -14,6 +14,7 @@
     "./pipeline": "./src/pipeline.ts",
     "./project": "./src/project.ts",
     "./env": "./src/env.ts",
-    "./verify": "./src/verify.ts"
+    "./verify": "./src/verify.ts",
+    "./init": "./src/init.ts"
   }
 }

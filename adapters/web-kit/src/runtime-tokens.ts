@@ -64,6 +64,8 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
             }
           }
         };
+        const inline = document.documentElement.style;
+        for (let i = 0; i < inline.length; i++) if (inline.item(i).startsWith(prefix)) names.add(inline.item(i));
         for (const sheet of [...Array.from(document.styleSheets), ...document.adoptedStyleSheets]) {
           try {
             visit(sheet.cssRules);

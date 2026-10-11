@@ -63,7 +63,52 @@ function fillProjects() {
       return `<option value="${esc(p.id)}">${esc(PRODUCTS[name] ?? name)}${version ? ` · v${esc(version)}` : ""}</option>`;
     })
     .join("");
+  fillAddOption();
+  $("addDs").hidden = true;
 }
+// The last option in the list: add any design system from npm.
+const ADD = "__add__";
+function fillAddOption() {
+  $("project").insertAdjacentHTML("beforeend", `<option value="${ADD}">+ Add from npm…</option>`);
+}
+$("project").addEventListener("change", () => {
+  const adding = $("project").value === ADD;
+  $("addDs").hidden = !adding;
+  if (adding) $("addPackage").focus();
+});
+$("addGo").addEventListener("click", async () => {
+  const pkg = $("addPackage").value.trim();
+  if (!pkg) return ($("addStatus").textContent = "Type the package name, e.g. @shoelace-style/shoelace.");
+  $("addGo").disabled = true;
+  $("addStatus").textContent = "Starting…";
+  try {
+    const res = await fetch("/api/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ package: pkg, version: $("addVersion").value.trim(), framework: $("framework").value, accessCode: $("accessCode").value }) });
+    const data = await res.json();
+    if (res.status === 401 && data.signIn) return showNotice(data.error, "Sign in with GitHub", () => (location.href = "/auth/github"));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const job = await (await fetch(`/api/projects/jobs/${data.id}`)).json();
+      $("addStatus").textContent = job.steps.at(-1);
+      if (job.state === "error") throw new Error(job.error);
+      if (job.state === "done") {
+        if (job.project && !projects.some((p) => p.id === job.project.id)) projects.push(job.project);
+        $("framework").value = job.project.adapter;
+        fillProjects();
+        $("project").value = job.project.id;
+        $("addDs").hidden = true;
+        $("addPackage").value = "";
+        $("addVersion").value = "";
+        break;
+      }
+    }
+  } catch (err) {
+    $("addStatus").textContent = err.message;
+  } finally {
+    $("addGo").disabled = false;
+  }
+});
+
 $("framework").addEventListener("change", () => {
   storage.set(FRAMEWORK_KEY, $("framework").value);
   fillProjects();

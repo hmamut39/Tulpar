@@ -127,3 +127,23 @@ MUI, Chakra and PrimeNG build their theme in JavaScript when their provider star
 - **Setup and runtime tokens.** The setup's `providers` (`providePrimeNG({ theme: { preset: Aura } })`) go into the bootstrap. Tokens are read from a probe page: 407 `--p-*` tokens, light and dark.
 - **Identity.** The render page exposes the entry points the implementation imports. All of them would pull in optional peers such as `primeng/chart` → chart.js.
 - **Result:** 4/5 components (the password field used `InputText` instead of `Password`), 0 hard-coded values, layout 11/11, text 8/8, typeface 8/8. Pixels differ by 16.5%, mostly because PrimeNG's default theme (Aura) is emerald and the design is sky blue. **Not passing yet**; with a team's own preset in the setup file the colours would come from their theme.
+
+## Any design system from npm, on the web page (2026-10-11)
+
+The last option in the Design system list is **+ Add from npm…**. The visitor types a package name (and optionally a version), and Tulpar:
+1. **Checks it with npm.** Only names and versions npm accepts. The registry confirms the package exists and isn't too large (120 MB unpacked), and gives the exact version. The framework comes from its dependencies: `@angular/core` means Angular, `react` means React, otherwise Web Components.
+2. **Installs it** under `out/projects/` on the data volume, together with what the framework needs (React and its types, or Angular).
+   - `npm install --ignore-scripts`, so no package code runs on the server. Package code runs only inside the render's sandboxed Chromium, with the network blocked.
+   - The install runs without the server's secrets in its environment, with a 4-minute limit, one at a time.
+   - Peers are installed (Fluent needs `@microsoft/fast-element`); legacy peer mode only when they conflict.
+3. **Sets it up with `tulpar init`**, including the recipes. It then checks that the adapter finds components, and refuses the package if none are found.
+4. **Adds it to the list for everyone.** Each package@version is installed once and shared. Only signed-in people (or invite codes) can add, 5 a day, and the server holds at most 25.
+
+Tried on two libraries Tulpar had never seen:
+
+| Package | Framework | Components | Tokens | Setup |
+|---|---|---|---|---|
+| `@mantine/core` 9.7.2 | React | 216 | 224 (`--mantine-*`, from its stylesheet) | `MantineProvider` (recipe) |
+| `@fluentui/web-components` 3.1.3 | Web Components | 42 | 459 (read at runtime after `setTheme`) | `setTheme(webLightTheme)` (recipe) |
+
+Adapters gained what these needed: the Web Components adapter now runs `render.setup` before the implementation and reads runtime tokens. The token probe reads adopted stylesheets and inline properties on `<html>`. React contexts (`MantineContext`) are not components.

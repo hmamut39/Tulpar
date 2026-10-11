@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Tulpar adapter for Web Components. Speaks the adapter protocol on stdio.
 
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { exampleImport, indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
-import { closeBrowser, readTokens, render, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { build } from "./verify/build.ts";
 import { webComponentHooks } from "./verify/hooks.ts";
 import { analyzeImplementation, parseImplementation } from "./verify/impl.ts";
@@ -56,10 +56,19 @@ serve({
     };
   },
 
-  tokens: (params) => {
+  tokens: async (params) => {
     const config = (params.config as Config).tokens;
     if (!config) return { adapter: "web-components", modes: [], tokens: [], gaps: ['No "tokens" configured.'] };
-    return readTokens(params.root, config, packageDirs(params), "web-components");
+    const set = readTokens(params.root, config, packageDirs(params), "web-components");
+    if (!config.runtime) return set;
+    // Tokens a library sets when its setup runs (Fluent's setTheme): an empty page with the setup, read back.
+    const dir = join(params.root, ".tulpar", "probe");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "probe.html"), "<div></div>\n");
+    const render = (params.config as Config).render ?? {};
+    const built = await build({ ...params, entry: ".tulpar/probe/probe.html", frame: { width: 200, height: 200 } }, render);
+    if (!built.ok) return { ...set, gaps: [...set.gaps, `Runtime tokens not read: the probe page did not build (${built.log.split("\n")[0]})`] };
+    return mergeTokens(set, await probeTokens(built.artifact as string, render, webComponentHooks, config.runtime));
   },
 
   build: (params) => build(params, (params.config as Config).render ?? {}),
@@ -95,6 +104,7 @@ serve({
   },
 
   shutdown: async () => {
+    await closeProbeBrowser();
     await closeBrowser();
     return null;
   },

@@ -24,12 +24,13 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
 import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, type Llm } from "@tulpar/core";
 import { Accounts } from "./accounts.ts";
 import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, startSignIn, type AuthConfig } from "./auth.ts";
 import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, verifyWebhook, type BillingConfig } from "./billing.ts";
+import { addProject, type AddJob, type Framework } from "./custom-projects.ts";
 import { JobQueue, type JobInput } from "./jobs.ts";
 import { zipFiles } from "./zip.ts";
 
@@ -76,7 +77,11 @@ const MAX_BODY = 12 * 1024 * 1024;
 const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html" };
 
 export function listProjects(repoRoot: string): ProjectInfo[] {
-  const base = join(repoRoot, "examples");
+  // The built-in examples, then design systems added from the page (out/projects).
+  return [...projectsIn(join(repoRoot, "examples")), ...projectsIn(join(repoRoot, "out", "projects"))];
+}
+
+function projectsIn(base: string): ProjectInfo[] {
   if (!existsSync(base)) return [];
   const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular" };
   return readdirSync(base, { withFileTypes: true })
@@ -90,7 +95,11 @@ export function listProjects(repoRoot: string): ProjectInfo[] {
 }
 
 export function startServer(options: ServerOptions, port: number): Promise<{ url: string; close: () => Promise<void>; drain: () => Promise<void> }> {
-  const projects = listProjects(options.repoRoot);
+  let projects = listProjects(options.repoRoot);
+  const customRoot = join(options.repoRoot, "out", "projects");
+  const addJobs = new Map<string, AddJob>();
+  const addedToday = new Map<string, number[]>(); // who → when they added a design system
+  let installing: Promise<unknown> = Promise.resolve(); // one install at a time
   const llm = options.llm ?? (() => OpenAiLlm.fromEnv());
   const codes = accessCodes(options.accessCode);
   const runsPerHour = options.runsPerHour ?? Number(process.env.TULPAR_RUNS_PER_HOUR || 10);
@@ -192,6 +201,46 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const event = JSON.parse(raw);
         log(JSON.stringify({ event: "stripe", at: new Date().toISOString(), type: event.type, result: applyEvent(event, accounts) }));
         return json(res, 200, { received: true });
+      }
+
+      if (req.method === "POST" && path === "/api/projects") {
+        const body = await readJson(req);
+        const given = String(body.accessCode ?? "");
+        const code = given ? codes.find((c) => sameSecret(given, c)) : undefined;
+        const accountId = auth ? sessionAccount(req, auth) : undefined;
+        const account = accountId === undefined ? undefined : accounts?.get(accountId);
+        if ((auth || codes.length) && !code && !account) return json(res, 401, { error: auth ? "Sign in with GitHub to add your design system." : "Wrong or missing access code.", signIn: !!auth });
+        const who = account ? `a${account.id}` : code ? `c${createHash("sha256").update(code).digest("hex").slice(0, 8)}` : clientId(req, trustProxy);
+        const recent = (addedToday.get(who) ?? []).filter((t) => Date.now() - t < 86_400_000);
+        if (recent.length >= 5) return json(res, 429, { error: "You can add 5 design systems a day." });
+        const pkg = String(body.package ?? "").trim();
+        if (!pkg) return json(res, 400, { error: "Type the npm package name of your design system." });
+        const framework = ["react", "angular", "web-components"].includes(String(body.framework)) ? (body.framework as Framework) : undefined;
+        recent.push(Date.now());
+        addedToday.set(who, recent);
+        const job: AddJob = { id: randomUUID(), state: "running", steps: ["Waiting for the installer…"] };
+        addJobs.set(job.id, job);
+        installing = installing.then(() =>
+          addProject(customRoot, { package: pkg, ...(typeof body.version === "string" && body.version.trim() && { version: body.version }), ...(framework && { framework }) }, (t) => job.steps.push(t), options.fetch)
+            .then((id) => {
+              projects = listProjects(options.repoRoot);
+              job.projectId = id;
+              job.state = "done";
+              log(JSON.stringify({ event: "design-system-added", at: new Date().toISOString(), project: id, by: account?.login ?? null }));
+            })
+            .catch((err: Error) => {
+              job.state = "error";
+              job.error = err.message;
+            }),
+        );
+        return json(res, 202, { id: job.id });
+      }
+      const addMatch = /^\/api\/projects\/jobs\/([a-f0-9-]{36})$/.exec(path);
+      if (req.method === "GET" && addMatch) {
+        const job = addJobs.get(addMatch[1]!);
+        if (!job) return json(res, 404, { error: "No such job." });
+        const project = job.projectId ? projects.find((p) => p.id === job.projectId) : undefined;
+        return json(res, 200, { ...job, ...(project && { project: { id: project.id, adapter: project.adapter, label: project.label } }) });
       }
 
       if (req.method === "POST" && path === "/api/jobs") {
