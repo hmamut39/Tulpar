@@ -27,7 +27,8 @@
         "dark": "dark"
       },
       "baseFont": "var(--default-font-family)",
-      "rootClass": "radix-themes"
+      "rootClass": "radix-themes",
+      "setup": "tulpar.setup.tsx"
     }
   }
 }

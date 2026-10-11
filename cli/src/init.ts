@@ -37,6 +37,22 @@ export interface Detected {
  */
 const RUNTIME_RECIPES: { package: string; needs?: string; adapter: Adapter; file: string; setup: string; prefix?: string; modes: Record<string, string>; staticTokens?: boolean }[] = [
   {
+    // Radix Themes: tokens are in its stylesheet, but every component needs the <Theme> wrapper.
+    package: "@radix-ui/themes",
+    adapter: "react",
+    file: "tulpar.setup.tsx",
+    staticTokens: true,
+    modes: {},
+    setup: `// How Tulpar renders components: inside Radix's <Theme>, as an app does. Set your accent colour, radius and scaling here.
+import type { ReactNode } from "react";
+import { Theme } from "@radix-ui/themes";
+
+export default function Setup({ children }: { children: ReactNode }) {
+  return <Theme>{children}</Theme>;
+}
+`,
+  },
+  {
     // Mantine's tokens are in its stylesheet (found on disk), but its components need the provider.
     package: "@mantine/core",
     adapter: "react",

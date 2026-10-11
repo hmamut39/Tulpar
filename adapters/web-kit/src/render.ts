@@ -157,6 +157,11 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
       const area = (x: typeof m) => (x.visible ? 1 : 0) * 1e9 + x.box.width * x.box.height;
       if (!prev || area(m) > area(prev)) best.set(m.figmaId, m);
     }
+    // A page that threw and drew nothing tagged did not render: saying "rendered" would let a blank
+    // page pass the pixel check against a mostly white design.
+    if (!measured.some((m) => m.visible) && errors.length) {
+      return { status: "failed", reason: `The component crashed before drawing anything: ${errors[0]}` };
+    }
     const facts = [...best.values()].map(({ tag, ...m }) => ({ ...m, ...(identity[m.figmaId] ?? { component: tag, defined: true }) }));
 
     const styles = await styleFacts(cdp, implSheets, prefix, entry);
