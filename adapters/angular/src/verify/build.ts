@@ -78,6 +78,9 @@ bootstrapApplication(component, { providers: [provideZoneChangeDetection(), ...s
       stdin: { contents: code, resolveDir: root, sourcefile: "tulpar-angular-entry.ts", loader: "ts" },
       bundle: true,
       format: "iife",
+      // The one environment value a setup may read: a PrimeUI licence key (PrimeNG 20+ is licensed per team).
+      // Nothing else from the server's environment reaches the page.
+      define: { "process.env.PRIMEUI_LICENSE": JSON.stringify(process.env.PRIMEUI_LICENSE ?? "") },
       target: "es2022",
       outfile: join(outDir, "bundle.js"),
       logLevel: "silent",

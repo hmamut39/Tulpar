@@ -70,6 +70,7 @@ export function buildBrief(input: BriefInput): Brief {
   const instances: InstanceHint[] = [];
   const lines: string[] = [];
   const accent = input.tokens ? accentHint(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : undefined;
+  const fromScreenshot = design.source.fileKey === "screenshot";
   const outline = (n: DesignNode, depth: number, insideInstance: boolean) => {
     if (!n.visible) return;
     const pad = "  ".repeat(depth);
@@ -79,11 +80,12 @@ export function buildBrief(input: BriefInput): Brief {
       const def = defs.get(n.component.id) ?? (n.component.set && defs.get(n.component.set.id));
       const hint = instanceHint(n, component ? known.get(component) : undefined, def, prefix);
       // The component painted in the design's accent gets it through its own colour prop (Radix color,
-      // Chakra colorPalette, PrimeNG severity), unless the design already set that prop.
+      // Chakra colorPalette, PrimeNG severity). A Figma design's own value stands; a screenshot's props
+      // are the reader's guesses (often the theme's "primary"), so the measured accent wins there.
       const code = component ? known.get(component) : undefined;
       if (accent && code && carriesAccent(n, accent.color)) {
         const set = accentProp(code.props, accent);
-        if (set && !(set.prop in hint.props)) hint.props[set.prop] = set.value;
+        if (set && (!(set.prop in hint.props) || fromScreenshot)) hint.props[set.prop] = set.value;
       }
       instances.push(hint);
       const props = Object.entries(hint.props).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ");

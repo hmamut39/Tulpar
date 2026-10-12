@@ -17,6 +17,12 @@ describe("accent colour", () => {
     expect(Math.round(accent.b * 255)).toBe(0xc7);
   });
 
+  it("finds a button placed inside another component (a card's content)", () => {
+    const card = { ...button("card", "#ffffff", 360, 360), content: [button("b", "#0284c7")] } as DesignNode;
+    const accent = findAccent(frame([card]))!;
+    expect(Math.round(accent.b * 255)).toBe(0xc7);
+  });
+
   it("names the design system's nearest palettes, skipping greys and roles", () => {
     const set: TokenSet = { adapter: "t", modes: [], gaps: [], tokens: [token("blue-9", "#0090ff"), token("cyan-9", "#00a2c7"), token("red-9", "#e5484d"), token("gray-9", "#8b8d98"), token("accent-9", "#0284c7")] };
     const hint = accentHint(frame([button("b", "#0284c7")]), set, "default")!;
@@ -35,5 +41,28 @@ describe("accent colour", () => {
     expect(carriesAccent(button("b", "#0285c8"), "#0284c7")).toBe(true);
     expect(carriesAccent(button("b", "#e11d48"), "#0284c7")).toBe(false);
     expect([roleFor("#0284c7"), roleFor("#16a34a"), roleFor("#dc2626"), roleFor("#f59e0b"), roleFor("#7c3aed")]).toEqual(["info", "success", "danger", "warn", "help"]);
+  });
+});
+
+describe("colours read from a screenshot's pixels", () => {
+  it("fills a component the reader gave no colour, when its pixels are clearly coloured", async () => {
+    const { PNG } = await import("pngjs");
+    const { fillFromPixels } = await import("../src/generate/vision.ts");
+    const png = new PNG({ width: 200, height: 100 });
+    for (let y = 0; y < 100; y++) for (let x = 0; x < 200; x++) {
+      const i = (y * 200 + x) * 4;
+      const inButton = y >= 60 && y < 90 && x >= 10 && x < 190 && !(y > 70 && y < 80 && x > 80 && x < 120); // white label text
+      const [r, g, b] = inButton ? [2, 132, 199] : [255, 255, 255];
+      png.data[i] = r; png.data[i + 1] = g; png.data[i + 2] = b; png.data[i + 3] = 255;
+    }
+    const image = { mime: "image/png" as const, base64: PNG.sync.write(png).toString("base64") };
+    const btn = { ...button("b", "#000000", 180, 30), box: { x: 10, y: 60, width: 180, height: 30 }, fills: [] } as DesignNode;
+    const input = { ...button("i", "#000000", 180, 30), box: { x: 10, y: 10, width: 180, height: 30 }, fills: [] } as DesignNode;
+    const design = frame([btn, input]);
+    fillFromPixels(design, image, 1);
+    expect(btn.fills[0]).toMatchObject({ kind: "solid" });
+    expect(Math.round((btn.fills[0] as { color: { b: number } }).color.b * 255)).toBe(199);
+    expect(input.fills).toEqual([]);
+    expect(findAccent(design)).toBeDefined();
   });
 });

@@ -36,6 +36,8 @@ export function findAccent(root: DesignNode): Color | undefined {
     const inside = inInstance || n.kind === "instance";
     if (inside && n.box) for (const p of n.fills) if (p.kind === "solid") add({ ...p.color, a: p.color.a * p.opacity }, n.box.width * n.box.height);
     if (n.kind !== "text") for (const c of n.children) visit(c, inside);
+    // Content placed into a component (a button inside a card) is a component's content, not its layers.
+    if (n.kind === "instance") for (const c of n.content ?? []) visit(c, false);
   };
   visit(root, false);
   return [...weights.values()].sort((a, b) => b.weight - a.weight)[0]?.color;

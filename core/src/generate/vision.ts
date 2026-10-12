@@ -6,6 +6,7 @@
 import type { CodeComponent, ComponentIndex } from "../code-model.ts";
 import { DESIGN_MODEL_VERSION, type Color, type ContainerNode, type DesignNode, type DesignTree, type InstanceNode, type TextNode } from "../model.ts";
 import type { Llm, LlmImage } from "./llm.ts";
+import { PNG } from "pngjs";
 
 export interface ScreenshotReading {
   design: DesignTree;
@@ -108,7 +109,60 @@ export async function readScreenshot(options: ReadScreenshotOptions): Promise<Sc
     maxOutputTokens: 12000,
   });
   const reading = response.json as { width: number; height: number; elements: Element[]; notes: string[] };
-  return { ...toDesign(reading, known, options.scale, options.size), ...(response.usage && { usage: response.usage }) };
+  const result = toDesign(reading, known, options.scale, options.size);
+  if (options.image.mime === "image/png") fillFromPixels(result.design.root, options.image, options.scale);
+  return { ...result, ...(response.usage && { usage: response.usage }) };
+}
+
+/**
+ * A component the model gave no background colour gets the one its pixels show, when that colour is
+ * clearly saturated and covers a good part of its box (a filled button, not a white input with dark text).
+ * The accent hint depends on it: without a colour, the design's primary button is invisible to it.
+ */
+export function fillFromPixels(root: DesignNode, image: LlmImage, scale: number): void {
+  let png: PNG;
+  try {
+    png = PNG.sync.read(Buffer.from(image.base64, "base64"));
+  } catch {
+    return;
+  }
+  const visit = (n: DesignNode) => {
+    if (n.kind === "instance" && !n.fills.length && n.box) {
+      const color = dominantColor(png, n.box.x * scale, n.box.y * scale, n.box.width * scale, n.box.height * scale);
+      if (color) n.fills = [{ kind: "solid", color, opacity: 1 }];
+    }
+    if (n.kind !== "text") n.children.forEach(visit);
+    if (n.kind === "instance") (n.content ?? []).forEach(visit);
+  };
+  visit(root);
+}
+
+function dominantColor(png: PNG, x0: number, y0: number, w: number, h: number): Color | undefined {
+  const counts = new Map<number, [number, number, number, number]>();
+  let total = 0;
+  const step = Math.max(1, Math.floor(Math.min(w, h) / 24)); // sample a grid, not every pixel
+  for (let y = Math.max(0, Math.floor(y0)); y < Math.min(png.height, y0 + h); y += step) {
+    for (let x = Math.max(0, Math.floor(x0)); x < Math.min(png.width, x0 + w); x += step) {
+      const i = (y * png.width + x) * 4;
+      const [r, g, b] = [png.data[i]!, png.data[i + 1]!, png.data[i + 2]!];
+      const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+      const acc = counts.get(key) ?? [0, 0, 0, 0];
+      acc[0]++;
+      acc[1] += r;
+      acc[2] += g;
+      acc[3] += b;
+      counts.set(key, acc);
+      total++;
+    }
+  }
+  const top = [...counts.values()].sort((a, b) => b[0] - a[0])[0];
+  if (!top || top[0] < total / 4) return undefined;
+  const c: Color = { space: "srgb", r: top[1] / top[0] / 255, g: top[2] / top[0] / 255, b: top[3] / top[0] / 255, a: 1 };
+  const max = Math.max(c.r, c.g, c.b);
+  const min = Math.min(c.r, c.g, c.b);
+  const l = (max + min) / 2;
+  const sat = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
+  return sat >= 0.35 && l > 0.15 && l < 0.85 ? c : undefined;
 }
 
 function catalogueLine(c: CodeComponent): string {
