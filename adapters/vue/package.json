@@ -1,0 +1,19 @@
+{
+  "name": "@tulpar/adapter-vue",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "tulpar-adapter-vue": "./src/main.ts" },
+  "dependencies": {
+    "@tulpar/core": "0.0.0",
+    "@tulpar/web-kit": "0.0.0",
+    "@vue/compiler-sfc": "3.5.43",
+    "esbuild": "0.28.2",
+    "less": "4.9.1",
+    "sass": "^1.93.2",
+    "typescript": "~6.0.0"
+  },
+  "devDependencies": {
+    "@types/less": "3.0.8"
+  }
+}

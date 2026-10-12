@@ -5,11 +5,12 @@ import { initAccount, refreshAllowance, showNotice, signedIn, upgrade } from "./
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
 const FRAMEWORK_KEY = "tulpar.framework";
-const FRAMEWORKS = { react: "React", angular: "Angular", "web-components": "Web Components" };
+const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", "web-components": "Web Components" };
 // Language and styling each framework can write in: value "language:styling".
 const OUTPUTS = {
   react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"]],
   angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
+  vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"]],
   "web-components": [["", "HTML · CSS · JavaScript"]],
 };
 const OUTPUT_KEY = "tulpar.output.";
@@ -24,12 +25,12 @@ function fillOutputs() {
 $("output").addEventListener("change", () => storage.set(OUTPUT_KEY + $("framework").value, $("output").value));
 
 // Shown so people know what is coming, but never selectable before an adapter exists for it.
-const COMING_SOON = ["Vue", "Svelte"];
+const COMING_SOON = ["Svelte"];
 // Product names for known packages; anything else shows its package name.
 const PRODUCTS = {
   "@carbon/react": "Carbon (IBM)", "@carbon/web-components": "Carbon (IBM)", "carbon-components-angular": "Carbon (IBM)",
   "@mui/material": "Material UI (MUI)", "@chakra-ui/react": "Chakra UI", "@radix-ui/themes": "Radix Themes",
-  "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG",
+  "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG", "element-plus": "Element Plus",
 };
 let projects = [];
 let current = null; // the job being shown

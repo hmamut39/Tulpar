@@ -1,0 +1,25 @@
+{
+  "adapter": "vue",
+  "vue": {
+    "packages": [
+      "node_modules/element-plus"
+    ],
+    "styleDirs": [
+      "node_modules/element-plus"
+    ],
+    "tokens": {
+      "css": {
+        "files": [
+          "node_modules/element-plus/dist/index.css"
+        ],
+        "prefix": "el"
+      }
+    },
+    "render": {
+      "stylesheets": [
+        "node_modules/element-plus/dist/index.css"
+      ],
+      "baseFont": "var(--el-font-family)"
+    }
+  }
+}

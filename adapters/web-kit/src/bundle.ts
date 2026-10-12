@@ -20,7 +20,19 @@ export interface BundleResult {
   packageCss: string[];
 }
 
-export async function bundle(input: { code: string; resolveDir: string; sourcefile: string; outDir: string; loader: "js" | "jsx" | "tsx" }): Promise<BundleResult> {
+export interface BundleInput {
+  code: string;
+  resolveDir: string;
+  sourcefile: string;
+  outDir: string;
+  loader: "js" | "jsx" | "tsx" | "ts";
+  /** A framework's own file types (Vue's .vue), compiled before bundling. */
+  plugins?: esbuild.Plugin[];
+  /** Compile-time flags a framework's build expects (Vue's __VUE_OPTIONS_API__). */
+  define?: Record<string, string>;
+}
+
+export async function bundle(input: BundleInput): Promise<BundleResult> {
   const packageCss: string[] = [];
   const separatePackageCss: esbuild.Plugin = {
     name: "package-css",
@@ -56,11 +68,11 @@ export async function bundle(input: { code: string; resolveDir: string; sourcefi
       format: "iife",
       target: "es2022",
       jsx: "automatic",
-      define: { "process.env.NODE_ENV": '"production"' },
+      define: { "process.env.NODE_ENV": '"production"', ...input.define },
       outfile: join(input.outDir, "bundle.js"),
       logLevel: "silent",
       write: true,
-      plugins: [separatePackageCss, scss],
+      plugins: [separatePackageCss, scss, ...(input.plugins ?? [])],
     });
     const cssFile = join(input.outDir, "bundle.css");
     return { ok: true, log: result.warnings.map((w) => `warning: ${w.text}`), css: existsSync(cssFile) ? await readFile(cssFile, "utf8") : "", packageCss };

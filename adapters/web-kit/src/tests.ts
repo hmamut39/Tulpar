@@ -58,6 +58,8 @@ export default defineConfig({
     if (!existsSync(reportFile)) return { status: "failed", reason: `Vitest produced no report (exit ${code}). ${output.slice(-800)}` };
     const report = JSON.parse(await readFile(reportFile, "utf8")) as JestLikeReport;
     const file = report.testResults[0];
+    // No result for the file: Vitest failed before running it (the browser didn't start), which is not a pass.
+    if (!file) return { status: "failed", reason: `Vitest ran no tests (exit ${code}). ${output.slice(-800)}` };
     const tests = (file?.assertionResults ?? []).map((a) => ({
       name: a.fullName || a.title,
       status: a.status === "passed" ? ("passed" as const) : a.status === "failed" ? ("failed" as const) : ("skipped" as const),

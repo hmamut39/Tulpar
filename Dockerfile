@@ -19,6 +19,7 @@ COPY adapters/web-kit/package.json adapters/web-kit/
 COPY adapters/web-components/package.json adapters/web-components/
 COPY adapters/react/package.json adapters/react/
 COPY adapters/angular/package.json adapters/angular/
+COPY adapters/vue/package.json adapters/vue/
 RUN npm ci --omit=dev --ignore-scripts \
  && npx playwright install --with-deps chromium
 
