@@ -37,6 +37,12 @@ export interface ProjectParams {
   config: Record<string, unknown>;
 }
 
+/** The language and styling a team writes in, when the framework allows a choice. */
+export interface OutputChoice {
+  language?: "typescript" | "javascript";
+  styling?: "css" | "css-modules" | "scss" | "less";
+}
+
 export interface Methods {
   initialize: { params: { protocolVersion: string }; result: AdapterManifest };
   index: { params: ProjectParams; result: ComponentIndex };
@@ -49,7 +55,7 @@ export interface Methods {
   /** Run a test file in a sandbox (never on the host). */
   test: { params: TestParams; result: TestRunResult };
   /** How to write code for this framework: files, entry, rules. */
-  conventions: { params: ProjectParams; result: Conventions };
+  conventions: { params: ProjectParams & { output?: OutputChoice }; result: Conventions };
   shutdown: { params: Record<string, never>; result: null };
 }
 

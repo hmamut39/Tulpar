@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import less from "less";
+import { readStylesheet } from "@tulpar/web-kit";
 import type { AnalyzeResult, CodeComponent, StyleFact } from "@tulpar/core";
 import { classify, declarations } from "@tulpar/web-kit";
 
@@ -42,22 +43,22 @@ export async function analyzeAngular(root: string, entry: string, prefix: string
     if (fact?.source === "literal") literals.push(fact);
   }
 
-  for (const f of [...source.matchAll(/["'`]([^"'`]+\.(?:less|css))["'`]/g)].map((m) => m[1]!)) {
+  for (const f of [...source.matchAll(/["'`]([^"'`]+\.(?:less|scss|css))["'`]/g)].map((m) => m[1]!)) {
     const path = resolve(dir, f);
     if (!existsSync(path)) continue;
     const text = readFileSync(path, "utf8");
     const rel = relative(root, path).replace(/\\/g, "/");
     // LESS variables can hide literals (@gap: 16px); scan what the stylesheet compiles to.
     let css = text;
-    if (path.endsWith(".less")) {
+    if (path.endsWith(".less") || path.endsWith(".scss")) {
       try {
-        css = (await less.render(text, { filename: path })).css;
+        css = path.endsWith(".less") ? (await less.render(text, { filename: path })).css : readStylesheet(path);
       } catch {
         continue; // the build reports the syntax error
       }
     }
     for (const d of declarations(css)) {
-      const fact = classify(d.property, d.value, prefix, path.endsWith(".less") ? `${rel} (compiled)` : `${rel}:${d.line}`);
+      const fact = classify(d.property, d.value, prefix, /\.(less|scss)$/.test(path) ? `${rel} (compiled)` : `${rel}:${d.line}`);
       if (fact?.source === "literal") literals.push(fact);
     }
   }

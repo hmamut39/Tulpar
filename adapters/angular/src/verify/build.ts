@@ -1,5 +1,5 @@
 // Build an Angular component for rendering: esbuild in JIT mode (no Angular CLI needed).
-// - templateUrl is inlined; the .less (or .css/.scss-free) stylesheet is compiled with `less`;
+// - templateUrl is inlined; a .less stylesheet is compiled with `less`, a .scss one with Sass, .css as is;
 // - the compiled styles go into the harness as the implementation's own stylesheet (so the
 //   token checks see them), with :host rewritten to the component's element;
 // - the component is bootstrapped standalone, with the design-system package's exports
@@ -10,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import * as esbuild from "esbuild";
 import less from "less";
+import { readStylesheet } from "@tulpar/web-kit";
 import type { BuildParams, BuildResult } from "@tulpar/core";
 import { FRAME_ID, writeHarness, type RenderConfig } from "@tulpar/web-kit";
 
@@ -63,7 +64,7 @@ bootstrapApplication(component, { providers: [provideZoneChangeDetection(), ...s
         for (const f of styleFiles) {
           const path = resolve(dir, f);
           const text = readFileSync(path, "utf8");
-          const css = f.endsWith(".less") ? (await less.render(text, { filename: path })).css : text;
+          const css = f.endsWith(".less") ? (await less.render(text, { filename: path })).css : f.endsWith(".scss") ? readStylesheet(path) : text;
           // The styles leave Angular's emulated encapsulation; :host becomes the component's element.
           stylesheets.push({ file: relative(root, path).replace(/\\/g, "/"), css: selector ? css.replace(/:host(\(([^)]*)\))?/g, (_x, _g, inner) => `${selector}${inner ?? ""}`) : css });
         }

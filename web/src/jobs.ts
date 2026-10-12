@@ -6,7 +6,7 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { generateCommand } from "@tulpar/cli/generate";
-import type { GenerationEvent, GenerationResult, Llm, LlmImage, VerifyReport } from "@tulpar/core";
+import type { GenerationEvent, GenerationResult, Llm, LlmImage, OutputChoice, VerifyReport } from "@tulpar/core";
 
 export interface JobInput {
   /** Where results go; default under out/. */
@@ -19,6 +19,7 @@ export interface JobInput {
   scale?: number;
   figmaToken?: string;
   image?: LlmImage;
+  output?: OutputChoice;
 }
 
 export interface Job {
@@ -128,6 +129,7 @@ export class JobQueue {
         ...(job.input.resultsDir && { resultsDir: job.input.resultsDir }),
         cache: resolve(this.#repoRoot, ".cache/figma"),
         ...(job.input.image && { image: job.input.image }),
+        ...(job.input.output && { output: job.input.output }),
         ...(llm && { llm }),
         quiet: true,
         ...(!this.#rerank && { noRerank: true }),

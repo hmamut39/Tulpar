@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import ts from "typescript";
 import type { AnalyzeResult, StyleFact } from "@tulpar/core";
-import { classify, declarations } from "@tulpar/web-kit";
+import { classify, declarations, readStylesheet } from "@tulpar/web-kit";
 
 export function analyzeReact(root: string, entry: string, prefix: string): AnalyzeResult {
   const file = join(root, entry);
@@ -35,11 +35,18 @@ export function analyzeReact(root: string, entry: string, prefix: string): Analy
         }
       }
     }
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text.endsWith(".css") && node.moduleSpecifier.text.startsWith(".")) {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && /\.(css|scss)$/.test(node.moduleSpecifier.text) && node.moduleSpecifier.text.startsWith(".")) {
       const cssPath = join(dirname(file), node.moduleSpecifier.text);
       if (existsSync(cssPath)) {
         const rel = relative(root, cssPath).replace(/\\/g, "/");
-        for (const d of declarations(readFileSync(cssPath, "utf8"))) {
+        // SCSS is read compiled (line numbers then refer to the compiled CSS); CSS Modules are plain CSS.
+        let css = "";
+        try {
+          css = readStylesheet(cssPath);
+        } catch {
+          css = ""; // a stylesheet that does not compile fails the build, which says why
+        }
+        for (const d of declarations(css)) {
           const fact = classify(d.property, d.value, prefix, `${rel}:${d.line}`);
           if (fact?.source === "literal") literals.push(fact);
         }

@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as esbuild from "esbuild";
+import * as sass from "sass";
 
 export interface BundleResult {
   ok: boolean;
@@ -34,6 +35,20 @@ export async function bundle(input: { code: string; resolveDir: string; sourcefi
       build.onLoad({ filter: /.*/, namespace: "package-css" }, () => ({ contents: "", loader: "css" }));
     },
   };
+  // SCSS the implementation imports, compiled to CSS (a .module.scss stays a CSS Module).
+  const scss: esbuild.Plugin = {
+    name: "scss",
+    setup(build) {
+      build.onLoad({ filter: /\.scss$/ }, (args) => {
+        try {
+          const out = sass.compile(args.path, { style: "expanded", loadPaths: [input.resolveDir, join(input.resolveDir, "node_modules")] });
+          return { contents: out.css, loader: /\.module\.scss$/.test(args.path) ? "local-css" : "css", watchFiles: out.loadedUrls.map((u) => u.pathname) };
+        } catch (err) {
+          return { errors: [{ text: (err as Error).message.split("\n")[0]! }] };
+        }
+      });
+    },
+  };
   try {
     const result = await esbuild.build({
       stdin: { contents: input.code, resolveDir: input.resolveDir, sourcefile: input.sourcefile, loader: input.loader },
@@ -45,7 +60,7 @@ export async function bundle(input: { code: string; resolveDir: string; sourcefi
       outfile: join(input.outDir, "bundle.js"),
       logLevel: "silent",
       write: true,
-      plugins: [separatePackageCss],
+      plugins: [separatePackageCss, scss],
     });
     const cssFile = join(input.outDir, "bundle.css");
     return { ok: true, log: result.warnings.map((w) => `warning: ${w.text}`), css: existsSync(cssFile) ? await readFile(cssFile, "utf8") : "", packageCss };

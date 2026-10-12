@@ -8,3 +8,4 @@ export { readCssTokens, parseCssValue, cssColor, type CssTokenConfig } from "./c
 export { typeShape } from "./typeshape.ts";
 export { runVitestBrowser, type VitestOptions } from "./tests.ts";
 export { probeTokens, closeProbeBrowser, type RuntimeTokenConfig } from "./runtime-tokens.ts";
+export { readStylesheet } from "./stylesheet.ts";

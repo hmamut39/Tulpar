@@ -6,6 +6,23 @@ const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
 const FRAMEWORK_KEY = "tulpar.framework";
 const FRAMEWORKS = { react: "React", angular: "Angular", "web-components": "Web Components" };
+// Language and styling each framework can write in: value "language:styling".
+const OUTPUTS = {
+  react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"]],
+  angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
+  "web-components": [["", "HTML · CSS · JavaScript"]],
+};
+const OUTPUT_KEY = "tulpar.output.";
+function fillOutputs() {
+  const adapter = $("framework").value;
+  const options = OUTPUTS[adapter] ?? [["", "The framework's default"]];
+  $("output").innerHTML = options.map(([v, label]) => `<option value="${v}">${label}</option>`).join("");
+  $("output").disabled = options.length < 2;
+  const saved = storage.get(OUTPUT_KEY + adapter);
+  if (saved && options.some(([v]) => v === saved)) $("output").value = saved;
+}
+$("output").addEventListener("change", () => storage.set(OUTPUT_KEY + $("framework").value, $("output").value));
+
 // Shown so people know what is coming, but never selectable before an adapter exists for it.
 const COMING_SOON = ["Vue", "Svelte"];
 // Product names for known packages; anything else shows its package name.
@@ -65,6 +82,7 @@ function fillProjects() {
     .join("");
   fillAddOption();
   $("addDs").hidden = true;
+  fillOutputs();
 }
 // The last option in the list: add any design system from npm.
 const ADD = "__add__";
@@ -160,6 +178,10 @@ $("form").addEventListener("submit", async (e) => {
     figmaUrl,
     name: $("name").value.trim(),
     scale: useImage ? $("scale").value : "auto",
+    ...(() => {
+      const [language, styling] = $("output").value.split(":");
+      return { ...(language && { language }), ...(styling && { styling }) };
+    })(),
     ...(figmaToken && { figmaToken }),
     ...($("accessCode").value && { accessCode: $("accessCode").value }),
     ...(useImage && { image: await readAsDataUrl(screenshot) }),

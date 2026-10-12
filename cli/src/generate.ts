@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type VerifyReport } from "@tulpar/core";
+import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
@@ -33,6 +33,8 @@ export interface GenerateCommandOptions {
   /** A model to use instead of OpenAI (tests, offline development). */
   llm?: Llm;
   quiet?: boolean;
+  /** The language and styling to write in (e.g. JavaScript, CSS Modules), where the framework allows. */
+  output?: OutputChoice;
   /** Skip asking the model to choose components that no explicit link covers. */
   noRerank?: boolean;
   onEvent?: (e: GenerationEvent) => void;
@@ -83,7 +85,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     }
     if (ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
   note: ${n}`).join("")}`);
-    const conventions = await host.call("conventions", project.params);
+    const conventions = await host.call("conventions", { ...project.params, ...(options.output && { output: options.output }) });
     const tokens = ctx.tokens;
     const workDir = join(".tulpar", "generated", options.name);
     let attempt = 0;

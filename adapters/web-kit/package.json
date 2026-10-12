@@ -4,11 +4,14 @@
   "private": true,
   "description": "Shared code for adapters whose target renders in a browser: CSS provenance, Chromium rendering, CSS-variable tokens, Code Connect URLs.",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "dependencies": {
     "@tulpar/core": "0.0.0",
     "esbuild": "0.28.2",
     "playwright": "1.63.0",
+    "sass": "^1.93.2",
     "typescript": "~6.0.0"
   }
 }

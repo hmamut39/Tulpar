@@ -95,6 +95,8 @@ export function createServer(options: TulparMcpOptions): McpServer {
         figmaUrl: z.string().optional().describe("A Figma frame link (right-click the frame → Copy link to selection)"),
         screenshot: z.string().optional().describe("Path to a PNG, JPEG or WebP screenshot of the design"),
         attempts: z.number().int().min(1).max(5).optional().describe("Generate-verify-repair attempts (default 3)"),
+        language: z.enum(["typescript", "javascript"]).optional().describe("React: write TypeScript (default) or JavaScript, to match the codebase"),
+        styling: z.enum(["css", "css-modules", "scss", "less"]).optional().describe("React: css (default), css-modules or scss. Angular: less (default), scss or css"),
         writeTo: z.string().optional().describe("Directory to write the files into, e.g. inside the user's workspace"),
         overwrite: z.boolean().optional().describe("Allow replacing existing files in writeTo (default false)"),
       }),
@@ -125,6 +127,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
         ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }),
         ...(args.screenshot && { image: args.screenshot }),
         ...(args.attempts && { attempts: args.attempts }),
+        ...((args.language || args.styling) && { output: { ...(args.language && { language: args.language }), ...(args.styling && { styling: args.styling }) } }),
         ...(options.llm && { llm: options.llm }),
         ...(options.rerank === false && { noRerank: true }),
       });

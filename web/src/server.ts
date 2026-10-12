@@ -312,6 +312,10 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const scale = body.scale === undefined || body.scale === "" || body.scale === "auto" ? undefined : Number(body.scale);
         if (scale !== undefined && ![1, 1.5, 2, 3].includes(scale)) return json(res, 400, { error: "Scale must be auto, 1, 1.5, 2 or 3." });
         if (!llm()) return json(res, 503, { error: "The server has no OpenAI key configured (OPENAI_API_KEY)." });
+        // The team's language and styling, where the framework offers a choice.
+        const language = body.language === "javascript" || body.language === "typescript" ? (body.language as "javascript" | "typescript") : undefined;
+        const styling = ["css", "css-modules", "scss", "less"].includes(String(body.styling)) ? (body.styling as "css" | "css-modules" | "scss" | "less") : undefined;
+        const output = language || styling ? { ...(language && { language }), ...(styling && { styling }) } : undefined;
 
         recent.push(Date.now());
         runs.set(visitor, recent);
@@ -325,6 +329,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           // The visitor's own token first; the server's only as a fallback for the owner's own use.
           ...((typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN ? { figmaToken: (typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN! } : {}),
           ...(image && { image }),
+          ...(output && { output }),
         };
         if (account) {
           const counted = accounts!.consume(account.id);

@@ -93,13 +93,17 @@ serve({
 
   conventions: (params) => {
     const pkg = index(params).package?.name ?? "the design system";
+    const styling = params.output?.styling === "scss" || params.output?.styling === "css" ? params.output.styling : "less";
+    const ext = styling;
+    const sheet = styling === "scss" ? "SCSS" : styling === "css" ? "CSS" : "LESS";
+    const p = prefix(params);
     return {
-      language: "TypeScript + HTML templates + LESS",
+      language: `TypeScript + HTML templates + ${sheet}`,
       framework: `Angular 22 (standalone components) with ${pkg}`,
       files: [
-        { path: "{kebab}.component.ts", role: "component", description: "The standalone component class {name}Component: selector \"app-{kebab}\", templateUrl \"./{kebab}.component.html\", styleUrl \"./{kebab}.component.less\", imports the design system's NgModules it uses." },
+        { path: "{kebab}.component.ts", role: "component", description: `The standalone component class {name}Component: selector "app-{kebab}", templateUrl "./{kebab}.component.html", styleUrl "./{kebab}.component.${ext}", imports the design system's NgModules it uses.` },
         { path: "{kebab}.component.html", role: "template", description: "The template: the whole design, using the design system's elements and directives." },
-        { path: "{kebab}.component.less", role: "styles", description: "Styles for the component's own layout only (design-system components style themselves)." },
+        { path: `{kebab}.component.${ext}`, role: "styles", description: "Styles for the component's own layout only (design-system components style themselves)." },
         { path: "{kebab}.component.spec.ts", role: "test", description: "Angular TestBed tests: it creates, shows the design's text, and uses the design-system components." },
       ],
       entry: "{kebab}.component.ts",
@@ -107,9 +111,9 @@ serve({
         "Export a standalone component class named {name}Component (standalone: true) with no required inputs.",
         `Import the design system's NgModules from their entry points, e.g. import { ButtonModule } from "${pkg}/button"; and list them in the component's imports.`,
         "Use inject() for any dependency; no constructor parameter injection.",
-        "Put data-figma-id attributes directly on the design system's elements and on the native elements that carry its directives (e.g. <button cdsButton=\"primary\" data-figma-id=\"…\">).",
-        "Write every token with its value as the fallback, the way the design system's own styles do: var(--cds-spacing-05, 1rem), var(--cds-layer-01, #f4f4f4). Spacing tokens are not global variables, so without the fallback they render nothing.",
-        "No LESS variables for design values: use the tokens directly.",
+        "Put data-figma-id attributes directly on the design system's elements and on the native elements that carry its directives.",
+        `Write every token with its value as the fallback, e.g. ${p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)"}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
+        ...(styling === "css" ? [] : [`No ${sheet} variables for design values: use the tokens directly.`]),
         "In {kebab}.component.spec.ts use TestBed with the standalone component in imports. The specs run under Vitest with its globals (describe, it, expect, beforeEach, vi): no Jasmine-only APIs (jasmine.createSpy, toBeTrue).",
       ],
       importExample: `import { ButtonModule } from "${pkg}/button";`,
