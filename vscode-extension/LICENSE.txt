@@ -1,0 +1,7 @@
+Copyright (c) 2026 Mamuti Aishan (Hasan). All rights reserved.
+
+Tulpar for VS Code may be installed and used to access the Tulpar service at tulparsi.com,
+subject to the Tulpar Terms of Service: https://tulparsi.com/terms
+
+Use of the Tulpar service is governed by those Terms and the Privacy Policy:
+https://tulparsi.com/privacy

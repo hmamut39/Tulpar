@@ -328,3 +328,9 @@ code { font: 13px/1.65 "JetBrains Mono", ui-monospace, Consolas, monospace; colo
 @media (prefers-color-scheme: dark) { .bar { background: #8b85f0; } }
 @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dash-grid { grid-template-columns: 1fr; } }
 @media (max-width: 420px) { .tiles { grid-template-columns: 1fr; } }
+
+/* Connect VS Code */
+.connect-box { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; margin: 24px 0; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.connect-box p { margin: 0; }
+.connect-box .btn-plan { padding: 0 24px; }
+.connect-note { font-size: 14px; color: var(--muted) !important; }

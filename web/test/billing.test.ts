@@ -175,4 +175,36 @@ describe("web API with sign-in and payments", () => {
     const tampered = `${name}=${value!.replace(/^./, (c) => (c === "e" ? "f" : "e"))}`;
     expect((await (await fetch(`${server.url}/api/me`, { headers: { cookie: tampered } })).json()).signedIn).toBe(false);
   });
+
+  it("returns to the page that asked for the sign-in, but only to a page on this site", async () => {
+    const signIn = async (next: string) => {
+      const start = await fetch(`${server.url}/auth/github?next=${encodeURIComponent(next)}`, { redirect: "manual" });
+      const state = new URL(start.headers.get("location")!).searchParams.get("state")!;
+      const cookies = start.headers.getSetCookie().map((c) => c.split(";")[0]!).join("; ");
+      const back = await fetch(`${server.url}/auth/github/callback?code=c&state=${state}`, { headers: { cookie: cookies }, redirect: "manual" });
+      return back.headers.get("location");
+    };
+    expect(await signIn("/connect?scheme=vscode&state=ab")).toBe("/connect?scheme=vscode&state=ab");
+    expect(await signIn("//evil.example/x")).toBe("/");
+    expect(await signIn("/\\evil.example")).toBe("/");
+    expect(await signIn("https://evil.example/")).toBe("/");
+  });
+
+  it("gives an app a token that acts for the account, until it is revoked", async () => {
+    // Only for a signed-in session, and only as JSON (a form post from another site can't get one).
+    expect((await fetch(`${server.url}/api/tokens`, { method: "POST", headers: { "content-type": "application/json" }, body: '{"app":"vscode"}' })).status).toBe(401);
+    expect((await fetch(`${server.url}/api/tokens`, { method: "POST", headers: { cookie, "content-type": "text/plain" }, body: '{"app":"vscode"}' })).status).toBe(415);
+    const { token } = await (await post("/api/tokens", { app: "vscode" })).json();
+    expect(token).toMatch(/^tlp_[\w-]{43}$/);
+    const asApp = (t: string) => fetch(`${server.url}/api/me`, { headers: { authorization: `Bearer ${t}` } });
+    expect(await (await asApp(token)).json()).toMatchObject({ signedIn: true, login: "octo" });
+    // A wrong token is refused outright, not treated as signed out.
+    expect((await asApp(`tlp_${"x".repeat(43)}`)).status).toBe(401);
+    // Connecting again replaces the old token.
+    const { token: second } = await (await post("/api/tokens", { app: "vscode" })).json();
+    expect((await asApp(token)).status).toBe(401);
+    expect((await asApp(second)).status).toBe(200);
+    expect(await (await post("/api/tokens/revoke")).json()).toEqual({ revoked: 1 });
+    expect((await asApp(second)).status).toBe(401);
+  });
 });

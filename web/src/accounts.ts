@@ -6,7 +6,10 @@
 //   subscription is active or trialing. Stripe's webhook is the only thing that changes the plan.
 // - A generation is counted when it is accepted, and refunded if it fails before reaching the
 //   model, so a server error never costs a user their trial.
+// - Apps (the VS Code extension) act for an account with a personal token. Only its SHA-256 is
+//   stored, so the database cannot give a token away; signing in to an app again replaces it.
 
+import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -112,6 +115,14 @@ export class Accounts {
         ms INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS generations_at ON generations (at);
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id INTEGER PRIMARY KEY,
+        account INTEGER NOT NULL REFERENCES accounts (id),
+        hash TEXT NOT NULL UNIQUE,
+        app TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_used TEXT
+      );
     `);
   }
 
@@ -233,6 +244,28 @@ export class Accounts {
     };
   }
 
+  /** A new token for an app to act as the account. Shown once; one per app, so signing in again replaces the old one. */
+  createToken(accountId: number, app: string): string {
+    const token = `tlp_${randomBytes(32).toString("base64url")}`;
+    this.#db.prepare("DELETE FROM api_tokens WHERE account = ? AND app = ?").run(accountId, app);
+    this.#db.prepare("INSERT INTO api_tokens (account, hash, app, created_at) VALUES (?, ?, ?, ?)").run(accountId, tokenHash(token), app, new Date().toISOString());
+    return token;
+  }
+
+  /** The account a token acts for, or undefined for an unknown or revoked one. */
+  byToken(token: string): Account | undefined {
+    if (!/^tlp_[\w-]{43}$/.test(token)) return undefined;
+    const found = this.#db.prepare("SELECT id, account FROM api_tokens WHERE hash = ?").get(tokenHash(token)) as { id: number; account: number } | undefined;
+    if (!found) return undefined;
+    this.#db.prepare("UPDATE api_tokens SET last_used = ? WHERE id = ?").run(new Date().toISOString(), found.id);
+    return this.get(found.account);
+  }
+
+  /** Signs every app out of the account. */
+  revokeTokens(accountId: number): number {
+    return Number(this.#db.prepare("DELETE FROM api_tokens WHERE account = ?").run(accountId).changes);
+  }
+
   close(): void {
     this.#db.close();
   }
@@ -262,4 +295,8 @@ function row(r: unknown): Account | undefined {
     used: Number(x.used),
     periodStart: (x.period_start as string | null) ?? null,
   };
+}
+
+function tokenHash(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }

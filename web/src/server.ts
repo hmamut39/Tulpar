@@ -27,8 +27,8 @@ import { basename, extname, join, resolve } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
 import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, type Llm } from "@tulpar/core";
-import { Accounts } from "./accounts.ts";
-import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, startSignIn, type AuthConfig } from "./auth.ts";
+import { Accounts, type Account } from "./accounts.ts";
+import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, signInNext, startSignIn, type AuthConfig } from "./auth.ts";
 import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, revenue, verifyWebhook, type BillingConfig, type Revenue } from "./billing.ts";
 import { addProject, type AddJob, type Framework } from "./custom-projects.ts";
 import { JobQueue, type JobInput } from "./jobs.ts";
@@ -76,7 +76,7 @@ export interface ProjectInfo {
 
 const MAX_BODY = 12 * 1024 * 1024;
 /** Clean URLs for the site's pages. */
-const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html", "/admin": "/admin.html" };
+const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html", "/admin": "/admin.html", "/connect": "/connect.html" };
 
 export function listProjects(repoRoot: string): ProjectInfo[] {
   // The built-in examples, then design systems added from the page (out/projects).
@@ -162,6 +162,19 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   });
   const publicDir = resolve(import.meta.dirname, "../public");
 
+  /** Who is asking: an app's token (Authorization: Bearer tlp_…), else the page's session cookie. */
+  const requester = (req: IncomingMessage): { account?: Account; badToken?: string } => {
+    if (!auth || !accounts) return {};
+    const bearer = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization ?? ""))?.[1];
+    if (bearer) {
+      const account = accounts.byToken(bearer);
+      return account ? { account } : { badToken: "Your Tulpar sign-in has expired or was revoked. Sign in again." };
+    }
+    const id = sessionAccount(req, auth);
+    const account = id === undefined ? undefined : accounts.get(id);
+    return account ? { account } : {};
+  };
+
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -187,13 +200,13 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
 
       // ---- Accounts: GitHub sign-in, who am I, payments ----
       if (auth && accounts) {
-        if (req.method === "GET" && path === "/auth/github") return startSignIn(res, auth);
+        if (req.method === "GET" && path === "/auth/github") return startSignIn(res, auth, url.searchParams.get("next"));
         if (req.method === "GET" && path === "/auth/github/callback") {
           try {
             const user = await finishSignIn(req, auth, options.fetch);
             const account = accounts.signIn(user);
             log(JSON.stringify({ event: "sign-in", at: new Date().toISOString(), account: account.login, new: Date.now() - Date.parse(account.createdAt) < 10_000 }));
-            return setSession(res, account.id, auth);
+            return setSession(res, account.id, auth, signInNext(req));
           } catch (err) {
             res.writeHead(302, { location: `/?signin_error=${encodeURIComponent((err as Error).message)}`, "cache-control": "no-store" });
             return res.end();
@@ -214,9 +227,26 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           const cost = inputPerM || outputPerM ? Math.round(((g.inputTokens / 1e6) * inputPerM + (g.outputTokens / 1e6) * outputPerM) * 100) / 100 : null;
           return json(res, 200, { ...stats, cost, costRates: inputPerM || outputPerM ? { inputPerM, outputPerM } : null, revenue: revenueCache?.value ?? null });
         }
-        if (req.method === "GET" && path === "/api/me") {
+        // An app (the VS Code extension) gets a token for the signed-in account. Only from the site itself:
+        // the session cookie is SameSite and the JSON body needs a CORS preflight no other site passes.
+        if (req.method === "POST" && path === "/api/tokens") {
           const id = sessionAccount(req, auth);
-          const account = id === undefined ? undefined : accounts.get(id);
+          if (id === undefined || !accounts.get(id)) return json(res, 401, { error: "Sign in first.", signIn: true });
+          if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return json(res, 415, { error: "Expected JSON." });
+          const app = String((await readJson(req)).app ?? "");
+          if (!/^[a-z][a-z-]{1,19}$/.test(app)) return json(res, 400, { error: "Which app?" });
+          log(JSON.stringify({ event: "app-token", at: new Date().toISOString(), account: accounts.get(id)!.login, app }));
+          return json(res, 200, { token: accounts.createToken(id, app) });
+        }
+        if (req.method === "POST" && path === "/api/tokens/revoke") {
+          const id = sessionAccount(req, auth);
+          if (id === undefined) return json(res, 401, { error: "Sign in first.", signIn: true });
+          return json(res, 200, { revoked: accounts.revokeTokens(id) });
+        }
+        if (req.method === "GET" && path === "/api/me") {
+          const who = requester(req);
+          if (who.badToken) return json(res, 401, { error: who.badToken, signIn: true });
+          const account = who.account;
           if (!account) return json(res, 200, { signedIn: false });
           return json(res, 200, { signedIn: true, login: account.login, name: account.name, allowance: accounts.allowance(account), subscription: account.subscriptionStatus, canManageBilling: !!billing && !!account.stripeCustomer });
         }
@@ -241,8 +271,9 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const body = await readJson(req);
         const given = String(body.accessCode ?? "");
         const code = given ? codes.find((c) => sameSecret(given, c)) : undefined;
-        const accountId = auth ? sessionAccount(req, auth) : undefined;
-        const account = accountId === undefined ? undefined : accounts?.get(accountId);
+        const asker = requester(req);
+        if (asker.badToken) return json(res, 401, { error: asker.badToken, signIn: true });
+        const account = asker.account;
         if ((auth || codes.length) && !code && !account) return json(res, 401, { error: auth ? "Sign in with GitHub to add your design system." : "Wrong or missing access code.", signIn: !!auth });
         const who = account ? `a${account.id}` : code ? `c${createHash("sha256").update(code).digest("hex").slice(0, 8)}` : clientId(req, trustProxy);
         const recent = (addedToday.get(who) ?? []).filter((t) => Date.now() - t < 86_400_000);
@@ -283,8 +314,9 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const code = given ? codes.find((c) => sameSecret(given, c)) : undefined;
         if (given && !code) return json(res, 401, { error: "That invite code is not valid." });
         // Who pays for this run: an invite code (not counted), or a signed-in account's allowance.
-        const accountId = !code && auth ? sessionAccount(req, auth) : undefined;
-        const account = accountId === undefined ? undefined : accounts?.get(accountId);
+        const who = !code ? requester(req) : {};
+        if (who.badToken) return json(res, 401, { error: who.badToken, signIn: true });
+        const account = who.account;
         if (!code && auth && !account) return json(res, 401, { error: "Sign in with GitHub to start your free trial.", signIn: true });
         if (!code && !auth && codes.length) return json(res, 401, { error: "Wrong or missing access code." });
         if (account) {

@@ -78,4 +78,60 @@ function collisions(dir, files) {
   return files.map((f) => path.join(dir, f.path)).filter((p) => fs.existsSync(p));
 }
 
-module.exports = { findRepo, findProjects, projectOf, isPascalCase, generateArgs, verifyArgs, parseResult, testFileFor, reportLines, collisions };
+// ---- Working with tulparsi.com (the default: no repository or keys on this machine) ----
+
+/** Language and styling each framework can write in, as the web page offers them: [value, label]. */
+const OUTPUTS = {
+  react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"]],
+  vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"]],
+  angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
+};
+
+/** The page that signs the extension in: it hands a token back through the editor's own link scheme. */
+function connectUrl(server, scheme, extensionId, state) {
+  const url = new URL("/connect", server);
+  url.searchParams.set("scheme", scheme);
+  url.searchParams.set("ext", extensionId.toLowerCase());
+  url.searchParams.set("state", state);
+  return url.href;
+}
+
+/** The token from the link the browser opened, if it answers the sign-in this window started. */
+function tokenFromCallback(query, expectedState) {
+  const params = new URLSearchParams(query);
+  const token = params.get("token") ?? "";
+  const state = params.get("state") ?? "";
+  if (!expectedState || state !== expectedState) return undefined;
+  return /^tlp_[\w-]{43}$/.test(token) ? token : undefined;
+}
+
+/** A screenshot as the data URL the server takes. */
+function imageDataUrl(file) {
+  const ext = path.extname(file).toLowerCase();
+  const mime = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" }[ext];
+  if (!mime) throw new Error(`Unsupported image type ${ext}; use PNG, JPEG or WebP.`);
+  return `data:${mime};base64,${fs.readFileSync(file).toString("base64")}`;
+}
+
+/** The request body for a generation. */
+function jobBody({ project, name, figmaUrl, screenshot, figmaToken, output }) {
+  const [language, styling] = (output ?? "").split(":");
+  return {
+    project,
+    name,
+    ...(figmaUrl && { figmaUrl }),
+    ...(screenshot && { image: imageDataUrl(screenshot) }),
+    ...(figmaToken && { figmaToken }),
+    ...(language && { language }),
+    ...(styling && { styling }),
+  };
+}
+
+/** A finished job in the shape the CLI's --json result has, so both modes share the rest. */
+function fromJob(job) {
+  if (job.state === "error") return { ok: false, error: job.error || "The generation failed." };
+  const r = job.result;
+  return { ok: true, status: r.status, model: r.model, attempts: r.attempts.length, files: r.files, report: r.report };
+}
+
+module.exports = { findRepo, findProjects, projectOf, isPascalCase, generateArgs, verifyArgs, parseResult, testFileFor, reportLines, collisions, OUTPUTS, connectUrl, tokenFromCallback, imageDataUrl, jobBody, fromJob };

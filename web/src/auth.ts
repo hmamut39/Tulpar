@@ -38,10 +38,11 @@ export function authFromEnv(): AuthConfig | undefined {
 
 const SESSION = "tulpar_session";
 const STATE = "tulpar_oauth_state";
+const NEXT = "tulpar_next";
 const SESSION_DAYS = 30;
 
 /** Sends the visitor to GitHub to sign in. */
-export function startSignIn(res: ServerResponse, config: AuthConfig): void {
+export function startSignIn(res: ServerResponse, config: AuthConfig, next?: string | null): void {
   const state = randomBytes(16).toString("hex");
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", config.clientId);
@@ -49,7 +50,9 @@ export function startSignIn(res: ServerResponse, config: AuthConfig): void {
   url.searchParams.set("scope", "read:user user:email");
   url.searchParams.set("state", state);
   url.searchParams.set("allow_signup", "true");
-  res.writeHead(302, { location: url.href, "set-cookie": cookie(STATE, state, 600, config), "cache-control": "no-store" });
+  // Where to return after signing in (the page that asked, e.g. connecting VS Code): a path on this site only.
+  const back = next && isLocalPath(next) ? cookie(NEXT, encodeURIComponent(next), 600, config) : cookie(NEXT, "", 0, config);
+  res.writeHead(302, { location: url.href, "set-cookie": [cookie(STATE, state, 600, config), back], "cache-control": "no-store" });
   res.end();
 }
 
@@ -82,10 +85,22 @@ export async function finishSignIn(req: IncomingMessage, config: AuthConfig, fet
 }
 
 /** Sets the session for an account and sends the visitor home. */
+/** The page to return to after signing in, if the sign-in was started with one. */
+export function signInNext(req: IncomingMessage): string {
+  const raw = readCookie(req, NEXT);
+  const next = raw ? decodeURIComponent(raw) : "/";
+  return isLocalPath(next) ? next : "/";
+}
+
+/** A path on this site: one leading slash, never "//host" or a backslash trick. */
+function isLocalPath(p: string): boolean {
+  return /^\/(?![/\\])[^\s\\]*$/.test(p) && p.length <= 500;
+}
+
 export function setSession(res: ServerResponse, accountId: number, config: AuthConfig, to = "/"): void {
   const payload = Buffer.from(JSON.stringify({ a: accountId, e: Date.now() + SESSION_DAYS * 86_400_000 })).toString("base64url");
   const value = `${payload}.${sign(payload, config.sessionSecret)}`;
-  res.writeHead(302, { location: to, "set-cookie": [cookie(SESSION, value, SESSION_DAYS * 86_400, config), cookie(STATE, "", 0, config)], "cache-control": "no-store" });
+  res.writeHead(302, { location: to, "set-cookie": [cookie(SESSION, value, SESSION_DAYS * 86_400, config), cookie(STATE, "", 0, config), cookie(NEXT, "", 0, config)], "cache-control": "no-store" });
   res.end();
 }
 

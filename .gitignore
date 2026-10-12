@@ -11,3 +11,4 @@ out/
 # Packaged VS Code extensions.
 *.vsix
 .vitest/
+*.vsix

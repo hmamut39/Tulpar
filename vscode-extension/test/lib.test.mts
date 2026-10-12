@@ -34,3 +34,28 @@ describe("VS Code extension helpers", () => {
     expect(lib.isPascalCase("checkout-card")).toBe(false);
   });
 });
+
+describe("VS Code extension with tulparsi.com", () => {
+  it("signs in through the site and accepts only the token that answers its own request", () => {
+    const url = new URL(lib.connectUrl("https://tulparsi.com", "cursor", "Hmamut39.tulpar", "ab".repeat(16)));
+    expect(url.pathname).toBe("/connect");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ scheme: "cursor", ext: "hmamut39.tulpar", state: "ab".repeat(16) });
+    const token = `tlp_${"a".repeat(43)}`;
+    expect(lib.tokenFromCallback(`token=${token}&state=${"ab".repeat(16)}`, "ab".repeat(16))).toBe(token);
+    // Another window's sign-in, or none in progress, is refused; so is anything that is not a token.
+    expect(lib.tokenFromCallback(`token=${token}&state=${"cd".repeat(16)}`, "ab".repeat(16))).toBeUndefined();
+    expect(lib.tokenFromCallback(`token=${token}&state=`, undefined)).toBeUndefined();
+    expect(lib.tokenFromCallback(`token=evil&state=${"ab".repeat(16)}`, "ab".repeat(16))).toBeUndefined();
+  });
+
+  it("sends the design, the language and styling, and reads the result like the CLI's", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "tulpar-ext-"));
+    await writeFile(join(dir, "s.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const body = lib.jobBody({ project: "element-plus", name: "Card", screenshot: join(dir, "s.png"), output: "javascript:scss" });
+    expect(body).toEqual({ project: "element-plus", name: "Card", image: "data:image/png;base64,iVBORw==", language: "javascript", styling: "scss" });
+    expect(() => lib.imageDataUrl(join(dir, "s.gif"))).toThrow(/PNG, JPEG or WebP/);
+    expect(lib.fromJob({ state: "error", error: "Figma said no" })).toEqual({ ok: false, error: "Figma said no" });
+    expect(lib.fromJob({ state: "done", result: { status: "verified", model: "m", attempts: [{}, {}], files: [{ path: "Card.vue", content: "" }], report: { verdict: "pass" } } })).toMatchObject({ ok: true, status: "verified", attempts: 2 });
+    expect(lib.OUTPUTS.vue.map(([v]: [string]) => v)).toContain("typescript:less");
+  });
+});

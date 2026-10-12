@@ -1,24 +1,38 @@
 {
   "name": "tulpar",
-  "displayName": "Tulpar",
-  "description": "Figma → your design system, verified. Generate components from a Figma frame or a screenshot, and verify code against the design.",
-  "version": "0.1.0",
+  "displayName": "Tulpar — Figma & screenshots to verified components",
+  "description": "Turn a Figma frame or a screenshot into a component built with your design system — React, Vue, Angular or Web Components — then build, render and check it against the design before you see it.",
+  "version": "1.0.0",
   "publisher": "hmamut39",
-  "license": "UNLICENSED",
+  "author": { "name": "Mamuti Aishan (Hasan)" },
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "icon": "icon.png",
+  "galleryBanner": { "color": "#4F46E5", "theme": "dark" },
+  "homepage": "https://tulparsi.com",
+  "bugs": { "url": "https://github.com/hmamut39/Tulpar/issues" },
   "repository": { "type": "git", "url": "https://github.com/hmamut39/Tulpar" },
   "engines": { "vscode": "^1.100.0" },
-  "categories": ["Other"],
+  "categories": ["AI", "Other"],
+  "keywords": ["figma", "design system", "screenshot to code", "design to code", "react", "vue", "angular", "web components", "component generator", "ui"],
   "main": "./extension.js",
+  "activationEvents": ["onStartupFinished", "onUri"],
   "contributes": {
     "commands": [
       { "command": "tulpar.generate", "title": "Generate component from Figma or a screenshot", "category": "Tulpar" },
-      { "command": "tulpar.verify", "title": "Verify this file against a Figma frame", "category": "Tulpar" }
+      { "command": "tulpar.signIn", "title": "Sign in", "category": "Tulpar" },
+      { "command": "tulpar.signOut", "title": "Sign out", "category": "Tulpar" },
+      { "command": "tulpar.forgetFigmaToken", "title": "Forget my Figma token", "category": "Tulpar" },
+      { "command": "tulpar.verify", "title": "Verify this file against a Figma frame (local repository)", "category": "Tulpar" }
     ],
+    "menus": {
+      "explorer/context": [{ "command": "tulpar.generate", "when": "explorerResourceIsFolder", "group": "navigation@90" }]
+    },
     "configuration": {
       "title": "Tulpar",
       "properties": {
-        "tulpar.repoPath": { "type": "string", "default": "", "description": "Path to the Tulpar repository (the folder containing cli/src/main.ts). Leave empty to use an open workspace folder that is Tulpar." },
-        "tulpar.nodePath": { "type": "string", "default": "node", "description": "Node.js 24 or newer." }
+        "tulpar.server": { "type": "string", "default": "https://tulparsi.com", "description": "The Tulpar server that generates components with your account." },
+        "tulpar.repoPath": { "type": "string", "default": "", "description": "Optional: a local copy of the Tulpar repository (the folder containing cli/src/main.ts). When set, generation runs on this machine with its own keys (.env) instead of tulparsi.com, and \"Verify this file\" is available." },
+        "tulpar.nodePath": { "type": "string", "default": "node", "description": "Node.js 24 or newer, for the local repository mode." }
       }
     }
   }
