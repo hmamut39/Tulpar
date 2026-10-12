@@ -65,7 +65,9 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     // The library's root class (Radix's <Theme> adds "radix-themes") and the theme class, as an app has them.
     const frameClasses = [config.rootClass, themeClass].filter((c): c is string => !!c && /^[\w-]+$/.test(c));
     await page.evaluate(({ frameId, frameClasses }) => document.getElementById(frameId)!.classList.add(...frameClasses), { frameId: FRAME_ID, frameClasses });
-    warnings.push(...(await framework.settle(page, FRAME_ID)));
+    // A framework that failed to start (Angular's bootstrap rejected) is a crash like a page error.
+    const startup = await framework.settle(page, FRAME_ID);
+    warnings.push(...startup);
     await page.evaluate(async () => {
       await document.fonts.ready;
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -159,8 +161,9 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     }
     // A page that threw and drew nothing tagged did not render: saying "rendered" would let a blank
     // page pass the pixel check against a mostly white design.
-    if (!measured.some((m) => m.visible) && errors.length) {
-      return { status: "failed", reason: `The component crashed before drawing anything: ${errors[0]}` };
+    const crashes = [...startup, ...errors];
+    if (!measured.some((m) => m.visible) && crashes.length) {
+      return { status: "failed", reason: `The component crashed before drawing anything: ${crashes[0]}` };
     }
     const facts = [...best.values()].map(({ tag, ...m }) => ({ ...m, ...(identity[m.figmaId] ?? { component: tag, defined: true }) }));
 

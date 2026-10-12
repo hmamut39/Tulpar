@@ -113,10 +113,7 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     if (!attempt.rejected.length && !attempt.report.checks.some((c) => c.status === "fail")) break;
   }
 
-  // The best attempt is delivered, not the last: a repair can make things worse. Fewest failing
-  // checks wins; on a tie, the later attempt (it saw more feedback).
-  const failures = (a: Attempt) => (a.report ? a.rejected.length + a.report.checks.filter((c) => c.status === "fail").length : Infinity);
-  const last = attempts.reduce<Attempt | undefined>((best, a) => (!best || failures(a) <= failures(best) ? a : best), undefined) ?? attempts.at(-1)!;
+  const last = bestAttempt(attempts);
   const failing = !last.report || last.rejected.length > 0 || last.report.checks.some((c) => c.status === "fail");
   return {
     status: failing ? "failed" : last.report!.verdict === "pass" ? "verified" : "unchecked-remain",
@@ -199,4 +196,15 @@ function repairText(b: Brief, previous: Attempt): string {
     `YOUR PREVIOUS FILES`,
     ...previous.files.map((f) => `--- ${f.path}\n${f.content}`),
   ].join("\n");
+}
+
+/**
+ * The attempt to deliver, not always the last: a repair can make things worse. Fewest failing checks
+ * wins; on a tie, the later attempt (it saw more feedback). One that didn't build or render ranks below
+ * any that did: its other checks were skipped, not passed.
+ */
+export function bestAttempt<A extends Pick<Attempt, "rejected" | "report">>(attempts: A[]): A {
+  const failures = (a: A) =>
+    a.report ? a.rejected.length + a.report.checks.filter((c) => c.status === "fail").length + (a.report.checks.some((c) => c.status === "fail" && (c.id === "build" || c.id === "render")) ? 1000 : 0) : Infinity;
+  return attempts.reduce<A | undefined>((best, a) => (!best || failures(a) <= failures(best) ? a : best), undefined) ?? attempts.at(-1)!;
 }
