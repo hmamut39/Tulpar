@@ -48,6 +48,9 @@ export default defineConfig({
       // Nothing but the local test server resolves: generated tests cannot reach the network.
       provider: playwright({ launchOptions: { args: ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1"] } }),
       instances: [{ browser: "chromium" }],
+      // A failure screenshot is a picture of someone's generated component, written outside the
+      // job's folders and kept after it: none are taken.
+      screenshotFailures: false,
     },
   },
 });
