@@ -108,3 +108,47 @@ export function applyEvent(event: { id: string; type: string; data: { object: Re
   }
   return "ignored";
 }
+
+export interface Revenue {
+  /** Active (or trialing) Tulpar Pro subscriptions. */
+  subscribers: number;
+  /** Monthly recurring revenue at list price, in dollars. */
+  mrr: number;
+  /** Money actually collected for Tulpar in the period, in dollars (after discounts). */
+  collected: number;
+  currency: string;
+}
+
+/**
+ * Tulpar's revenue from Stripe. The account can be shared with another product, so only
+ * subscriptions and invoice lines for Tulpar's own price are counted.
+ */
+export async function revenue(config: BillingConfig, days = 30, fetchImpl?: typeof fetch): Promise<Revenue> {
+  type Sub = { status: string; items: { data: { quantity?: number; price: { id: string; unit_amount: number | null; currency: string } }[] } };
+  type Line = { amount: number; price?: { id: string } | null; pricing?: { price_details?: { price?: string } } };
+  type Invoice = { amount_paid: number; currency: string; lines: { data: Line[] } };
+  let subscribers = 0;
+  let mrrCents = 0;
+  let currency = "usd";
+  for (const status of ["active", "trialing"]) {
+    const subs = await stripe<{ data: Sub[] }>(config, "GET", "/subscriptions", { price: config.priceId, status, limit: 100 }, fetchImpl);
+    for (const s of subs.data) {
+      subscribers++;
+      for (const item of s.items.data) {
+        if (item.price.id !== config.priceId) continue;
+        mrrCents += (item.price.unit_amount ?? 0) * (item.quantity ?? 1);
+        currency = item.price.currency;
+      }
+    }
+  }
+  const since = Math.floor(Date.now() / 1000) - days * 86_400;
+  const invoices = await stripe<{ data: Invoice[] }>(config, "GET", "/invoices", { status: "paid", created: { gte: since }, limit: 100 }, fetchImpl);
+  let collectedCents = 0;
+  for (const inv of invoices.data) {
+    const ours = inv.lines.data.filter((l) => (l.price?.id ?? l.pricing?.price_details?.price) === config.priceId);
+    if (!ours.length) continue;
+    // A paid invoice for Tulpar alone: what was paid. A mixed one: Tulpar's lines only.
+    collectedCents += ours.length === inv.lines.data.length ? inv.amount_paid : ours.reduce((n, l) => n + l.amount, 0);
+  }
+  return { subscribers, mrr: mrrCents / 100, collected: collectedCents / 100, currency };
+}

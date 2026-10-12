@@ -83,6 +83,9 @@ describe("web API with sign-in and payments", () => {
       if (url.endsWith("/customers")) return ok({ id: "cus_octo" });
       if (url.endsWith("/checkout/sessions")) return ok({ url: "https://checkout.stripe.com/c/pay/cs_test" });
       if (url.endsWith("/billing_portal/sessions")) return ok({ url: "https://billing.stripe.com/p/session/x" });
+      if (url.includes("/v1/subscriptions")) return ok({ data: url.includes("status=active") ? [{ status: "active", items: { data: [{ quantity: 1, price: { id: "price_pro", unit_amount: 2900, currency: "usd" } }] } }] : [] });
+      // Two paid invoices: one for Tulpar, one for another product on the same Stripe account.
+      if (url.includes("/v1/invoices")) return ok({ data: [{ amount_paid: 2900, currency: "usd", lines: { data: [{ amount: 2900, pricing: { price_details: { price: "price_pro" } } }] } }, { amount_paid: 1500, currency: "usd", lines: { data: [{ amount: 1500, price: { id: "price_other" } }] } }] });
     }
     return new Response("{}", { status: 404 });
   }) as typeof fetch;
@@ -92,7 +95,7 @@ describe("web API with sign-in and payments", () => {
   let cookie = "";
 
   beforeAll(async () => {
-    server = await startServer({ repoRoot: repo, llm: () => never, accessCode: "invite-1", auth, billing, accounts, fetch: fakeFetch, runsPerHour: 100, log: () => {} }, 0);
+    server = await startServer({ repoRoot: repo, llm: () => never, accessCode: "invite-1", auth, billing, accounts, fetch: fakeFetch, runsPerHour: 100, log: () => {}, admins: ["Octo"] }, 0);
   });
   afterAll(() => server.close());
 
@@ -148,6 +151,21 @@ describe("web API with sign-in and payments", () => {
     expect(me).toMatchObject({ allowance: { plan: "pro", remaining: 5 }, canManageBilling: true });
     expect((await job()).status).toBe(202);
     expect((await (await post("/api/billing/portal")).json()).url).toMatch(/billing\.stripe\.com/);
+  });
+
+  it("shows the owner's dashboard to admins only, counting only Tulpar's revenue", async () => {
+    expect((await fetch(`${server.url}/api/admin/stats`)).status).toBe(401);
+    accounts.recordGeneration({ at: new Date().toISOString(), account: "octo", project: "radix", source: "screenshot", state: "done", status: "verified", attempts: 2, inputTokens: 1000, outputTokens: 500, ms: 90_000 });
+    const stats = await (await fetch(`${server.url}/api/admin/stats?days=7`, { headers: { cookie } })).json();
+    expect(stats).toMatchObject({ days: 7, accounts: { total: 1, pro: 1 }, generations: { total: 1, passed: 1, inputTokens: 1000, outputTokens: 500, avgSeconds: 90 }, revenue: { subscribers: 1, mrr: 29, collected: 29 } });
+    expect(stats.series).toHaveLength(7);
+    expect(stats.series.at(-1).generations).toBe(1);
+    expect(stats.recentAccounts[0]).toMatchObject({ login: "octo", plan: "pro" });
+    // Someone else, signed in, is not the owner.
+    const other = accounts.signIn({ githubId: 77, login: "mallory" });
+    const payload = Buffer.from(JSON.stringify({ a: other.id, e: Date.now() + 60_000 })).toString("base64url");
+    const forged = `tulpar_session=${payload}.${createHmac("sha256", "s3cret").update(payload).digest("base64url")}`;
+    expect((await fetch(`${server.url}/api/admin/stats`, { headers: { cookie: forged } })).status).toBe(403);
   });
 
   it("does not accept a tampered session cookie", async () => {

@@ -29,7 +29,7 @@ import { loadDotEnv } from "@tulpar/cli/env";
 import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, type Llm } from "@tulpar/core";
 import { Accounts } from "./accounts.ts";
 import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, startSignIn, type AuthConfig } from "./auth.ts";
-import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, verifyWebhook, type BillingConfig } from "./billing.ts";
+import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, revenue, verifyWebhook, type BillingConfig, type Revenue } from "./billing.ts";
 import { addProject, type AddJob, type Framework } from "./custom-projects.ts";
 import { JobQueue, type JobInput } from "./jobs.ts";
 import { zipFiles } from "./zip.ts";
@@ -63,6 +63,8 @@ export interface ServerOptions {
   fetch?: typeof fetch;
   /** What the pricing section shows for Pro, e.g. "$29". */
   proPriceLabel?: string;
+  /** GitHub logins that may open the owner dashboard; default TULPAR_ADMINS (comma-separated). */
+  admins?: string[];
 }
 
 export interface ProjectInfo {
@@ -74,7 +76,7 @@ export interface ProjectInfo {
 
 const MAX_BODY = 12 * 1024 * 1024;
 /** Clean URLs for the site's pages. */
-const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html" };
+const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html", "/admin": "/admin.html" };
 
 export function listProjects(repoRoot: string): ProjectInfo[] {
   // The built-in examples, then design systems added from the page (out/projects).
@@ -115,6 +117,11 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const accounts = auth ? (options.accounts ?? new Accounts(join(options.repoRoot, "out", "accounts.db"))) : undefined;
   const jobAccounts = new Map<string, { id: number; login: string }>(); // job id → the account it counts against
   const proPrice = options.proPriceLabel ?? process.env.TULPAR_PRO_PRICE_LABEL ?? "$29";
+  const admins = new Set((options.admins ?? (process.env.TULPAR_ADMINS ?? "").split(",")).map((a) => a.trim().toLowerCase()).filter(Boolean));
+  // OpenAI prices in dollars per million tokens, for the dashboard's cost estimate; unset means "not estimated".
+  const inputPerM = Number(process.env.TULPAR_OPENAI_INPUT_PER_M || 0);
+  const outputPerM = Number(process.env.TULPAR_OPENAI_OUTPUT_PER_M || 0);
+  let revenueCache: { at: number; value: Revenue | { error: string } } | undefined;
   const queue = new JobQueue({
     repoRoot: options.repoRoot,
     llm,
@@ -133,6 +140,19 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         invite: invites.get(job.id) ?? null,
         account: jobAccounts.get(job.id)?.login ?? null,
       }));
+      accounts?.recordGeneration({
+        at: new Date().toISOString(),
+        account: jobAccounts.get(job.id)?.login ?? null,
+        invite: invites.get(job.id) ?? null,
+        project: basename(job.input.projectDir),
+        source: job.source,
+        state: job.state,
+        status: r?.status ?? null,
+        attempts: r?.attempts.length ?? null,
+        inputTokens: r?.usage.inputTokens ?? 0,
+        outputTokens: r?.usage.outputTokens ?? 0,
+        ms,
+      });
       // Failed before the model ran (e.g. the Figma frame could not be read): the generation is given back.
       const owner = jobAccounts.get(job.id);
       if (owner && job.state === "error" && !r) accounts?.refund(owner.id);
@@ -180,6 +200,20 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           }
         }
         if (req.method === "POST" && path === "/auth/logout") return clearSession(res, auth);
+        if (req.method === "GET" && path === "/api/admin/stats") {
+          const id = sessionAccount(req, auth);
+          const account = id === undefined ? undefined : accounts.get(id);
+          if (!account) return json(res, 401, { error: "Sign in first." });
+          if (!admins.has(account.login.toLowerCase())) return json(res, 403, { error: "This page is for Tulpar's owner." });
+          const days = Math.min(365, Math.max(1, Number(url.searchParams.get("days") || 30)));
+          const stats = accounts.stats(days);
+          if (billing && (!revenueCache || Date.now() - revenueCache.at > 300_000)) {
+            revenueCache = { at: Date.now(), value: await revenue(billing, 30, options.fetch).catch((err: Error) => ({ error: err.message })) };
+          }
+          const g = stats.generations;
+          const cost = inputPerM || outputPerM ? Math.round(((g.inputTokens / 1e6) * inputPerM + (g.outputTokens / 1e6) * outputPerM) * 100) / 100 : null;
+          return json(res, 200, { ...stats, cost, costRates: inputPerM || outputPerM ? { inputPerM, outputPerM } : null, revenue: revenueCache?.value ?? null });
+        }
         if (req.method === "GET" && path === "/api/me") {
           const id = sessionAccount(req, auth);
           const account = id === undefined ? undefined : accounts.get(id);

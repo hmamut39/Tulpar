@@ -38,6 +38,29 @@ export interface Allowance {
   blocked?: string;
 }
 
+export interface GenerationRecord {
+  at: string;
+  account?: string | null;
+  invite?: string | null;
+  project: string;
+  source: string;
+  state: string;
+  status?: string | null;
+  attempts?: number | null;
+  inputTokens: number;
+  outputTokens: number;
+  ms: number;
+}
+
+export interface DashboardStats {
+  days: number;
+  accounts: { total: number; recent: number; pro: number; lapsed: number };
+  generations: { total: number; passed: number; failed: number; errors: number; invite: number; inputTokens: number; outputTokens: number; avgSeconds: number };
+  series: { day: string; generations: number; signUps: number }[];
+  topProjects: { project: string; generations: number }[];
+  recentAccounts: { login: string; plan: string; status: string | null; used: number; createdAt: string }[];
+}
+
 export interface Limits {
   trial: number;
   pro: number;
@@ -73,6 +96,22 @@ export class Accounts {
         period_start TEXT
       );
       CREATE TABLE IF NOT EXISTS stripe_events (id TEXT PRIMARY KEY, received_at TEXT NOT NULL);
+      -- One row per finished generation, for the owner's dashboard: no design, code or token.
+      CREATE TABLE IF NOT EXISTS generations (
+        id INTEGER PRIMARY KEY,
+        at TEXT NOT NULL,
+        account TEXT,
+        invite TEXT,
+        project TEXT NOT NULL,
+        source TEXT NOT NULL,
+        state TEXT NOT NULL,
+        status TEXT,
+        attempts INTEGER,
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        ms INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS generations_at ON generations (at);
     `);
   }
 
@@ -159,6 +198,39 @@ export class Accounts {
   firstDelivery(eventId: string): boolean {
     const result = this.#db.prepare("INSERT OR IGNORE INTO stripe_events (id, received_at) VALUES (?, ?)").run(eventId, new Date().toISOString());
     return Number(result.changes) > 0;
+  }
+
+  /** Records a finished generation (what ran and what it cost; never the design, the code or a token). */
+  recordGeneration(g: GenerationRecord): void {
+    this.#db
+      .prepare("INSERT INTO generations (at, account, invite, project, source, state, status, attempts, input_tokens, output_tokens, ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(g.at, g.account ?? null, g.invite ?? null, g.project, g.source, g.state, g.status ?? null, g.attempts ?? null, g.inputTokens, g.outputTokens, g.ms);
+  }
+
+  /** What the owner's dashboard shows, from this database (revenue comes from Stripe). */
+  stats(days = 30, now = new Date()): DashboardStats {
+    const since = new Date(now.getTime() - days * 86_400_000).toISOString();
+    const one = (sql: string, ...args: (string | number)[]) => this.#db.prepare(sql).get(...args) as Record<string, number | null>;
+    const all = (sql: string, ...args: (string | number)[]) => this.#db.prepare(sql).all(...args) as Record<string, unknown>[];
+    const acc = one(`SELECT COUNT(*) AS total, SUM(created_at >= ?) AS recent, SUM(plan = 'pro' AND subscription_status IN ('active','trialing')) AS pro, SUM(plan = 'pro' AND subscription_status NOT IN ('active','trialing')) AS lapsed FROM accounts`, since);
+    const gen = one(
+      `SELECT COUNT(*) AS total, SUM(state = 'done' AND status IN ('verified','unchecked-remain')) AS passed, SUM(state = 'done' AND status = 'failed') AS failed, SUM(state = 'error') AS errors,
+              SUM(input_tokens) AS input, SUM(output_tokens) AS output, AVG(ms) AS avgMs, SUM(invite IS NOT NULL) AS invite FROM generations WHERE at >= ?`,
+      since,
+    );
+    const perDay = (table: string, column: string) =>
+      Object.fromEntries(all(`SELECT substr(${column}, 1, 10) AS day, COUNT(*) AS n FROM ${table} WHERE ${column} >= ? GROUP BY day`, since).map((x) => [String(x.day), Number(x.n)]));
+    const generationsPerDay = perDay("generations", "at");
+    const signUpsPerDay = perDay("accounts", "created_at");
+    const series = Array.from({ length: days }, (_, i) => new Date(now.getTime() - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10)).map((day) => ({ day, generations: generationsPerDay[day] ?? 0, signUps: signUpsPerDay[day] ?? 0 }));
+    return {
+      days,
+      accounts: { total: Number(acc.total ?? 0), recent: Number(acc.recent ?? 0), pro: Number(acc.pro ?? 0), lapsed: Number(acc.lapsed ?? 0) },
+      generations: { total: Number(gen.total ?? 0), passed: Number(gen.passed ?? 0), failed: Number(gen.failed ?? 0), errors: Number(gen.errors ?? 0), invite: Number(gen.invite ?? 0), inputTokens: Number(gen.input ?? 0), outputTokens: Number(gen.output ?? 0), avgSeconds: Math.round(Number(gen.avgMs ?? 0) / 1000) },
+      series,
+      topProjects: all(`SELECT project, COUNT(*) AS n FROM generations WHERE at >= ? GROUP BY project ORDER BY n DESC LIMIT 8`, since).map((x) => ({ project: String(x.project), generations: Number(x.n) })),
+      recentAccounts: all(`SELECT login, plan, subscription_status AS status, used, created_at AS createdAt FROM accounts ORDER BY created_at DESC LIMIT 15`).map((x) => ({ login: String(x.login), plan: String(x.plan), status: (x.status as string | null) ?? null, used: Number(x.used), createdAt: String(x.createdAt) })),
+    };
   }
 
   close(): void {

@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /auth/
+Disallow: /admin
 
 Sitemap: https://tulparsi.com/sitemap.xml
