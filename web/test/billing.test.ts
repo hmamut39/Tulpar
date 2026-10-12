@@ -138,6 +138,8 @@ describe("web API with sign-in and payments", () => {
     expect(checkout.url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
     expect(stripeCalls.join("\n")).toMatch(/POST \/v1\/checkout\/sessions .*price%5D=price_pro/);
     expect(stripeCalls.join("\n")).toMatch(/client_reference_id=\d+/);
+    // Tulpar's own terms, on Tulpar's checkout only.
+    expect(new URLSearchParams(stripeCalls.find((c) => c.includes("/checkout/sessions"))!.split(" ").slice(2).join(" ")).get("custom_text[submit][message]")).toMatch(/^By subscribing you agree to Tulpar's Terms \(http:\/\/localhost\/terms\)/);
   });
 
   it("becomes Pro only through a signed webhook", async () => {

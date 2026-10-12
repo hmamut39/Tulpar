@@ -63,6 +63,8 @@ export async function checkoutUrl(account: Account, accounts: Accounts, config: 
       client_reference_id: account.id,
       line_items: [{ price: config.priceId, quantity: 1 }],
       allow_promotion_codes: true,
+      // Tulpar's own terms on Tulpar's checkout only: the Stripe account's public details are shared with another product.
+      custom_text: { submit: { message: `By subscribing you agree to Tulpar's Terms (${config.origin}/terms), Privacy Policy (${config.origin}/privacy) and Refund Policy (${config.origin}/refunds). Cancel any time from Billing.` } },
       success_url: `${config.origin}/?upgraded=1`,
       cancel_url: `${config.origin}/pricing`,
     },
