@@ -171,6 +171,15 @@ function briefText(b: Brief): string {
     `TOKENS FOR THE DESIGN'S COLOURS (Figma variable → candidate tokens, best first)`,
     ...(b.tokens.length ? b.tokens.map((t) => `- ${t.variable} (used ${t.uses}×): ${t.tokens.slice(0, 4).map((x) => x.codeRef ?? x.name).join(", ") || "no token has this value: report it in notes"}`) : ["(none)"]),
     ``,
+    `ACCENT COLOUR (the design's main action colour, e.g. its primary button)`,
+    ...(b.accent
+      ? [
+          `- The design's accent is ${b.accent.color}. The design system's nearest accent palettes: ${b.accent.options.map((o) => `${o.family} (${o.codeRef ?? o.token} = ${o.hex})`).join(", ")}.`,
+          `- Set the accent the design system's own way, to the nearest palette: a theme or provider setting (e.g. an accent colour on the theme), or the component's colour, palette or severity prop. Never override a component's colours with CSS.`,
+          `- If the design system names colours by role instead of palette, pick the role whose colour is nearest: info is usually blue or sky, success green, warn or warning amber or orange, help purple, danger or error red; "primary" is the theme's default, which may not be the design's colour.`,
+        ]
+      : ["(none found)"]),
+    ``,
     `SPACING AND SIZE TOKENS (the only ones that exist; value in points)`,
     ...(b.dimensions.length ? b.dimensions.map((d) => `- ${d.codeRef ?? d.name} = ${d.points}`) : ["(none)"]),
   ].join("\n");

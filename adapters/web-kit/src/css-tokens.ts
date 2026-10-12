@@ -125,6 +125,16 @@ export function cssColor(value: string): Color | undefined {
   const v = value.trim().toLowerCase();
   if (NAMED[v]) return parseColor(NAMED[v]);
   if (v.startsWith("#")) return parseColor(v);
+  // Wide-gamut colours (Radix declares every step again in Display P3; Tailwind 4 uses oklch), as sRGB.
+  const p3 = /^color\(\s*display-p3\s+([\d.]+%?)\s+([\d.]+%?)\s+([\d.]+%?)\s*(?:\/\s*([\d.]+%?))?\s*\)$/.exec(v);
+  if (p3) return fromLinear(p3ToSrgbLinear(p3.slice(1, 4).map((x) => linear(unit(x!)))), p3[4] ? unit(p3[4]) : 1);
+  const lch = /^oklch\(\s*([\d.]+%?)\s+([\d.]+%?)\s+([\d.]+)(?:deg)?\s*(?:\/\s*([\d.]+%?))?\s*\)$/.exec(v);
+  if (lch) {
+    const L = unit(lch[1]!);
+    const C = lch[2]!.endsWith("%") ? (parseFloat(lch[2]!) / 100) * 0.4 : parseFloat(lch[2]!);
+    const h = (parseFloat(lch[3]!) * Math.PI) / 180;
+    return fromLinear(oklabToSrgbLinear(L, C * Math.cos(h), C * Math.sin(h)), lch[4] ? unit(lch[4]) : 1);
+  }
   const m = /^(rgba?|hsla?)\(\s*([^)]+)\)$/.exec(v);
   if (!m) return undefined;
   const parts = m[2]!.split(/[\s,/]+/).filter(Boolean);
@@ -146,4 +156,27 @@ export function cssColor(value: string): Color | undefined {
     return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p;
   };
   return { space: "srgb", r: hue(h + 1 / 3), g: hue(h), b: hue(h - 1 / 3), a: alpha };
+}
+
+const unit = (x: string) => (x.endsWith("%") ? parseFloat(x) / 100 : parseFloat(x));
+const linear = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+const gamma = (v: number) => (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055);
+
+/** Linear Display P3 → linear sRGB (both D65). */
+function p3ToSrgbLinear([r, g, b]: number[]): [number, number, number] {
+  return [1.2249401 * r! - 0.2249404 * g!, -0.0420569 * r! + 1.0420571 * g!, -0.0196376 * r! - 0.0786361 * g! + 1.0982735 * b!];
+}
+
+/** OKLab → linear sRGB. */
+function oklabToSrgbLinear(L: number, a: number, b: number): [number, number, number] {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+}
+
+/** Linear sRGB → an sRGB colour, clipped to the gamut. */
+function fromLinear([r, g, b]: [number, number, number], a: number): Color {
+  const c = (v: number) => Math.min(1, Math.max(0, gamma(Math.min(1, Math.max(0, v)))));
+  return { space: "srgb", r: c(r), g: c(g), b: c(b), a };
 }

@@ -43,3 +43,14 @@ describe("tokens declared as CSS custom properties", () => {
     expect(readCssTokens(root, { files: ["missing.css"] }).gaps).toEqual(["Token stylesheet not found: missing.css"]);
   });
 });
+
+describe("wide-gamut colours", () => {
+  it("reads Display P3 and oklch as their sRGB equivalents", () => {
+    const hex = (c: { r: number; g: number; b: number } | undefined) => c && `#${[c.r, c.g, c.b].map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("")}`;
+    // Radix's sky-9 in sRGB is #7ce2fe; its P3 form must land on (almost) the same colour.
+    expect(hex(cssColor("color(display-p3 0.585 0.877 0.983)"))).toMatch(/^#7[bcd]e[12]f[de]$/);
+    expect(hex(cssColor("color(display-p3 1 0 0)"))).toBe("#ff0000"); // outside sRGB: clipped
+    expect(hex(cssColor("oklch(62.3% 0.214 259.8)"))).toMatch(/^#(2b7ff[e-f]|2c7ff[e-f]|2b80ff)$/); // Tailwind 4 blue-500
+    expect(cssColor("color(display-p3 0.5 0.5 0.5 / 50%)")?.a).toBe(0.5);
+  });
+});

@@ -7,6 +7,7 @@ import type { ComponentDef, DesignNode, DesignTree, InstanceNode, Library } from
 import { features, prepareCode } from "../match/features.ts";
 import { commonPrefix, normValue } from "../match/text.ts";
 import { tokenHints, type TokenHint } from "./tokens-hint.ts";
+import { accentHint, accentProp, carriesAccent, type AccentHint } from "./accent.ts";
 
 /** What an adapter says about writing code for its framework. */
 export interface Conventions {
@@ -38,6 +39,8 @@ export interface Brief {
   instances: InstanceHint[];
   components: string;
   tokens: TokenHint[];
+  /** The design's accent colour and the design system's nearest accent palettes. */
+  accent?: AccentHint;
   /** Spacing and size tokens that exist in code, with their values: the only ones the model may use. */
   dimensions: { name: string; codeRef?: string; points: number }[];
   conventions: Conventions;
@@ -66,6 +69,7 @@ export function buildBrief(input: BriefInput): Brief {
 
   const instances: InstanceHint[] = [];
   const lines: string[] = [];
+  const accent = input.tokens ? accentHint(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : undefined;
   const outline = (n: DesignNode, depth: number, insideInstance: boolean) => {
     if (!n.visible) return;
     const pad = "  ".repeat(depth);
@@ -74,6 +78,13 @@ export function buildBrief(input: BriefInput): Brief {
       const component = mapping.get(n.id) ?? mapping.get(n.component.id) ?? (n.component.set && mapping.get(n.component.set.id));
       const def = defs.get(n.component.id) ?? (n.component.set && defs.get(n.component.set.id));
       const hint = instanceHint(n, component ? known.get(component) : undefined, def, prefix);
+      // The component painted in the design's accent gets it through its own colour prop (Radix color,
+      // Chakra colorPalette, PrimeNG severity), unless the design already set that prop.
+      const code = component ? known.get(component) : undefined;
+      if (accent && code && carriesAccent(n, accent.color)) {
+        const set = accentProp(code.props, accent);
+        if (set && !(set.prop in hint.props)) hint.props[set.prop] = set.value;
+      }
       instances.push(hint);
       const props = Object.entries(hint.props).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ");
       lines.push(`${pad}- INSTANCE id=${n.id} "${n.component.set?.name ?? n.component.name ?? n.name}" → ${component ?? "NO MAPPED COMPONENT"} ${props} ${box}${hint.text ? ` text=${JSON.stringify(hint.text)}` : ""}`);
@@ -107,6 +118,7 @@ export function buildBrief(input: BriefInput): Brief {
     instances,
     components,
     tokens: input.tokens ? tokenHints(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : [],
+    ...(accent && { accent }),
     dimensions: (input.tokens?.tokens ?? [])
       .filter((t) => t.type === "dimension" && t.codeRefConfirmed !== false)
       .flatMap((t) => {

@@ -53,7 +53,7 @@ export async function writeHarness(h: HarnessInput): Promise<string> {
 <head>
 <meta charset="utf-8">
 ${links}
-<style>html, body { margin: 0; padding: 0; } #${FRAME_ID} { position: relative;${h.render.baseFont && /^[\w\s"',()-]+$/.test(h.render.baseFont) ? ` font-family: ${h.render.baseFont};` : ""} overflow: hidden; width: ${h.frame.width}px; height: ${h.frame.height}px; }</style>
+<style>html, body { margin: 0; padding: 0; } #${FRAME_ID} { position: relative;${h.render.baseFont && /^[\w\s"',()-]+$/.test(h.render.baseFont) ? ` font-family: ${h.render.baseFont};` : ""} overflow: hidden; width: ${h.frame.width}px; height: ${h.frame.height}px; }${h.render.setup ? ` #${FRAME_ID} > * { height: 100%; }` : ""}</style>
 <style>${h.css}
 /*# sourceURL=${IMPL_SOURCE_URL} */</style>
 </head>
