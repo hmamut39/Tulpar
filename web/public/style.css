@@ -294,3 +294,8 @@ code { font: 13px/1.65 "JetBrains Mono", ui-monospace, Consolas, monospace; colo
 .about p { line-height: 1.7; color: var(--text); }
 .about .lede { color: var(--muted); }
 .about .lede { margin-left: 0; margin-right: 0; text-align: left; }
+
+/* ---- Legal pages ---- */
+.legal ul { padding-left: 20px; line-height: 1.7; }
+.legal li { margin: 6px 0; }
+.legal code { font-family: "JetBrains Mono", monospace; font-size: 0.9em; background: var(--accent-soft); padding: 1px 6px; border-radius: 6px; }

@@ -2,7 +2,9 @@
 // with progress events the page polls. Jobs are forgotten after an hour.
 
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { generateCommand } from "@tulpar/cli/generate";
 import type { GenerationEvent, GenerationResult, Llm, LlmImage, VerifyReport } from "@tulpar/core";
 
@@ -69,7 +71,9 @@ export class JobQueue {
   add(input: JobInput, options: { priority?: boolean } = {}): string {
     this.#sweep();
     const source = input.frame && input.image ? "both" : input.image ? "screenshot" : "figma";
-    const job: Job = { id: randomUUID(), input, source, state: "queued", createdAt: Date.now(), events: [], priority: !!options.priority };
+    const id = randomUUID();
+    // Each job writes to its own temporary folder, deleted when the job ends: results are served from memory.
+    const job: Job = { id, input: { ...input, resultsDir: input.resultsDir ?? join(tmpdir(), "tulpar-results", id) }, source, state: "queued", createdAt: Date.now(), events: [], priority: !!options.priority };
     this.#jobs.set(job.id, job);
     const firstOrdinary = job.priority ? this.#waiting.findIndex((w) => !w.priority) : -1;
     if (firstOrdinary >= 0) this.#waiting.splice(firstOrdinary, 0, job);
@@ -142,9 +146,13 @@ export class JobQueue {
       job.state = "error";
       job.error = err instanceof Error ? err.message : String(err);
     } finally {
-      // The visitor's token and image are needed only while the job runs.
+      // The visitor's token and image are needed only while the job runs, and nothing they made stays on disk:
+      // the job's results folder, the generated files in the project's workspace, and the build.
       delete job.input.figmaToken;
       delete job.input.image;
+      for (const dir of [job.input.resultsDir, join(job.input.projectDir, ".tulpar", "generated", job.input.name), join(job.input.projectDir, ".tulpar", "build")]) {
+        if (dir) rmSync(dir, { recursive: true, force: true });
+      }
       this.#running = false;
       try {
         this.#onFinish?.(job, Date.now() - started);
