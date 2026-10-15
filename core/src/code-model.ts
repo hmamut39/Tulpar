@@ -74,6 +74,8 @@ export interface CodeComponent {
   props: CodeProp[];
   slots: CodeSlot[];
   events: CodeEvent[];
+  /** CSS custom properties the component reads for theming (e.g. --el-button-bg-color): the documented way to give it a token it has no prop for. */
+  cssProperties?: { name: string; description?: string }[];
   provenance: Provenance;
 }
 

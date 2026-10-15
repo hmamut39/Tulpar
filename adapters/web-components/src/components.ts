@@ -25,6 +25,7 @@ interface WcaTag {
   events?: { name: string; description?: string }[];
   slots?: { name: string; description?: string }[];
   cssParts?: { name: string; description?: string }[];
+  cssProperties?: { name: string; description?: string }[];
 }
 
 interface WcaMember {
@@ -165,6 +166,7 @@ function component(
     props,
     slots,
     events,
+    ...(tag.cssProperties?.length && { cssProperties: tag.cssProperties }),
     provenance: source,
   };
 }
@@ -220,6 +222,7 @@ export function cemTags(manifest: { modules: { path: string; declarations?: Reco
         attributes: attributes.map((a) => ({ name: a.name, ...(a.description && { description: a.description }), ...(a.type?.text && { type: a.type.text }), ...(a.default !== undefined && { default: a.default }) })),
         events: ((d.events as { name?: string; description?: string }[] | undefined) ?? []).filter((e) => e.name).map((e) => ({ name: e.name!, ...(e.description && { description: e.description }) })),
         slots: ((d.slots as { name: string; description?: string }[] | undefined) ?? []).map((s) => ({ name: s.name, ...(s.description && { description: s.description }) })),
+        cssProperties: ((d.cssProperties as { name?: string; description?: string }[] | undefined) ?? []).filter((p) => p.name?.startsWith("--")).map((p) => ({ name: p.name!, ...(p.description && { description: p.description }) })),
       });
     }
   }

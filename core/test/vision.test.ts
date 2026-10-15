@@ -105,8 +105,15 @@ describe("verify with a baseline image", () => {
   it("does not blame the code for a design colour no token matches, and says so for the designer", () => {
     const check = run(drawnWithPrimary, shot, system());
     expect(check.status).toBe("pass");
-    expect(check.summary).toMatch(/^0\.0% of pixels differ.*; 50\.0% more is a design colour outside the design system$/);
+    expect(check.summary).toMatch(/^0\.0% of pixels differ.*; 50\.0% more is a design colour the design system has no exact token for$/);
     expect(check.details[0]).toMatch(/^! differs at .*matches no token of the design system \(nearest: el-color-primary #409eff\)/);
+  });
+
+  it("does not blame the code for drawing the design's colour with the very token nearest it", () => {
+    const drawnWithDark = png(100, 40, (x) => (x < 50 ? [255, 255, 255] : [0x33, 0x7e, 0xcc]));
+    const check = run(drawnWithDark, shot, system(colorToken("el-color-primary-dark-2", "#337ecc")));
+    expect(check.status).toBe("pass");
+    expect(check.details[0]).toMatch(/not exactly a token; the render uses the nearest, el-color-primary-dark-2/);
   });
 
   it("still fails when the design system has the design's colour and the code used another", () => {

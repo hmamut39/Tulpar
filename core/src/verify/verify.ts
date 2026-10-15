@@ -331,16 +331,20 @@ function visualCheck(
   // so those pixels are reported for the designer, not counted against the code.
   const offSystem = new Map<(typeof result.regions)[number], string>();
   for (const r of result.regions) {
-    if (!input.tokens || !r.design || !r.render) continue;
+    // Only a region that is mostly one colour drawn as another: anything else differing there still counts.
+    if (!input.tokens || !r.design || !r.render || (r.colorShare ?? 0) < MOSTLY_ONE_COLOUR) continue;
     const wanted = nearestColorToken(r.design, input.tokens);
     const used = nearestColorToken(r.render, input.tokens);
     if (wanted && used && wanted.distance > OFF_SYSTEM && used.distance <= ON_TOKEN) {
       offSystem.set(r, `the design's ${r.design} matches no token of the design system (nearest: ${wanted.name} ${wanted.hex}); the render uses ${used.name}. Not counted against the code: check the colour with your designer`);
+    } else if (wanted && used && used.name === wanted.name && r.design !== r.render && used.distance <= ON_TOKEN) {
+      // Drawn with the very token nearest the design's colour: as close as the design system allows.
+      offSystem.set(r, `the design's ${r.design} is not exactly a token; the render uses the nearest, ${used.name} ${used.hex}. Not counted against the code`);
     }
   }
   const excused = [...offSystem.keys()].reduce((n, r) => n + r.pixels, 0) / (result.width * result.height);
   const mismatch = Math.max(0, result.mismatch - excused);
-  const summary = `${pct(mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})${excused > 0.001 ? `; ${pct(excused)} more is a design colour outside the design system` : ""}`;
+  const summary = `${pct(mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})${excused > 0.001 ? `; ${pct(excused)} more is a design colour the design system has no exact token for` : ""}`;
   const details = result.regions.map((r) => {
     const over = elements.filter((e) => e.visible && overlap(e.box, r) > 0.5 * r.width * r.height).sort((a, b) => a.box.width * a.box.height - b.box.width * b.box.height)[0];
     const where = `differs at (${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)})${over ? ` over <${over.component}> ${over.figmaId}` : ""}`;
@@ -351,13 +355,23 @@ function visualCheck(
       return t && t.distance <= OFF_SYSTEM ? `${c} (nearest token: ${t.name} ${t.hex})` : c;
     };
     const colors = r.design && r.render && r.design !== r.render ? `: mostly ${named(r.design)} in the design, ${named(r.render)} in the render` : "";
-    return `${mismatch > limit ? "✗" : "–"} ${where}${colors}`;
+    // Over a design-system component drawn in another token than the design's: say what to do, not only what differs.
+    const wanted = r.design && input.tokens ? nearestColorToken(r.design, input.tokens) : undefined;
+    const drawn = r.render && input.tokens ? nearestColorToken(r.render, input.tokens) : undefined;
+    const component = over && input.index.components.find((c) => c.name === over.component);
+    const fix =
+      component && wanted && drawn && wanted.distance <= OFF_SYSTEM && wanted.name !== drawn.name
+        ? ` → give <${component.name}> ${over!.figmaId} var(--${wanted.name}, ${wanted.hex}) through a colour prop that takes it${component.cssProperties?.length ? `, or its theming CSS variables (${component.cssProperties.slice(0, 4).map((p) => p.name).join(", ")}, and their hover and active counterparts)` : ""}`
+        : "";
+    return `${mismatch > limit ? "✗" : "–"} ${where}${colors}${fix}`;
   });
   return mismatch > limit ? fail("visual", title, summary, details) : ok("visual", title, summary, details);
 }
 
 /** OKLab ΔE ×100: beyond OFF_SYSTEM no token is that colour; within ON_TOKEN the render drew a token's colour. */
 const OFF_SYSTEM = 10;
+/** A region is excused only when its colour pair accounts for this share of its differing pixels. */
+const MOSTLY_ONE_COLOUR = 0.6;
 const ON_TOKEN = 4;
 
 /** Whether box `a` lies within box `b` (a point of slack for rounding). */

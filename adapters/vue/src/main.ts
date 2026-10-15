@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Tulpar adapter for Vue 3. Speaks the adapter protocol on stdio.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
-import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { PROTOCOL_VERSION, kebab, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
+import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, themingProperties, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
 import { analyzeVue } from "./verify/analyze.ts";
@@ -33,6 +33,14 @@ function index(params: ProjectParams): ComponentIndex {
   const dirs = (config(params).packages ?? []).map((p) => join(params.root, p));
   if (!dirs.length) gaps.push('No "packages" configured; nothing to index.');
   const results = dirs.map((dir) => indexPackage(dir, gaps));
+  // Theming CSS variables from the stylesheets the render loads: ElButton reads --el-button-*, declared on .el-button.
+  const css = (config(params).render?.stylesheets ?? []).map((f) => (existsSync(join(params.root, f)) ? readFileSync(join(params.root, f), "utf8") : "")).join("\n");
+  if (css) {
+    for (const c of results.flatMap((r) => r.components)) {
+      const vars = themingProperties(css, kebab(c.name));
+      if (vars.length) c.cssProperties = vars.map((name) => ({ name }));
+    }
+  }
   const result: ComponentIndex = {
     adapter: "vue",
     ...(results.length === 1 && { package: results[0]!.pkg }),
@@ -120,7 +128,7 @@ serve({
         {
           path: "{name}.vue",
           role: "component",
-          description: `The component: <script setup${js ? "" : ' lang="ts"'}>, <template>${styling === "tailwind" ? " styled with Tailwind classes (no <style> block)" : `, and ${styleTag} for its own layout only (design-system components style themselves)`}. No required props; renders the whole design.`,
+          description: `The component: <script setup${js ? "" : ' lang="ts"'}>, <template>${styling === "tailwind" ? " styled with Tailwind classes (no <style> block)" : `, and ${styleTag} for its own layout (design-system components style themselves; only their theming CSS variables may be set, to match the design)`}. No required props; renders the whole design.`,
         },
         { path: `{name}.test.${ext}`, role: "test", description: `Vitest tests: it mounts, shows the design's text, and uses the design-system components.` },
       ],

@@ -103,7 +103,7 @@ serve({
       files: [
         { path: "{kebab}.component.ts", role: "component", description: `The standalone component class {name}Component: selector "app-{kebab}", templateUrl "./{kebab}.component.html", styleUrl "./{kebab}.component.${ext}", imports the design system's NgModules it uses.` },
         { path: "{kebab}.component.html", role: "template", description: "The template: the whole design, using the design system's elements and directives." },
-        { path: `{kebab}.component.${ext}`, role: "styles", description: "Styles for the component's own layout only (design-system components style themselves)." },
+        { path: `{kebab}.component.${ext}`, role: "styles", description: "Styles for the component's own layout (design-system components style themselves; only their theming CSS variables may be set, to match the design)." },
         { path: "{kebab}.component.spec.ts", role: "test", description: "Angular TestBed tests: it creates, shows the design's text, and uses the design-system components." },
       ],
       entry: "{kebab}.component.ts",

@@ -113,7 +113,7 @@ serve({
       framework: `React 19 with ${pkg}`,
       files: [
         { path: `{name}.${ext}`, role: "component", description: `The component, default-exported, with no required props; renders the whole design.${js ? " Plain JavaScript: no type annotations." : ""}` },
-        ...(styling === "tailwind" ? [] : [{ path: styleFile, role: "styles" as const, description: `Styles for the component's own layout only (design-system components style themselves), imported by {name}.${ext}.${styling === "scss" ? " SCSS: nesting is fine; no hard-coded values in variables either." : ""}` }]),
+        ...(styling === "tailwind" ? [] : [{ path: styleFile, role: "styles" as const, description: `Styles for the component's own layout (design-system components style themselves; only their theming CSS variables may be set, to match the design), imported by {name}.${ext}.${styling === "scss" ? " SCSS: nesting is fine; no hard-coded values in variables either." : ""}` }]),
         { path: `{name}.test.${ext}`, role: "test", description: "Vitest + @testing-library/react tests: it renders, shows the design's text, and uses the design-system components." },
       ],
       entry: `{name}.${ext}`,

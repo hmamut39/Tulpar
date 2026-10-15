@@ -16,7 +16,7 @@ export interface VisualComparison {
    * Largest areas of difference, in design points relative to the frame, biggest first, with the
    * most common colour among the differing pixels on each side: something a repair can act on.
    */
-  regions: (Box & { design?: string; render?: string; pixels: number })[];
+  regions: (Box & { design?: string; render?: string; pixels: number; colorShare?: number })[];
   /** The diff image, PNG base64 (differences in red over a faded render). */
   diffPng: string;
 }
@@ -87,7 +87,7 @@ function resize(src: PNG, width: number, height: number): PNG {
 }
 
 /** The most common colour (to 5 bits per channel) among a region's differing pixels, per image. */
-function dominantColors(box: Box, diff: PNG, design: PNG, render: PNG): { design?: string; render?: string } {
+function dominantColors(box: Box, diff: PNG, design: PNG, render: PNG): { design?: string; render?: string; colorShare?: number } {
   const counts = [new Map<number, number[]>(), new Map<number, number[]>()];
   for (let y = box.y; y < box.y + box.height; y++) {
     for (let x = box.x; x < box.x + box.width; x++) {
@@ -112,7 +112,15 @@ function dominantColors(box: Box, diff: PNG, design: PNG, render: PNG): { design
   };
   const d = hex(counts[0]!);
   const r = hex(counts[1]!);
-  return { ...(d && { design: d }), ...(r && { render: r }) };
+  // How much of the region's difference those two colours account for (the smaller side): near 1 when
+  // the region is one colour drawn as another, low when shapes or text differ too.
+  const share = (m: Map<number, number[]>) => {
+    const all = [...m.values()].reduce((n, v) => n + v[0]!, 0);
+    const top = Math.max(0, ...[...m.values()].map((v) => v[0]!));
+    return all ? top / all : 0;
+  };
+  const colorShare = Math.min(share(counts[0]!), share(counts[1]!));
+  return { ...(d && { design: d }), ...(r && { render: r }), ...(d && r && { colorShare: Math.round(colorShare * 100) / 100 }) };
 }
 
 /** Group differing pixels into coarse cells, join touching cells, return their bounding boxes. */
