@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fontClass } from "../src/verify/fonts.ts";
 import { tokenKind } from "../src/verify/token-kind.ts";
-import { verify, visibleText, type AdapterManifest, type ComponentIndex, type DesignNode, type DesignTree, type RenderedElement, type VerifyInput } from "../src/index.ts";
+import { verify, visibleText, type AdapterManifest, type ComponentIndex, type DesignNode, type DesignTree, type RenderedElement, type RenderResult, type StateFact, type TokenSet, type VerifyInput } from "../src/index.ts";
 
 const box = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
 const base = { visible: true, opacity: 1, fills: [], effects: [], clips: false, tokens: {} };
@@ -220,6 +220,36 @@ describe("verify", () => {
     const run = (text: string) => verify(input([el("1:1", "x-footer", box(0, 0, 300, 40), text), el("5:1", "x-button", box(0, 0, 100, 40), text), el("5:2", "x-button", box(0, 0, 100, 40), "name@company.com")], { design: formDesign }));
     expect(run("Email name@company.com").checks.find((c) => c.id === "text")!.status).toBe("pass");
     expect(run("Emial name@company.com").checks.find((c) => c.id === "text")!.status).toBe("fail");
+  });
+
+  describe("interaction states", () => {
+    const withStates = (states: StateFact[], tokens?: TokenSet) => {
+      const base = input(good(), { capabilities: { ...caps, forceStates: ["hover", "pressed", "focus"] }, ...(tokens && { tokens }) });
+      return verify({ ...base, render: { ...(base.render as Extract<RenderResult, { status: "ok" }>), states } }).checks.find((c) => c.id === "states")!;
+    };
+    const fact = (state: StateFact["state"], changed: number, extra: Partial<StateFact> = {}): StateFact => ({ figmaId: "2:1", state, changed, shifted: false, colors: [], ...extra });
+    const blue: TokenSet = { adapter: "t", modes: [], gaps: [], tokens: [{ name: "blue-60", path: ["blue-60"], type: "color", values: { default: { kind: "color", color: { space: "srgb", r: 15 / 255, g: 98 / 255, b: 254 / 255, a: 1 } } }, provenance: { source: "t", confidence: "high" } }] };
+
+    it("passes elements whose focus is visible and whose states keep their layout and token colours", () => {
+      const c = withStates([fact("hover", 0.3, { colors: ["rgb(15, 98, 254)"] }), fact("pressed", 0.3), fact("focus", 0.08)], blue);
+      expect(c.status).toBe("pass");
+      expect(c.details[0]).toMatch(/^✓ x-button \(2:1\): changes on hover 30%, pressed 30%, focus 8%/);
+    });
+
+    it("fails an invisible focus, a layout shift, and a state colour outside the design system", () => {
+      const c = withStates([fact("hover", 0.3, { shifted: true, colors: ["rgb(255, 0, 255)"] }), fact("pressed", 0.3), fact("focus", 0)], blue);
+      expect(c.status).toBe("fail");
+      expect(c.details).toEqual([
+        "✗ x-button (2:1): no visible focus indicator: keyboard users cannot see where they are",
+        "✗ x-button (2:1): its box moves when hovered",
+        expect.stringMatching(/^✗ x-button \(2:1\): hover paints #ff00ff, which is no design-system colour/),
+      ]);
+    });
+
+    it("passes when nothing is interactive, and ignores translucent shadow colours", () => {
+      expect(withStates([]).summary).toBe("no interactive elements to check");
+      expect(withStates([fact("hover", 0.1, { colors: ["rgba(255, 0, 255, 0.3)"] }), fact("focus", 0.05)], blue).status).toBe("pass");
+    });
   });
 
   it("checks the typeface class when a screenshot names no font", () => {

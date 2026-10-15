@@ -66,7 +66,7 @@ serve({
       runtimeStyleProvenance: true,
       staticProvenance: true,
       tests: true,
-      forceStates: [],
+      forceStates: ["hover", "pressed", "focus"],
       themes: true,
     },
   }),

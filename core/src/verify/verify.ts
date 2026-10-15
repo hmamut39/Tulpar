@@ -18,6 +18,7 @@ import {
   type DesignProperty,
   type RenderResult,
   type RenderedElement,
+  type StateFact,
   type StyleFact,
   type TestRunResult,
 } from "./types.ts";
@@ -273,7 +274,7 @@ export function verify(input: VerifyInput): VerifyReport {
   // 10–11. Not verifiable here yet; said plainly.
   checks.push(testsCheck(input, skip, ok, fail));
   checks.push(visualCheck(input, elements, skip, ok, fail));
-  checks.push(skip("states", "Hover, focus and pressed states", "interaction states are not rendered"));
+  checks.push(statesCheck(input, elements, skip, ok, fail));
 
   const ran = checks.filter((c) => c.status !== "not-checked");
   const verdict = checks.some((c) => c.status === "fail") ? "fail" : checks.some((c) => c.status === "not-checked") ? "incomplete" : "pass";
@@ -306,6 +307,64 @@ function testsCheck(
   const summary = `${passed} of ${t.tests.length} generated tests pass · ${t.runner}`;
   return failed.length || passed === 0 ? fail("tests", title, summary, details) : ok("tests", title, summary, details);
 }
+
+/**
+ * Interaction states, rendered by hovering, pressing and keyboard-focusing each interactive element.
+ * Without a design of each state, what can be checked is that the states work: focus is visible
+ * (WCAG 2.4.7), hovering or pressing does not move the layout, and the colours a state paints are
+ * the design system's.
+ */
+function statesCheck(
+  input: VerifyInput,
+  elements: RenderedElement[] | undefined,
+  skip: (id: Check["id"], title: string, reason: string) => Check,
+  ok: (id: Check["id"], title: string, summary: string, details?: string[]) => Check,
+  fail: (id: Check["id"], title: string, summary: string, details?: string[]) => Check,
+): Check {
+  const title = "Hover, focus and pressed states";
+  const render = input.render;
+  if (!input.capabilities.forceStates.length) return skip("states", title, "the adapter cannot render interaction states");
+  if (!elements || render?.status !== "ok") return skip("states", title, "nothing was rendered");
+  if (!render.states) return skip("states", title, "interaction states were not rendered");
+  const byId = new Map<string, StateFact[]>();
+  for (const f of render.states) byId.set(f.figmaId, [...(byId.get(f.figmaId) ?? []), f]);
+  if (!byId.size) return ok("states", title, "no interactive elements to check");
+  const details: string[] = [];
+  let failed = 0;
+  for (const [id, facts] of byId) {
+    const name = elements.find((e) => e.figmaId === id)?.component ?? id;
+    const problems: string[] = [];
+    const focus = facts.find((f) => f.state === "focus");
+    if (focus && (focus.changedPixels ?? focus.changed * 1e4) < VISIBLE_PIXELS) problems.push("no visible focus indicator: keyboard users cannot see where they are");
+    for (const f of facts.filter((x) => x.shifted)) problems.push(`its box moves when ${f.state === "pressed" ? "pressed" : f.state === "hover" ? "hovered" : "focused"}`);
+    if (input.tokens) {
+      for (const f of facts) {
+        for (const c of f.colors) {
+          const hex = cssHex(c);
+          const t = hex && nearestColorToken(hex, input.tokens);
+          if (t && t.distance > OFF_SYSTEM) problems.push(`${f.state} paints ${hex}, which is no design-system colour (nearest: ${t.name} ${t.hex})`);
+        }
+      }
+    }
+    const pct = (s: string) => `${s} ${Math.round((facts.find((f) => f.state === s)?.changed ?? 0) * 100)}%`;
+    if (problems.length) {
+      failed++;
+      details.push(...[...new Set(problems)].map((p) => `✗ ${name} (${id}): ${p}`));
+    } else details.push(`✓ ${name} (${id}): changes on ${pct("hover")}, ${pct("pressed")}, ${pct("focus")}; focus visible, no layout shift`);
+  }
+  const summary = `${byId.size - failed} of ${byId.size} interactive elements show visible focus, keep their layout and design-system colours in every state`;
+  return failed ? fail("states", title, summary, details) : ok("states", title, summary, details);
+}
+
+/** "rgb(51, 126, 204)" or "rgba(…, a)" with a ≥ 0.9 → "#337ecc"; translucent colours (shadows, washes) are blends, not tokens. */
+function cssHex(c: string): string | undefined {
+  const m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?\s*\)/.exec(c);
+  if (!m || (m[4] !== undefined && Number(m[4]) < 0.9)) return undefined;
+  return `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Fewer changed pixels than this, and a focused element looks the same as at rest (a ring round a 14 px box is ~50). */
+const VISIBLE_PIXELS = 16;
 
 function visualCheck(
   input: VerifyInput,
@@ -346,7 +405,13 @@ function visualCheck(
   const mismatch = Math.max(0, result.mismatch - excused);
   const summary = `${pct(mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})${excused > 0.001 ? `; ${pct(excused)} more is a design colour the design system has no exact token for` : ""}`;
   const details = result.regions.map((r) => {
-    const over = elements.filter((e) => e.visible && overlap(e.box, r) > 0.5 * r.width * r.height).sort((a, b) => a.box.width * a.box.height - b.box.width * b.box.height)[0];
+    // The element the difference is about: the largest one lying mostly inside the region when it fills a
+    // good part of it (a region spanning a checkbox and a button is about the button, not their form);
+    // otherwise the smallest element holding most of the region.
+    const area = (b: Box) => b.width * b.height;
+    const inside = elements.filter((e) => e.visible && area(e.box) > 0 && overlap(e.box, r) > 0.5 * area(e.box)).sort((a, b) => area(b.box) - area(a.box))[0];
+    const holding = elements.filter((e) => e.visible && overlap(e.box, r) > 0.5 * area(r)).sort((a, b) => area(a.box) - area(b.box))[0];
+    const over = inside && area(inside.box) >= 0.4 * area(r) ? inside : holding;
     const where = `differs at (${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)})${over ? ` over <${over.component}> ${over.figmaId}` : ""}`;
     if (offSystem.has(r)) return `! ${where}: ${offSystem.get(r)}`;
     // The nearest token for each side, so a repair can reach for the design system's colour by name.

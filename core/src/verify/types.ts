@@ -87,12 +87,28 @@ export interface RenderParams extends ProjectParams {
   theme?: string;
 }
 
+/** One interactive element in one state, compared with itself at rest. */
+export interface StateFact {
+  figmaId: string;
+  state: "hover" | "pressed" | "focus";
+  /** Share of its pixels (with a margin for rings) that changed, 0–1. */
+  changed: number;
+  /** How many pixels changed: a focus ring around a small checkbox is few pixels of a wide element. */
+  changedPixels?: number;
+  /** Whether its box moved or resized: a layout shift. */
+  shifted: boolean;
+  /** Colours painted in this state that were not painted at rest (CSS colour strings). */
+  colors: string[];
+}
+
 export type RenderResult =
   | {
       status: "ok";
       /** PNG, base64. */
       png: string;
       elements: RenderedElement[];
+      /** Interaction states of the interactive elements, when the renderer can produce them. */
+      states?: StateFact[];
       renderer: { name: string; version: string; os: string };
       /** Environment facts that affect trust in the render, e.g. fonts missing. */
       warnings: string[];

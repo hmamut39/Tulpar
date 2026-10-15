@@ -38,7 +38,7 @@ serve({
       render: { supported: true, hostOS: ["linux", "windows", "macos"] },
       runtimeStyleProvenance: true,
       staticProvenance: true,
-      forceStates: [],
+      forceStates: ["hover", "pressed", "focus"],
       themes: true,
     },
   }),

@@ -11,6 +11,7 @@ import { chromium, type Browser, type CDPSession, type Page } from "playwright";
 import type { RenderParams, RenderResult, RenderedElement, StyleFact } from "@tulpar/core";
 import { classify } from "./css.ts";
 import { FRAME_ID, IMPL_SOURCE_URL, type RenderConfig } from "./harness.ts";
+import { measureStates } from "./states.ts";
 
 /** The only framework-specific parts of rendering. */
 export interface FrameworkHooks {
@@ -175,7 +176,12 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     const missing = (config.fonts ?? []).filter((f) => !used.has(f));
     if (missing.length && elements.some((e) => e.text)) warnings.push(`Required fonts drew no text: ${missing.join(", ")} (used: ${[...used].join(", ") || "none"}). Text sizes are untrustworthy.`);
     const png = (await page.locator(`#${FRAME_ID}`).screenshot({ type: "png" })).toString("base64");
-    return { status: "ok", png, elements, renderer: { name: "chromium", version: browser.version(), os: `${platform()} ${release()}` }, warnings };
+    // Last: hovering, pressing and focusing changes the page.
+    const states = await measureStates(page, FRAME_ID).catch((err: Error) => {
+      warnings.push(`Interaction states could not be rendered: ${err.message.split("\n")[0]}`);
+      return undefined;
+    });
+    return { status: "ok", png, elements, ...(states && { states }), renderer: { name: "chromium", version: browser.version(), os: `${platform()} ${release()}` }, warnings };
   } catch (err) {
     return { status: "failed", reason: err instanceof Error ? err.message : String(err) };
   } finally {
