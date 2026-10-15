@@ -22,6 +22,7 @@ import {
   type TestRunResult,
 } from "./types.ts";
 import { compareImages, type VisualComparison } from "./visual.ts";
+import { nearestColorToken } from "../generate/accent.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
@@ -213,14 +214,25 @@ export function verify(input: VerifyInput): VerifyReport {
       if (!el || (!want && e.node.kind === "instance")) continue;
       checked++;
       // Text drawn by a nested component that has no text in the design (an input's placeholder or
-      // value inside a form field) is not this element's text: it is set aside before comparing.
+      // value inside a form field) is not this element's text: it is set aside before comparing. So is
+      // the text of another checked element the code nests inside this one while the design places it
+      // beside it (a form field wrapping its input): that text is checked on its own element.
       let got = el.text;
+      const below = new Set(descendants(e.node).map((d) => d.id));
       for (const d of descendants(e.node)) {
         const inner = d.kind === "instance" && !visibleText(d) ? byId.get(d.id)?.text : undefined;
         if (inner) got = got.replace(inner, " ");
       }
+      for (const o of elements) {
+        if (o === el || !o.text || below.has(o.figmaId) || o.figmaId === root.id || !inside(o.box, el.box)) continue;
+        const theirs = expected.find((x) => x.node.id === o.figmaId);
+        if (theirs && !descendants(theirs.node).some((d) => d.id === e.node.id)) got = got.replace(o.text, " ");
+      }
       // Whitespace is layout, not content: compare with runs of whitespace collapsed.
-      if (got.replace(/\s+/g, " ").trim() === want) exact++;
+      // An instance's design text may include the content placed into it (a form field's input with its
+      // placeholder): either reading matches.
+      const seen = got.replace(/\s+/g, " ").trim();
+      if (seen === want || (e.node.kind === "instance" && seen === visibleText(e.node, true))) exact++;
       else details.push(`✗ ${e.node.name} (${e.node.id}): design says ${JSON.stringify(want)}, rendered ${JSON.stringify(el.text)}`);
     }
     const summary = checked === exact ? "text matches exactly" : `text differs on ${checked - exact} of ${checked} elements`;
@@ -314,13 +326,43 @@ function visualCheck(
   }
   const limit = input.baseline.maxMismatch ?? 0.08;
   const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
-  const summary = `${pct(result.mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})`;
+  // A colour the design uses that no token of the design system matches, drawn in the render with the
+  // nearest token: the design has drifted from the system. Matching it would take a hard-coded value,
+  // so those pixels are reported for the designer, not counted against the code.
+  const offSystem = new Map<(typeof result.regions)[number], string>();
+  for (const r of result.regions) {
+    if (!input.tokens || !r.design || !r.render) continue;
+    const wanted = nearestColorToken(r.design, input.tokens);
+    const used = nearestColorToken(r.render, input.tokens);
+    if (wanted && used && wanted.distance > OFF_SYSTEM && used.distance <= ON_TOKEN) {
+      offSystem.set(r, `the design's ${r.design} matches no token of the design system (nearest: ${wanted.name} ${wanted.hex}); the render uses ${used.name}. Not counted against the code: check the colour with your designer`);
+    }
+  }
+  const excused = [...offSystem.keys()].reduce((n, r) => n + r.pixels, 0) / (result.width * result.height);
+  const mismatch = Math.max(0, result.mismatch - excused);
+  const summary = `${pct(mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})${excused > 0.001 ? `; ${pct(excused)} more is a design colour outside the design system` : ""}`;
   const details = result.regions.map((r) => {
     const over = elements.filter((e) => e.visible && overlap(e.box, r) > 0.5 * r.width * r.height).sort((a, b) => a.box.width * a.box.height - b.box.width * b.box.height)[0];
-    const colors = r.design && r.render && r.design !== r.render ? `: mostly ${r.design} in the design, ${r.render} in the render` : "";
-    return `${result.mismatch > limit ? "✗" : "–"} differs at (${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)})${over ? ` over <${over.component}> ${over.figmaId}` : ""}${colors}`;
+    const where = `differs at (${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)})${over ? ` over <${over.component}> ${over.figmaId}` : ""}`;
+    if (offSystem.has(r)) return `! ${where}: ${offSystem.get(r)}`;
+    // The nearest token for each side, so a repair can reach for the design system's colour by name.
+    const named = (c: string) => {
+      const t = input.tokens && nearestColorToken(c, input.tokens);
+      return t && t.distance <= OFF_SYSTEM ? `${c} (nearest token: ${t.name} ${t.hex})` : c;
+    };
+    const colors = r.design && r.render && r.design !== r.render ? `: mostly ${named(r.design)} in the design, ${named(r.render)} in the render` : "";
+    return `${mismatch > limit ? "✗" : "–"} ${where}${colors}`;
   });
-  return result.mismatch > limit ? fail("visual", title, summary, details) : ok("visual", title, summary, details);
+  return mismatch > limit ? fail("visual", title, summary, details) : ok("visual", title, summary, details);
+}
+
+/** OKLab ΔE ×100: beyond OFF_SYSTEM no token is that colour; within ON_TOKEN the render drew a token's colour. */
+const OFF_SYSTEM = 10;
+const ON_TOKEN = 4;
+
+/** Whether box `a` lies within box `b` (a point of slack for rounding). */
+function inside(a: Box, b: Box): boolean {
+  return a.x >= b.x - 1 && a.y >= b.y - 1 && a.x + a.width <= b.x + b.width + 1 && a.y + a.height <= b.y + b.height + 1;
 }
 
 function overlap(a: Box, b: Box): number {
@@ -385,13 +427,13 @@ function visibleInDesign(root: DesignNode, id: string): boolean {
   return find(root, true) ?? false;
 }
 
-/** The text a node shows: its visible text layers, in order, joined by spaces. */
-export function visibleText(n: DesignNode): string {
+/** The text a node shows: its visible text layers, in order, joined by spaces; with `placed`, also the content placed into instances. */
+export function visibleText(n: DesignNode, placed = false): string {
   const parts: string[] = [];
   const visit = (x: DesignNode) => {
     if (!x.visible) return;
     if (x.kind === "text") parts.push(x.characters);
-    else x.children.forEach(visit);
+    else (placed ? layers(x) : x.children).forEach(visit);
   };
   visit(n);
   return parts.join(" ").replace(/\s+/g, " ").trim();

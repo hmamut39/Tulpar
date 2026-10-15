@@ -156,3 +156,18 @@ export function accentProp(props: { name: string; type?: { kind: string; values?
 function parseHex(h: string): Color {
   return { space: "srgb", r: parseInt(h.slice(1, 3), 16) / 255, g: parseInt(h.slice(3, 5), 16) / 255, b: parseInt(h.slice(5, 7), 16) / 255, a: 1 };
 }
+
+/** The design system's colour token nearest to a hex colour, in any mode (OKLab ΔE ×100). */
+export function nearestColorToken(color: string, set: TokenSet): { name: string; hex: string; distance: number } | undefined {
+  const target = oklab(parseHex(color));
+  let best: { name: string; hex: string; distance: number } | undefined;
+  for (const t of set.tokens) {
+    if (t.type !== "color") continue;
+    for (const v of Object.values(t.values)) {
+      if (v?.kind !== "color" || v.color.a < 0.9) continue;
+      const distance = deltaE(target, oklab(v.color));
+      if (!best || distance < best.distance) best = { name: t.name, hex: hex(v.color), distance: Math.round(distance * 10) / 10 };
+    }
+  }
+  return best;
+}

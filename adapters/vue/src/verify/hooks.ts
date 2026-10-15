@@ -58,6 +58,20 @@ export function vueHooks(known: Set<string>): FrameworkHooks {
               if (name) chain.push(name);
             }
             const outermostKnown = [...chain].reverse().find((n) => knownSet.has(n));
+            // A component that binds its attributes to an inner element (Element Plus's input puts them on
+            // the native <input>) would be measured by that inner box. The design's box is the whole
+            // component, so the id moves to the component's root element before anything is measured.
+            if (outermostKnown) {
+              for (let inst = (el as unknown as { __vueParentComponent?: Instance }).__vueParentComponent ?? null; inst; inst = inst.parent) {
+                if (nameOf(inst.type) !== outermostKnown) continue;
+                const rootEl = (inst as unknown as { vnode: { el: unknown } }).vnode.el;
+                if (rootEl instanceof HTMLElement && rootEl !== el && rootEl.contains(el) && !rootEl.hasAttribute("data-figma-id")) {
+                  rootEl.setAttribute("data-figma-id", id);
+                  el.removeAttribute("data-figma-id");
+                }
+                break;
+              }
+            }
             // Several elements can carry one id (an inner input copying attributes): a known component wins.
             if (out[id] && knownSet.has(out[id].component) && !outermostKnown) continue;
             // An unresolved component stays in the DOM as an unknown custom tag (<el-buton>).

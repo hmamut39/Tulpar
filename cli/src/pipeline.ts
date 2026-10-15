@@ -23,6 +23,7 @@ import {
   type ExplicitLink,
   type Library,
   type TokenSet,
+  type RenderedElement,
   type VerifyReport,
 } from "@tulpar/core";
 import type { Project } from "./project.ts";
@@ -208,7 +209,7 @@ export async function rerankUnlinked(ctx: Context, llm: Llm, options: { max?: nu
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */
-export async function verifyEntry(host: AdapterHost, project: Project, ctx: Context, entry: string, theme?: string, testFile?: string): Promise<{ report: VerifyReport; png?: string }> {
+export async function verifyEntry(host: AdapterHost, project: Project, ctx: Context, entry: string, theme?: string, testFile?: string): Promise<{ report: VerifyReport; png?: string; elements?: RenderedElement[] }> {
   const caps = host.manifest!.capabilities;
   const frame = { width: ctx.design.root.box!.width, height: ctx.design.root.box!.height };
   const build = caps.build ? await host.call("build", { ...project.params, entry, frame }) : undefined;
@@ -234,5 +235,5 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
     ...(analysis && { analysis }),
   });
   report.warnings.push(...ctx.notes);
-  return { report, ...(render?.status === "ok" && { png: render.png }) };
+  return { report, ...(render?.status === "ok" && { png: render.png, elements: render.elements }) };
 }

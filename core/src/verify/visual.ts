@@ -16,7 +16,7 @@ export interface VisualComparison {
    * Largest areas of difference, in design points relative to the frame, biggest first, with the
    * most common colour among the differing pixels on each side: something a repair can act on.
    */
-  regions: (Box & { design?: string; render?: string })[];
+  regions: (Box & { design?: string; render?: string; pixels: number })[];
   /** The diff image, PNG base64 (differences in red over a faded render). */
   diffPng: string;
 }
@@ -42,9 +42,22 @@ export function compareImages(renderPng: Buffer, baselinePng: Buffer, scale = 1)
       width: b.width / scale,
       height: b.height / scale,
       ...dominantColors(b, diff, baseline, render),
+      pixels: differing(b, diff),
     })),
     diffPng: PNG.sync.write(diff).toString("base64"),
   };
+}
+
+/** How many pixels differ inside a box (pixelmatch paints them pure red). */
+function differing(box: Box, diff: PNG): number {
+  let n = 0;
+  for (let y = box.y; y < box.y + box.height; y++) {
+    for (let x = box.x; x < box.x + box.width; x++) {
+      const i = (y * diff.width + x) * 4;
+      if (diff.data[i] === 255 && diff.data[i + 1] === 0 && diff.data[i + 2] === 0) n++;
+    }
+  }
+  return n;
 }
 
 /** Bilinear resize, enough to bring a 2× screenshot to a 1× render. */

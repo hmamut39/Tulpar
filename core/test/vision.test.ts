@@ -1,6 +1,6 @@
 import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
-import { compareImages, toDesign, verify, type AdapterManifest, type CodeComponent, type ComponentIndex, type InstanceNode } from "../src/index.ts";
+import { compareImages, toDesign, verify, type AdapterManifest, type CodeComponent, type ComponentIndex, type InstanceNode, type TokenSet } from "../src/index.ts";
 
 const comp = (name: string): CodeComponent => ({ id: name, name, module: "m", props: [], slots: [{ name: "", provenance: { source: "t", confidence: "high" } }], events: [], provenance: { source: "t", confidence: "high" } });
 const known = new Map([["ButtonSet", comp("ButtonSet")], ["Button", comp("Button")]]);
@@ -74,8 +74,9 @@ describe("verify with a baseline image", () => {
   const caps: AdapterManifest["capabilities"] = { index: true, tokens: true, links: false, emit: false, build: true, render: { supported: true, hostOS: ["linux"] }, runtimeStyleProvenance: true, staticProvenance: true, forceStates: [], themes: true };
   const index: ComponentIndex = { adapter: "t", gaps: [], components: [] };
   const design = { schemaVersion: "0.1" as const, source: { fileKey: "screenshot", fileVersion: "1", nodeId: "screenshot" }, origin: { x: 0, y: 0 }, root: { id: "r", name: "R", kind: "container" as const, figmaType: "FRAME", box: { x: 0, y: 0, width: 100, height: 40 }, visible: true, opacity: 1, fills: [], effects: [], clips: false, tokens: {}, children: [] } };
-  const run = (renderPng: Buffer, baselinePng: Buffer) =>
+  const run = (renderPng: Buffer, baselinePng: Buffer, tokens?: TokenSet) =>
     verify({
+      ...(tokens && { tokens }),
       design,
       mapping: new Map(),
       index,
@@ -93,5 +94,23 @@ describe("verify with a baseline image", () => {
     const check = run(png(100, 40, () => [255, 255, 255]), png(100, 40, (x) => (x < 50 ? [255, 255, 255] : [15, 98, 254])));
     expect(check.status).toBe("fail");
     expect(check.details[0]).toMatch(/^✗ differs at \(48,0/);
+  });
+
+  // The design's button is #0284c7; the design system's primary is #409eff, and no token is the design's colour.
+  const colorToken = (name: string, h: string) => ({ name, path: [name], type: "color", values: { default: { kind: "color" as const, color: { space: "srgb" as const, r: parseInt(h.slice(1, 3), 16) / 255, g: parseInt(h.slice(3, 5), 16) / 255, b: parseInt(h.slice(5, 7), 16) / 255, a: 1 } } }, provenance: { source: "t", confidence: "high" as const } });
+  const system = (...extra: ReturnType<typeof colorToken>[]): TokenSet => ({ adapter: "t", modes: [], gaps: [], tokens: [colorToken("el-color-primary", "#409eff"), colorToken("el-color-white", "#ffffff"), ...extra] });
+  const shot = png(100, 40, (x) => (x < 50 ? [255, 255, 255] : [0x02, 0x84, 0xc7]));
+  const drawnWithPrimary = png(100, 40, (x) => (x < 50 ? [255, 255, 255] : [0x40, 0x9e, 0xff]));
+
+  it("does not blame the code for a design colour no token matches, and says so for the designer", () => {
+    const check = run(drawnWithPrimary, shot, system());
+    expect(check.status).toBe("pass");
+    expect(check.summary).toMatch(/^0\.0% of pixels differ.*; 50\.0% more is a design colour outside the design system$/);
+    expect(check.details[0]).toMatch(/^! differs at .*matches no token of the design system \(nearest: el-color-primary #409eff\)/);
+  });
+
+  it("still fails when the design system has the design's colour and the code used another", () => {
+    expect(run(drawnWithPrimary, shot, system(colorToken("el-color-sky", "#0284c7"))).status).toBe("fail");
+    expect(run(drawnWithPrimary, shot).status).toBe("fail");
   });
 });

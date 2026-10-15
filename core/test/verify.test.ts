@@ -206,6 +206,22 @@ describe("verify", () => {
     expect(run("Emial").checks.find((c) => c.id === "text")!.details).toEqual(['✗ Button 3:1 (3:1): design says "Email", rendered "Emial name@company.com"']);
   });
 
+  it("sets aside the text of an element the code nests inside a field while the design places it beside", () => {
+    const label = { ...instance("4:1", "B", 0, "Email"), box: box(0, 0, 300, 70) } as DesignNode;
+    const beside = { ...instance("4:2", "B", 0, "name@company.com"), box: box(0, 30, 300, 40) } as DesignNode;
+    const formDesign: DesignTree = { ...design, root: { ...(design.root as Extract<DesignNode, { kind: "container" }>), children: [label, beside] } };
+    const r = verify(input([el("1:1", "x-footer", box(0, 0, 300, 70), "Email name@company.com"), el("4:1", "x-button", box(0, 0, 300, 70), "Email name@company.com"), el("4:2", "x-button", box(0, 30, 300, 40), "name@company.com")], { design: formDesign }));
+    expect(r.checks.find((c) => c.id === "text")!.status).toBe("pass");
+  });
+
+  it("counts the content placed into an instance as its text (a form field holding an input)", () => {
+    const field = { ...instance("5:1", "B", 0, "Email"), content: [instance("5:2", "B", 0, "name@company.com")] } as DesignNode;
+    const formDesign: DesignTree = { ...design, root: { ...(design.root as Extract<DesignNode, { kind: "container" }>), children: [field] } };
+    const run = (text: string) => verify(input([el("1:1", "x-footer", box(0, 0, 300, 40), text), el("5:1", "x-button", box(0, 0, 100, 40), text), el("5:2", "x-button", box(0, 0, 100, 40), "name@company.com")], { design: formDesign }));
+    expect(run("Email name@company.com").checks.find((c) => c.id === "text")!.status).toBe("pass");
+    expect(run("Emial name@company.com").checks.find((c) => c.id === "text")!.status).toBe("fail");
+  });
+
   it("checks the typeface class when a screenshot names no font", () => {
     const shot = (fontClass: "sans-serif" | "serif") => ({
       ...design,

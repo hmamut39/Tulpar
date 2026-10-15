@@ -74,11 +74,14 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   let png: string | undefined;
   // Each attempt's render, so the delivered attempt (the best, not always the last) keeps its own.
   const pngs = new Map<VerifyReport, string>();
+  // TULPAR_DEBUG=1: the design as read and what each attempt rendered, saved with the result, for diagnosing a run.
+  const debug: { design?: unknown; attempts: unknown[] } = { attempts: [] };
   try {
     result = await withAdapter(project, async (host) => {
     const ctx = options.frame
       ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) }, options.out, options.cache)
       : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out);
+    debug.design = ctx.design;
     if (ctx.source === "figma" && image?.mime === "image/png") ctx.baseline = { png: image.base64, source: "screenshot" };
     if (ctx.source === "figma" && !options.noRerank) {
       const picked = await rerankUnlinked(ctx, llm);
@@ -116,6 +119,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
         const testFile = testSpec && join(workDir, testSpec.path.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");
         const verified = await verifyEntry(host, project, ctx, entry, options.theme, testFile && files.some((f) => testFile.endsWith(f.path)) ? testFile : undefined);
         if (verified.png) pngs.set(verified.report, verified.png);
+        debug.attempts.push(verified.elements ?? null);
         return verified.report;
       },
     });
@@ -133,6 +137,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     await writeFile(join(outDir, f.path), f.content);
   }
   if (png) await writeFile(join(outDir, "tulpar-render.png"), Buffer.from(png, "base64"));
+  if (process.env.TULPAR_DEBUG) await writeFile(join(outDir, "tulpar-debug.json"), JSON.stringify(debug, null, 1));
   // Every attempt's failures, not just the last: what the repair loop saw and fixed (or didn't).
   const history = result.attempts.map((a, i) => ({
     attempt: i + 1,
