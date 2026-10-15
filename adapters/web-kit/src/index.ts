@@ -9,3 +9,4 @@ export { typeShape } from "./typeshape.ts";
 export { runVitestBrowser, type VitestOptions } from "./tests.ts";
 export { probeTokens, closeProbeBrowser, type RuntimeTokenConfig } from "./runtime-tokens.ts";
 export { readStylesheet } from "./stylesheet.ts";
+export { classCandidates, offScaleMessage, tailwindCss, type TailwindResult } from "./tailwind.ts";

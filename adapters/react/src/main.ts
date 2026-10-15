@@ -84,7 +84,7 @@ serve({
     return readLinks(params.root, dirs);
   },
 
-  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? []),
+  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? [], prefix(params)),
 
   // Identifying components needs the index's names, to find the design-system component in a wrapper chain.
   render: (params) => render(params, config(params).render ?? {}, prefix(params), reactHooks(new Set(index(params).components.map((c) => c.name)))),
@@ -97,19 +97,23 @@ serve({
     const pkg = index(params).package?.name ?? "the design system";
     // The team's language and styling: TypeScript or JavaScript; plain CSS, CSS Modules or SCSS.
     const js = params.output?.language === "javascript";
-    const styling = params.output?.styling === "css-modules" || params.output?.styling === "scss" ? params.output.styling : "css";
+    const styling = params.output?.styling === "css-modules" || params.output?.styling === "scss" || params.output?.styling === "tailwind" ? params.output.styling : "css";
+    const p = prefix(params);
+    const tokenExample = p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)";
     const ext = js ? "jsx" : "tsx";
     const styleFile = styling === "css-modules" ? "{name}.module.css" : styling === "scss" ? "{name}.scss" : "{name}.css";
     const styleRule =
-      styling === "css-modules"
+      styling === "tailwind"
+        ? `Style with Tailwind utility classes in className; there is no stylesheet. Tailwind's own scale is switched off: use layout utilities as they are (flex, grid, flex-col, items-center, justify-between, w-full, md:…), and write every spacing, colour, size, radius and type value as an arbitrary value with a design-system token, e.g. gap-[${tokenExample.replace(/ /g, "")}] or bg-[${tokenExample.replace(/ /g, "")}]. Classes such as p-4, text-sm or bg-blue-500 draw nothing here. No style={{}}.`
+        : styling === "css-modules"
         ? `Import the styles as a CSS Module: import styles from "./{name}.module.css", and use className={styles.root} and so on; class names in the file are local.`
         : `Import "./${styleFile}" from {name}.${ext}.`;
     return {
-      language: `${js ? "JavaScript (JSX)" : "TypeScript (TSX)"}, ${styling === "css-modules" ? "CSS Modules" : styling === "scss" ? "SCSS" : "CSS"}`,
+      language: `${js ? "JavaScript (JSX)" : "TypeScript (TSX)"}, ${styling === "tailwind" ? "Tailwind CSS" : styling === "css-modules" ? "CSS Modules" : styling === "scss" ? "SCSS" : "CSS"}`,
       framework: `React 19 with ${pkg}`,
       files: [
         { path: `{name}.${ext}`, role: "component", description: `The component, default-exported, with no required props; renders the whole design.${js ? " Plain JavaScript: no type annotations." : ""}` },
-        { path: styleFile, role: "styles", description: `Styles for the component's own layout only (design-system components style themselves), imported by {name}.${ext}.${styling === "scss" ? " SCSS: nesting is fine; no hard-coded values in variables either." : ""}` },
+        ...(styling === "tailwind" ? [] : [{ path: styleFile, role: "styles" as const, description: `Styles for the component's own layout only (design-system components style themselves), imported by {name}.${ext}.${styling === "scss" ? " SCSS: nesting is fine; no hard-coded values in variables either." : ""}` }]),
         { path: `{name}.test.${ext}`, role: "test", description: "Vitest + @testing-library/react tests: it renders, shows the design's text, and uses the design-system components." },
       ],
       entry: `{name}.${ext}`,
@@ -117,7 +121,7 @@ serve({
         "Default-export a function component named {name} with no required props.",
         styleRule,
         `Design-system components pass unknown props such as data-figma-id through to their root element; put data-figma-id directly on them.`,
-        `Write every token with its value as the fallback, e.g. ${prefix(params) ? `var(--${prefix(params)}-…, <its value>)` : "var(--token-name, <its value>)"}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
+        `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
         `In {name}.test.${ext} import { render, screen } from "@testing-library/react", { describe, it, expect } from "vitest", and the component from "./{name}".`,
       ],
       importExample: `import { Button } from "${pkg}";`,

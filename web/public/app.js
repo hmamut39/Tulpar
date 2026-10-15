@@ -8,9 +8,9 @@ const FRAMEWORK_KEY = "tulpar.framework";
 const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", "web-components": "Web Components" };
 // Language and styling each framework can write in: value "language:styling".
 const OUTPUTS = {
-  react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"]],
+  react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
   angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
-  vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"]],
+  vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
   "web-components": [["", "HTML · CSS · JavaScript"]],
 };
 const OUTPUT_KEY = "tulpar.output.";

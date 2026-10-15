@@ -212,8 +212,15 @@ export function verify(input: VerifyInput): VerifyReport {
       const el = byId.get(e.node.id);
       if (!el || (!want && e.node.kind === "instance")) continue;
       checked++;
+      // Text drawn by a nested component that has no text in the design (an input's placeholder or
+      // value inside a form field) is not this element's text: it is set aside before comparing.
+      let got = el.text;
+      for (const d of descendants(e.node)) {
+        const inner = d.kind === "instance" && !visibleText(d) ? byId.get(d.id)?.text : undefined;
+        if (inner) got = got.replace(inner, " ");
+      }
       // Whitespace is layout, not content: compare with runs of whitespace collapsed.
-      if (el.text.replace(/\s+/g, " ").trim() === want) exact++;
+      if (got.replace(/\s+/g, " ").trim() === want) exact++;
       else details.push(`✗ ${e.node.name} (${e.node.id}): design says ${JSON.stringify(want)}, rendered ${JSON.stringify(el.text)}`);
     }
     const summary = checked === exact ? "text matches exactly" : `text differs on ${checked - exact} of ${checked} elements`;
@@ -350,6 +357,13 @@ function expectedNodes(root: DesignNode, mapping: Map<string, string>): Expected
 function walk(n: DesignNode, fn: (n: DesignNode) => void): void {
   fn(n);
   if (n.kind !== "text") for (const c of layers(n)) walk(c, fn);
+}
+
+/** Every node below `n` (not `n` itself). */
+function descendants(n: DesignNode): DesignNode[] {
+  const out: DesignNode[] = [];
+  walk(n, (x) => x !== n && out.push(x));
+  return out;
 }
 
 /** A node's children, plus the content placed into it when it is an instance. */

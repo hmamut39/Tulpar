@@ -12,6 +12,7 @@
     "esbuild": "0.28.2",
     "playwright": "1.63.0",
     "sass": "^1.93.2",
+    "tailwindcss": "^4.3.3",
     "typescript": "~6.0.0"
   }
 }

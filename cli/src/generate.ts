@@ -66,6 +66,8 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     return fail(err instanceof Error ? err.message : String(err));
   }
   const project = await loadProject(projectDir);
+  // Every call (conventions, build, render) sees the chosen language and styling.
+  if (options.output) project.params.output = options.output;
   const log = options.quiet ? () => undefined : (s: string) => console.log(s);
 
   let result: GenerationResult;
@@ -85,7 +87,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     }
     if (ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
   note: ${n}`).join("")}`);
-    const conventions = await host.call("conventions", { ...project.params, ...(options.output && { output: options.output }) });
+    const conventions = await host.call("conventions", project.params);
     const tokens = ctx.tokens;
     const workDir = join(".tulpar", "generated", options.name);
     let attempt = 0;

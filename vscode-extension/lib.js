@@ -82,8 +82,8 @@ function collisions(dir, files) {
 
 /** Language and styling each framework can write in, as the web page offers them: [value, label]. */
 const OUTPUTS = {
-  react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"]],
-  vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"]],
+  react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
+  vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
   angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
 };
 

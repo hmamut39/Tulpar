@@ -85,7 +85,7 @@ serve({
     return readLinks(params.root, dirs);
   },
 
-  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? []),
+  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? [], prefix(params)),
 
   render: (params) => render(params, config(params).render ?? {}, prefix(params), vueHooks(new Set(index(params).components.map((c) => c.name)))),
 
@@ -103,15 +103,16 @@ serve({
   conventions: (params) => {
     const pkg = index(params).package?.name ?? "the design system";
     const first = index(params).components[0]?.name ?? "Button";
-    // The team's language and styling: TypeScript or JavaScript; scoped CSS, SCSS, Less or a CSS Module.
+    // The team's language and styling: TypeScript or JavaScript; scoped CSS, SCSS, Less, a CSS Module or Tailwind.
     const js = params.output?.language === "javascript";
-    const styling = params.output?.styling === "css-modules" || params.output?.styling === "scss" || params.output?.styling === "less" ? params.output.styling : "css";
+    const styling = params.output?.styling === "css-modules" || params.output?.styling === "scss" || params.output?.styling === "less" || params.output?.styling === "tailwind" ? params.output.styling : "css";
     const styleTag = styling === "css-modules" ? "<style module>" : styling === "scss" ? '<style scoped lang="scss">' : styling === "less" ? '<style scoped lang="less">' : "<style scoped>";
-    const sheet = styling === "css-modules" ? "CSS Modules" : styling === "scss" ? "SCSS" : styling === "less" ? "Less" : "scoped CSS";
+    const sheet = styling === "tailwind" ? "Tailwind CSS" : styling === "css-modules" ? "CSS Modules" : styling === "scss" ? "SCSS" : styling === "less" ? "Less" : "scoped CSS";
     const ext = js ? "js" : "ts";
     // @vue/test-utils when the team has it; otherwise Vue itself mounts the component.
     const testUtils = existsSync(join(params.root, "node_modules", "@vue", "test-utils"));
     const p = prefix(params);
+    const tokenExample = p ? `var(--${p}-…,<its value>)` : "var(--token-name,<its value>)";
     return {
       language: `Vue single-file component, ${js ? "JavaScript" : "TypeScript"}, ${sheet}`,
       framework: `Vue 3 with ${pkg}`,
@@ -119,14 +120,16 @@ serve({
         {
           path: "{name}.vue",
           role: "component",
-          description: `The component: <script setup${js ? "" : ' lang="ts"'}>, <template>, and ${styleTag} for its own layout only (design-system components style themselves). No required props; renders the whole design.`,
+          description: `The component: <script setup${js ? "" : ' lang="ts"'}>, <template>${styling === "tailwind" ? " styled with Tailwind classes (no <style> block)" : `, and ${styleTag} for its own layout only (design-system components style themselves)`}. No required props; renders the whole design.`,
         },
         { path: `{name}.test.${ext}`, role: "test", description: `Vitest tests: it mounts, shows the design's text, and uses the design-system components.` },
       ],
       entry: "{name}.vue",
       rules: [
         `Use <script setup${js ? "" : ' lang="ts"'}> and import every design-system component explicitly from "${pkg}" (no global registration).`,
-        styling === "css-modules"
+        styling === "tailwind"
+          ? `Style with Tailwind utility classes in class attributes; no <style> block. Tailwind's own scale is switched off: use layout utilities as they are (flex, grid, flex-col, items-center, justify-between, w-full, md:…), and write every spacing, colour, size, radius and type value as an arbitrary value with a design-system token, e.g. gap-[${tokenExample}] or bg-[${tokenExample}]. Classes such as p-4, text-sm or bg-blue-500 draw nothing here. No inline style.`
+          : styling === "css-modules"
           ? `Style with <style module> and bind classes from $style, e.g. :class="$style.root"; class names in the block are local.`
           : `Style with ${styleTag}.${styling === "scss" || styling === "less" ? " Nesting is fine; no hard-coded values in variables either." : ""}`,
         `Put data-figma-id directly on design-system components: Vue passes it through to their root element.`,

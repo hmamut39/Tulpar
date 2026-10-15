@@ -196,6 +196,16 @@ describe("verify", () => {
     expect(r.checks.find((c) => c.id === "typeface")!.details).toEqual(["✗ Button 2:1 (2:1): design uses Plex, drawn with Arial"]);
   });
 
+  it("sets aside an input's placeholder inside a form field, but still checks the field's own label", () => {
+    const fieldInput = { ...instance("3:2", "B", 0, ""), children: [] } as DesignNode;
+    const field = { ...instance("3:1", "B", 0, "Email"), children: [text("I3:1;1", "Email"), fieldInput] } as DesignNode;
+    const formDesign: DesignTree = { ...design, root: { ...(design.root as Extract<DesignNode, { kind: "container" }>), children: [field] } };
+    const run = (label: string) =>
+      verify(input([el("1:1", "x-footer", box(0, 0, 300, 40), `${label} name@company.com`), el("3:1", "x-button", box(0, 0, 100, 40), `${label} name@company.com`), el("3:2", "x-button", box(0, 0, 100, 40), "name@company.com")], { design: formDesign }));
+    expect(run("Email").checks.find((c) => c.id === "text")!.status).toBe("pass");
+    expect(run("Emial").checks.find((c) => c.id === "text")!.details).toEqual(['✗ Button 3:1 (3:1): design says "Email", rendered "Emial name@company.com"']);
+  });
+
   it("checks the typeface class when a screenshot names no font", () => {
     const shot = (fontClass: "sans-serif" | "serif") => ({
       ...design,

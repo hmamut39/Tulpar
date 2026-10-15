@@ -35,12 +35,14 @@ export interface AdapterManifest {
 export interface ProjectParams {
   root: string;
   config: Record<string, unknown>;
+  /** The language and styling chosen for this generation; the build needs it for Tailwind. */
+  output?: OutputChoice;
 }
 
 /** The language and styling a team writes in, when the framework allows a choice. */
 export interface OutputChoice {
   language?: "typescript" | "javascript";
-  styling?: "css" | "css-modules" | "scss" | "less";
+  styling?: "css" | "css-modules" | "scss" | "less" | "tailwind";
 }
 
 export interface Methods {

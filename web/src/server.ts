@@ -346,7 +346,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         if (!llm()) return json(res, 503, { error: "The server has no OpenAI key configured (OPENAI_API_KEY)." });
         // The team's language and styling, where the framework offers a choice.
         const language = body.language === "javascript" || body.language === "typescript" ? (body.language as "javascript" | "typescript") : undefined;
-        const styling = ["css", "css-modules", "scss", "less"].includes(String(body.styling)) ? (body.styling as "css" | "css-modules" | "scss" | "less") : undefined;
+        const styling = ["css", "css-modules", "scss", "less", "tailwind"].includes(String(body.styling)) ? (body.styling as "css" | "css-modules" | "scss" | "less" | "tailwind") : undefined;
         const output = language || styling ? { ...(language && { language }), ...(styling && { styling }) } : undefined;
 
         recent.push(Date.now());
