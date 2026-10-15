@@ -14,18 +14,29 @@ const OUTPUTS = {
   "web-components": [["", "HTML · CSS · JavaScript"]],
 };
 const OUTPUT_KEY = "tulpar.output.";
+// Why the list is what it is: the languages a framework's components are written in.
+const OUTPUT_HINTS = {
+  react: "React components are written in TypeScript or JavaScript. Pick the styling your team uses.",
+  vue: "Vue single-file components, in TypeScript or JavaScript, with the style block your team uses.",
+  angular: "Angular is written in TypeScript. Pick the stylesheet language your team uses.",
+  "web-components": "Web Components are written in HTML, CSS and JavaScript only.",
+};
+const LANGUAGES_LATER = "Other languages arrive with their frameworks: Svelte, Flutter (Dart), SwiftUI (Swift) and Jetpack Compose (Kotlin) are coming.";
 function fillOutputs() {
   const adapter = $("framework").value;
   const options = OUTPUTS[adapter] ?? [["", "The framework's default"]];
   $("output").innerHTML = options.map(([v, label]) => `<option value="${v}">${label}</option>`).join("");
-  $("output").disabled = options.length < 2;
+  // Never disabled: a greyed-out field reads as broken (on a phone, tapping it does nothing). The hint says why there is one choice.
+  $("outputHint").textContent = `${OUTPUT_HINTS[adapter] ?? "Tulpar writes the files the way your codebase does."} ${LANGUAGES_LATER}`;
   const saved = storage.get(OUTPUT_KEY + adapter);
   if (saved && options.some(([v]) => v === saved)) $("output").value = saved;
 }
 $("output").addEventListener("change", () => storage.set(OUTPUT_KEY + $("framework").value, $("output").value));
 
 // Shown so people know what is coming, but never selectable before an adapter exists for it.
-const COMING_SOON = ["Svelte"];
+const COMING_SOON = ["Svelte", "Flutter (Dart)", "SwiftUI (Swift)", "Jetpack Compose (Kotlin)"];
+// Most-used first; the page opens on the first one unless the visitor chose another before.
+const FRAMEWORK_ORDER = ["react", "vue", "angular", "web-components"];
 // Product names for known packages; anything else shows its package name.
 const PRODUCTS = {
   "@carbon/react": "Carbon (IBM)", "@carbon/web-components": "Carbon (IBM)", "carbon-components-angular": "Carbon (IBM)",
@@ -45,14 +56,23 @@ const storage = {
 async function init() {
   const config = await (await fetch("/api/config")).json();
   projects = config.projects;
-  const adapters = [...new Set(projects.map((p) => p.adapter))];
+  const rank = (a) => (FRAMEWORK_ORDER.includes(a) ? FRAMEWORK_ORDER.indexOf(a) : FRAMEWORK_ORDER.length);
+  const adapters = [...new Set(projects.map((p) => p.adapter))].sort((a, b) => rank(a) - rank(b));
   $("framework").innerHTML =
     adapters.map((a) => `<option value="${esc(a)}">${esc(FRAMEWORKS[a] ?? a)}</option>`).join("") +
     COMING_SOON.map((f) => `<option disabled>${esc(f)} (coming soon)</option>`).join("");
   const savedFramework = storage.get(FRAMEWORK_KEY);
   if (savedFramework && adapters.includes(savedFramework)) $("framework").value = savedFramework;
   fillProjects();
-  $("stacks").innerHTML = [...new Set(config.projects.map((p) => FRAMEWORKS[p.adapter] ?? p.adapter))].map((f) => `<li>${esc(f)}</li>`).join("");
+  // Each chip picks its framework and takes the visitor to the form (they look tappable, so they are).
+  $("stacks").innerHTML = adapters.map((a) => `<li><button type="button" data-framework="${esc(a)}">${esc(FRAMEWORKS[a] ?? a)}</button></li>`).join("");
+  $("stacks").addEventListener("click", (e) => {
+    const chip = e.target.closest("button[data-framework]");
+    if (!chip) return;
+    $("framework").value = chip.dataset.framework;
+    $("framework").dispatchEvent(new Event("change"));
+    $("framework").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   $("accessField").hidden = !config.accessCodeRequired;
   // With sign-in on, invite codes still work, behind a small link.
   $("inviteToggle").hidden = !(config.signIn && config.inviteCodes);

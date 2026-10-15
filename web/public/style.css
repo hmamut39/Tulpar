@@ -65,7 +65,8 @@ a { color: inherit; }
 .lede { margin: 16px auto 0; max-width: 620px; color: var(--muted); font-size: 17px; }
 .lede strong { color: var(--text); }
 .stacks { list-style: none; margin: 22px 0 0; padding: 0; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.stacks li { font-size: 13px; font-weight: 500; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.stacks button { font: inherit; font-size: 13px; font-weight: 500; color: var(--text); padding: 6px 12px; min-height: 32px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer; }
+.stacks button:hover, .stacks button:focus-visible { border-color: var(--accent); color: var(--accent); }
 
 /* Workspace */
 .workspace { max-width: 1160px; margin: 0 auto; padding: 12px 20px 40px; display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -334,3 +335,6 @@ code { font: 13px/1.65 "JetBrains Mono", ui-monospace, Consolas, monospace; colo
 .connect-box p { margin: 0; }
 .connect-box .btn-plan { padding: 0 24px; }
 .connect-note { font-size: 14px; color: var(--muted) !important; }
+
+/* On phones the sticky bar would hide a field scrolled into view for typing or choosing. */
+input, select, textarea { scroll-margin-top: 88px; }
