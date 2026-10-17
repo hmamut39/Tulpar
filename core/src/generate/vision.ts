@@ -96,6 +96,7 @@ export async function readScreenshot(options: ReadScreenshotOptions): Promise<Sc
       "- font: the class of typeface the element's text is drawn in (sans-serif, serif or monospace), or \"none\" when it has no text. Judge by the letter shapes: serifs are the small strokes at the ends of letters.",
       "- confidence: 0–1, how sure you are of the element's identity.",
       "- Do not describe a design-system component's internal parts (its label, icon, border) as separate elements: its text goes in `text`.",
+      "- A component's text props (listed as name=<text>) say which part of its visible text is its label, placeholder, title or value: set each one you can see to that exact text (a field's grey hint is its placeholder, not its value). `text` still holds all the text the component shows.",
       "- notes: anything ambiguous (e.g. two components that look alike).",
     ].join("\n"),
     text: [
@@ -165,11 +166,15 @@ function dominantColor(png: PNG, x0: number, y0: number, w: number, h: number): 
   return sat >= 0.35 && l > 0.15 && l < 0.85 ? c : undefined;
 }
 
+// Props that carry a component's visible text: which part of it is the label, the hint, the value.
+const TEXT_PROP = /^(label|labelText|placeholder|title|heading|header|helperText|hint|caption|description|value|modelValue|text)$/i;
+
 function catalogueLine(c: CodeComponent): string {
   const props = c.props
     .filter((p) => !p.internal && !p.deprecated && (p.type?.kind === "enum" || p.type?.kind === "boolean"))
     .slice(0, 8)
     .map((p) => (p.type?.kind === "enum" ? `${p.name}=${p.type.values.slice(0, 12).join("|")}` : `${p.name}=true|false`));
+  props.push(...c.props.filter((p) => !p.internal && !p.deprecated && p.type?.kind === "string" && TEXT_PROP.test(p.name)).slice(0, 4).map((p) => `${p.name}=<text>`));
   const slots = c.slots.map((s) => s.name || "content");
   return `- ${c.name}${props.length ? `: ${props.join("; ")}` : ""}${slots.length ? ` [slots: ${slots.join(", ")}]` : ""}`;
 }

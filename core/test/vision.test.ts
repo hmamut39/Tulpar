@@ -1,6 +1,6 @@
 import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
-import { compareImages, toDesign, verify, type AdapterManifest, type CodeComponent, type ComponentIndex, type InstanceNode, type TokenSet } from "../src/index.ts";
+import { compareImages, readScreenshot, toDesign, verify, type AdapterManifest, type CodeComponent, type ComponentIndex, type InstanceNode, type TokenSet } from "../src/index.ts";
 
 const comp = (name: string): CodeComponent => ({ id: name, name, module: "m", props: [], slots: [{ name: "", provenance: { source: "t", confidence: "high" } }], events: [], provenance: { source: "t", confidence: "high" } });
 const known = new Map([["ButtonSet", comp("ButtonSet")], ["Button", comp("Button")]]);
@@ -119,5 +119,28 @@ describe("verify with a baseline image", () => {
   it("still fails when the design system has the design's colour and the code used another", () => {
     expect(run(drawnWithPrimary, shot, system(colorToken("el-color-sky", "#0284c7"))).status).toBe("fail");
     expect(run(drawnWithPrimary, shot).status).toBe("fail");
+  });
+});
+
+describe("the screenshot reader's catalogue", () => {
+  it("lists a component's text props, so the reader can say which text is the label and which the placeholder", async () => {
+    const field: CodeComponent = {
+      id: "m#ElInput", name: "ElInput", module: "m", slots: [], events: [], provenance: { source: "t", confidence: "high" },
+      props: [
+        { name: "size", aliases: [], type: { kind: "enum", values: ["small", "large"], open: false }, required: false, provenance: {} },
+        { name: "placeholder", aliases: [], type: { kind: "string" }, required: false, provenance: {} },
+        { name: "id", aliases: [], type: { kind: "string" }, required: false, provenance: {} },
+      ],
+    } as unknown as CodeComponent;
+    let seen = "";
+    const llm = { name: "fake", complete: async (req: { text: string; instructions: string }) => {
+      seen = `${req.instructions}\n${req.text}`;
+      return { json: { width: 10, height: 10, elements: [], notes: [] }, text: "", usage: { inputTokens: 0, outputTokens: 0 } };
+    } };
+    await readScreenshot({ llm: llm as never, image: { mime: "image/png", base64: "" }, index: { adapter: "t", gaps: [], components: [field] }, scale: 1 });
+    expect(seen).toMatch(/- ElInput: size=small\|large; placeholder=<text>/);
+    // Only props that carry visible text: an id is not one.
+    expect(seen).not.toMatch(/id=<text>/);
+    expect(seen).toMatch(/a field's grey hint is its placeholder, not its value/);
   });
 });
