@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { baseFontToken, detect } from "../src/init.ts";
+import { baseFontToken, codebaseStyle, detect } from "../src/init.ts";
 
 function project(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "tulpar-init-"));
@@ -64,5 +64,25 @@ describe("tulpar init", () => {
   it("asks for the package when nothing looks like a design system", () => {
     const bare = project({ "package.json": JSON.stringify({ dependencies: { react: "19", "left-pad": "1" } }), "node_modules/left-pad/package.json": JSON.stringify({ name: "left-pad" }) });
     expect(() => detect(bare)).toThrow(/tulpar init --package/);
+  });
+});
+
+describe("the way a codebase writes components", () => {
+  it("is TypeScript with a tsconfig.json, and the styling its dependencies show, as far as the framework offers it", () => {
+    const root = project({ "tsconfig.json": "{}", "src/App.tsx": "" });
+    expect(codebaseStyle(root, "react", ["react", "tailwindcss"])).toMatchObject({ language: "typescript", styling: "tailwind" });
+    expect(codebaseStyle(root, "react", ["react", "styled-components"])).toMatchObject({ styling: "styled-components" });
+    // Svelte offers no styled-components: none is recorded.
+    expect(codebaseStyle(root, "svelte", ["svelte", "styled-components"])).toEqual({ language: "typescript", evidence: ["tsconfig.json or typescript"] });
+  });
+
+  it("is JavaScript only on evidence; a project with neither signal keeps the defaults", () => {
+    expect(codebaseStyle(project({ "src/App.jsx": "" }), "react", ["react"])).toMatchObject({ language: "javascript" });
+    expect(codebaseStyle(project({ "README.md": "" }), "react", ["react"])).toBeUndefined();
+  });
+
+  it("reads an Angular workspace's stylesheet language from angular.json", () => {
+    const root = project({ "angular.json": JSON.stringify({ projects: { app: { schematics: { "@schematics/angular:component": { style: "scss" } } } } }) });
+    expect(codebaseStyle(root, "angular", ["@angular/core"])).toMatchObject({ styling: "scss" });
   });
 });

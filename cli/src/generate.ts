@@ -67,7 +67,9 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   }
   const project = await loadProject(projectDir);
   // Every call (conventions, build, render) sees the chosen language and styling.
-  if (options.output) project.params.output = options.output;
+  // Flags first, else the way the codebase writes (tulpar init records it in tulpar.json).
+  const output = options.output ?? (project.config.output as OutputChoice | undefined);
+  if (output) project.params.output = output;
   const log = options.quiet ? () => undefined : (s: string) => console.log(s);
 
   let result: GenerationResult;

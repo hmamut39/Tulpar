@@ -288,7 +288,11 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     ...(Object.keys(tokens).length && { tokens }),
     render: { stylesheets, ...(Object.keys(themes).length && { themes }), ...(baseFont && { baseFont }), ...(rootClass && { rootClass }), ...(setup && { setup }) },
   };
-  return { adapter, why, config: { adapter, ...(figmaKey && { figma: { fileKey: figmaKey } }), [adapter]: section }, files: extraFiles };
+  // The way this codebase writes components, so generation matches it without flags.
+  const output = codebaseStyle(root, adapter, deps);
+  if (output) why.push(`writes: ${[output.language, output.styling].filter(Boolean).join(", ")} (${output.evidence.join("; ")})`);
+  const outputChoice = output && { ...(output.language && { language: output.language }), ...(output.styling && { styling: output.styling }) };
+  return { adapter, why, config: { adapter, ...(figmaKey && { figma: { fileKey: figmaKey } }), ...(outputChoice && Object.keys(outputChoice).length && { output: outputChoice }), [adapter]: section }, files: extraFiles };
 }
 
 export async function initCommand(dir: string, options: InitOptions = {}): Promise<number> {
@@ -491,4 +495,47 @@ function walk(dir: string, depth: number): string[] {
 
 function rel(root: string, file: string): string {
   return relative(root, file).split("\\").join("/");
+}
+
+/**
+ * How the project writes components: TypeScript when it has a tsconfig.json (Angular always), and the
+ * styling its dependencies show (Tailwind, styled-components, Emotion, Sass, Less), as far as the
+ * framework offers it. Undefined when nothing tells.
+ */
+export function codebaseStyle(root: string, adapter: string, deps: string[]): { language?: "typescript" | "javascript"; styling?: string; evidence: string[] } | undefined {
+  const evidence: string[] = [];
+  let language: "typescript" | "javascript" | undefined;
+  if (adapter === "react" || adapter === "vue" || adapter === "svelte") {
+    // JavaScript only on evidence (a jsconfig.json, or .js/.jsx sources and no .ts): a project with neither
+    // (a design-system showcase) keeps TypeScript, the default.
+    const sources = existsSync(join(root, "src")) ? walk(join(root, "src"), 4) : [];
+    if (existsSync(join(root, "tsconfig.json")) || deps.includes("typescript")) language = "typescript";
+    else if (existsSync(join(root, "jsconfig.json")) || (sources.some((f) => /\.(jsx?|vue|svelte)$/.test(f)) && !sources.some((f) => /\.tsx?$/.test(f)))) language = "javascript";
+    if (language) evidence.push(language === "typescript" ? "tsconfig.json or typescript" : "JavaScript sources, no TypeScript");
+  }
+  const offered: Record<string, string[]> = {
+    react: ["tailwind", "styled-components", "emotion", "scss", "css-modules", "css"],
+    vue: ["tailwind", "scss", "less", "css"],
+    svelte: ["tailwind", "css"],
+    angular: ["scss", "less", "css"],
+  };
+  const signs: [string, boolean][] = [
+    ["tailwind", deps.includes("tailwindcss")],
+    ["styled-components", deps.includes("styled-components")],
+    ["emotion", deps.includes("@emotion/styled")],
+    ["scss", deps.includes("sass") || deps.includes("node-sass") || (adapter === "angular" && angularStyle(root) === "scss")],
+    ["less", deps.includes("less") || (adapter === "angular" && angularStyle(root) === "less")],
+  ];
+  const styling = signs.find(([s, found]) => found && offered[adapter]?.includes(s))?.[0];
+  if (styling) evidence.push(`${styling} in the project`);
+  return language || styling ? { ...(language && { language }), ...(styling && { styling }), evidence } : undefined;
+}
+
+/** The stylesheet language an Angular workspace generates components with (angular.json schematics). */
+function angularStyle(root: string): string | undefined {
+  try {
+    return /"style"\s*:\s*"(scss|less|css)"/.exec(readFileSync(join(root, "angular.json"), "utf8"))?.[1];
+  } catch {
+    return undefined;
+  }
 }
