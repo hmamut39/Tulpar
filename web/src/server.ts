@@ -101,16 +101,19 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   let projects = listProjects(options.repoRoot);
   // Each framework's adapter says which languages and stylings it writes: asked once, in the background.
   // The image carries them, read when it was built (deploy/manifests.ts); in development they are read live.
-  const manifests = new Map<string, AdapterManifest>(process.env.NODE_ENV === "production" ? Object.entries(builtManifests(options.repoRoot)) : []);
+  // An adapter's manifest is fixed for the code that runs, so every server in the process shares them.
+  const manifests = MANIFESTS;
+  if (process.env.NODE_ENV === "production") for (const [a, m] of Object.entries(builtManifests(options.repoRoot))) manifests.set(a, m);
   const readManifests = () =>
     Promise.all(
-      [...new Set(projects.map((p) => p.adapter))].filter((a) => !manifests.has(a)).map(async (adapter) => {
-        try {
-          const manifest = await withAdapter(await loadProject(projects.find((p) => p.adapter === adapter)!.dir), async (host) => host.manifest);
-          if (manifest) manifests.set(adapter, manifest);
-        } catch {
-          // An adapter that cannot start offers its default only.
-        }
+      [...new Set(projects.map((p) => p.adapter))].filter((a) => !manifests.has(a)).map((adapter) => {
+        const dir = projects.find((p) => p.adapter === adapter)!.dir;
+        const reading = READING.get(adapter) ?? loadProject(dir).then((project) => withAdapter(project, async (host) => host.manifest)).then(
+          (m) => void (m && manifests.set(adapter, m)),
+          () => undefined, // An adapter that cannot start offers its default only.
+        );
+        READING.set(adapter, reading);
+        return reading;
       }),
     );
   let manifestsRead = readManifests();
@@ -549,6 +552,9 @@ if (import.meta.filename === resolve(process.argv[1] ?? "")) {
     });
   }
 }
+
+const MANIFESTS = new Map<string, AdapterManifest>();
+const READING = new Map<string, Promise<void>>();
 
 function builtManifests(repoRoot: string): Record<string, AdapterManifest> {
   try {

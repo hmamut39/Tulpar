@@ -5,9 +5,9 @@
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import type { TestRunResult } from "@tulpar/core";
 
 export interface VitestOptions {
@@ -19,6 +19,8 @@ export interface VitestOptions {
   plugins?: string;
   /** Packages to take from Tulpar's own installation when the project has none (styled-components, Emotion). */
   fallbackModules?: string[];
+  /** Packages to pre-bundle before the run: imports Vite's start-up scan cannot see (inside an .html file). */
+  optimize?: string[];
   /** Setup files, relative to the root, run in the browser before the tests. */
   setupFiles?: string[];
   timeoutMs?: number;
@@ -35,6 +37,11 @@ export async function runVitestBrowser(o: VitestOptions): Promise<TestRunResult>
   await mkdir(dir, { recursive: true });
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const configFile = join(dir, `${id}.config.mjs`);
+  // Vite's optimized-dependency cache is shared by the runs on a project (warm, fast) but only one at a
+  // time: two runs optimizing into one folder break each other's imports. A run that finds the cache
+  // taken uses a folder of its own, removed afterwards.
+  const shared = await takeCache(join(dir, "cache.lock"));
+  const cacheDir = shared ? join(o.root, "node_modules", ".vite") : join(dir, `${id}-cache`);
   // Missing styling libraries come from Tulpar's copies; React stays the project's single copy.
   const aliases = Object.fromEntries(
     (o.fallbackModules ?? []).filter((m) => !existsSync(join(o.root, "node_modules", m))).flatMap((m) => {
@@ -51,11 +58,12 @@ import { playwright } from "@vitest/browser-playwright";
 ${(o.pluginImports ?? []).join("\n")}
 export default defineConfig({
   root: ${JSON.stringify(o.root.replace(/\\/g, "/"))},
+  cacheDir: ${JSON.stringify(cacheDir.split(sep).join("/"))},
   ${o.plugins ? `plugins: ${o.plugins},` : ""}
   resolve: { alias: ${JSON.stringify(aliases)}, dedupe: ["react", "react-dom"] },
   // Modules supplied from Tulpar's copies live outside the project, where Vite's start-up scan does not
   // look: found mid-run, they would be optimized late and the page reloaded with a second React.
-  ${Object.keys(aliases).length ? `optimizeDeps: { include: ${JSON.stringify(Object.keys(aliases))} },` : ""}
+  ${Object.keys(aliases).length || o.optimize?.length ? `optimizeDeps: { include: ${JSON.stringify([...Object.keys(aliases), ...(o.optimize ?? [])])} },` : ""}
   test: {
     globals: true,
     include: [${JSON.stringify(o.testFile.replace(/\\/g, "/"))}],
@@ -87,16 +95,43 @@ export default defineConfig({
       status: a.status === "passed" ? ("passed" as const) : a.status === "failed" ? ("failed" as const) : ("skipped" as const),
       ...(a.failureMessages?.length && { error: clean(a.failureMessages.join("\n")) }),
     }));
-    const fileError = file?.status === "failed" && !tests.some((t) => t.status === "failed") ? clean(file.message || "the test file failed") : undefined;
+    // "Failed to import test file" alone does not say why: the reason is in Vitest's own output.
+    const why = /Failed to import test file/.test(file?.message ?? "") ? importError(output) : "";
+    const fileError = file?.status === "failed" && !tests.some((t) => t.status === "failed") ? clean([file.message || "the test file failed", why].filter(Boolean).join(": ")) : undefined;
     return { status: "ran", runner: "Vitest in Chromium", tests, ...(fileError && { fileError }) };
   } finally {
     await rm(configFile, { force: true });
     await rm(reportFile, { force: true });
+    if (shared) await rm(join(dir, "cache.lock"), { force: true });
+    else await rm(cacheDir, { recursive: true, force: true });
+  }
+}
+
+/** Takes the project's shared Vite cache, unless another run holds it (a lock older than 10 minutes is a crashed run's). */
+async function takeCache(lock: string): Promise<boolean> {
+  try {
+    await (await open(lock, "wx")).close();
+    return true;
+  } catch {
+    try {
+      if (Date.now() - (await stat(lock)).mtimeMs < 600_000) return false;
+      await rm(lock, { force: true });
+      await (await open(lock, "wx")).close();
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
 interface JestLikeReport {
   testResults: { status: string; message?: string; assertionResults: { title: string; fullName?: string; status: string; failureMessages?: string[] }[] }[];
+}
+
+/** The error lines Vitest printed while importing the file (e.g. a module that does not resolve). */
+function importError(output: string): string {
+  const lines = output.replace(/\x1b\[[0-9;]*m/g, "").split("\n").map((l) => l.trim());
+  return lines.filter((l) => /(Error|error):|Cannot find|Failed to resolve|does not provide/.test(l) && !/Failed to import test file/.test(l)).slice(0, 3).join(" ").slice(0, 500);
 }
 
 /** First line of an assertion error, without the dev-server stack. */

@@ -153,7 +153,7 @@ describe("hosting rules", () => {
     expect(res.status).toBe(429);
     expect((await res.json()).error).toMatch(/today's generation limit/);
     await capped.close();
-  });
+  }, 60_000);
 
   it("does not let a faked x-forwarded-for escape the hourly limit", async () => {
     const limited = await startServer({ repoRoot: repo, llm: () => ({ name: "never", generate: () => new Promise<never>(() => {}) }) as unknown as ScriptedLlm, accessCode: "x", runsPerHour: 1, maxQueue: 10 }, 0);

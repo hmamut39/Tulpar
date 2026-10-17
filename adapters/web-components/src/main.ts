@@ -2,7 +2,7 @@
 // Tulpar adapter for Web Components. Speaks the adapter protocol on stdio.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { exampleImport, indexPackage } from "./components.ts";
@@ -85,7 +85,19 @@ serve({
   // Specs run in Vitest browser mode; Tulpar's plugin makes Name.html importable, with a mount().
   test: (params) => {
     const setup = (params.config as Config).render?.setup;
+    // The packages the component's HTML imports: inside an .html file, Vite's start-up scan misses them,
+    // and finding them mid-run reloads the page and fails the test file.
+    const spec = readFileSync(join(params.root, params.entry), "utf8");
+    const optimize = [...spec.matchAll(/from\s+["'](\.{1,2}\/[^"']+\.html)["']/g)].flatMap((m) => {
+      try {
+        const html = readFileSync(join(params.root, dirname(params.entry), m[1]!), "utf8");
+        return parseImplementation(html).scripts.flatMap((s) => [...s.code.matchAll(/import\s+(?:[^"']*?from\s+)?["']([^."'/][^"']*)["']/g)].map((i) => i[1]!));
+      } catch {
+        return [];
+      }
+    });
     return runVitestBrowser({
+      optimize: [...new Set(optimize)],
       root: params.root,
       testFile: params.entry,
       pluginImports: [`import { tulparWebComponents } from ${JSON.stringify(pathToFileURL(join(import.meta.dirname, "verify", "vitest-plugin.mjs")).href)};`],
