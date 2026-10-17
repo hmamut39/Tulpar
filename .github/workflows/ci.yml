@@ -99,6 +99,8 @@ jobs:
           docker exec tulpar-smoke test -f /app/data/out/library.json
           # The typefaces renders need (the network is blocked, so web fonts never load).
           for f in "IBM Plex Sans" "Roboto" "Inter" "Open Sans"; do docker exec tulpar-smoke fc-list : family | grep -q "$f" || { echo "font missing: $f"; exit 1; }; done
+      - name: Generated tests run in the image, for every framework
+        run: docker exec -u node -w /app tulpar-smoke node deploy/smoke-tests.ts
       - if: failure()
         run: docker logs tulpar-smoke || true
       # main only: the image that passed is the one that ships.
