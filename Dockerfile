@@ -14,8 +14,13 @@ FROM node:24-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# System packages: Chromium's libraries, and git for Carbon's Code Connect files.
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* \
+# System packages: git for Carbon's Code Connect files, and the typefaces design systems are drawn in.
+# The render's network is blocked, so a design system's web fonts (Carbon's IBM Plex from IBM's CDN)
+# never download; Carbon's @font-face tries local("IBM Plex Sans") first, so installed fonts are used.
+# IBM Plex (Carbon), Roboto (Material UI), Inter and Open Sans (common in designs); all open licences.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+      fonts-ibm-plex fonts-roboto fonts-inter fonts-open-sans \
+ && rm -rf /var/lib/apt/lists/* \
  && chown node:node /app
 
 # Tulpar's own dependencies: the manifests only, so a code change reuses this layer.
