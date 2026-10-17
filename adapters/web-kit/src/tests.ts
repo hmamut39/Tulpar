@@ -53,6 +53,9 @@ export default defineConfig({
   root: ${JSON.stringify(o.root.replace(/\\/g, "/"))},
   ${o.plugins ? `plugins: ${o.plugins},` : ""}
   resolve: { alias: ${JSON.stringify(aliases)}, dedupe: ["react", "react-dom"] },
+  // Modules supplied from Tulpar's copies live outside the project, where Vite's start-up scan does not
+  // look: found mid-run, they would be optimized late and the page reloaded with a second React.
+  ${Object.keys(aliases).length ? `optimizeDeps: { include: ${JSON.stringify(Object.keys(aliases))} },` : ""}
   test: {
     globals: true,
     include: [${JSON.stringify(o.testFile.replace(/\\/g, "/"))}],
