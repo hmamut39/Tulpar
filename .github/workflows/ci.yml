@@ -97,6 +97,8 @@ jobs:
           for a in react vue angular svelte web-components; do grep -q "\"adapter\":\"$a\"" config.json || { echo "no $a project"; exit 1; }; done
           curl -fsI localhost:8080/ -o headers.txt && grep -qi "content-security-policy" headers.txt
           docker exec tulpar-smoke test -f /app/data/out/library.json
+          # The typefaces renders need (the network is blocked, so web fonts never load).
+          for f in "IBM Plex Sans" "Roboto" "Inter" "Open Sans"; do docker exec tulpar-smoke fc-list : family | grep -q "$f" || { echo "font missing: $f"; exit 1; }; done
       - if: failure()
         run: docker logs tulpar-smoke || true
       # main only: the image that passed is the one that ships.
