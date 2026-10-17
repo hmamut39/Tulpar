@@ -10,7 +10,8 @@
   --bg: var(--cloud);
   --surface: #ffffff;
   --text: var(--ink);
-  --muted: var(--slate);
+  /* Slate with a little ink: 4.5:1 or more on the page background (WCAG AA). */
+  --muted: color-mix(in srgb, var(--slate) 85%, var(--ink));
   --line: color-mix(in srgb, var(--slate) 22%, transparent);
   --field: color-mix(in srgb, var(--cloud) 70%, #ffffff);
   --accent: var(--indigo);
@@ -31,7 +32,8 @@
     --muted: color-mix(in srgb, var(--slate) 70%, var(--cloud));
     --line: color-mix(in srgb, var(--cloud) 12%, transparent);
     --field: color-mix(in srgb, var(--ink) 75%, var(--cloud) 6%);
-    --accent: color-mix(in srgb, var(--indigo) 70%, var(--cloud));
+    /* Light enough to read on the dark, indigo-tinted surfaces (WCAG AA). */
+    --accent: color-mix(in srgb, var(--indigo) 50%, var(--cloud));
     --accent-soft: color-mix(in srgb, var(--indigo) 22%, transparent);
     --danger-soft: color-mix(in srgb, var(--rose) 18%, transparent);
     --code-bg: color-mix(in srgb, var(--ink) 70%, black);
@@ -221,7 +223,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .hljs-comment, .hljs-quote, .hljs-meta, .hljs-punctuation { color: var(--slate); }
 .hljs-comment { font-style: italic; }
 .hljs-variable, .hljs-params, .hljs-subst { color: var(--cloud); }
-code { font: 13px/22px "JetBrains Mono", ui-monospace, Consolas, monospace; color: var(--cloud); white-space: pre; }
+/* Code in the dark code panel; code inside ordinary text is styled with the text it sits in. */
+.code code { font: 13px/22px "JetBrains Mono", ui-monospace, Consolas, monospace; color: var(--cloud); white-space: pre; }
 
 .foot { max-width: 1160px; margin: 0 auto; padding: 8px 20px 40px; color: var(--muted); font-size: 13px; text-align: center; }
 @media (max-width: 560px) {
@@ -313,7 +316,7 @@ code { font: 13px/22px "JetBrains Mono", ui-monospace, Consolas, monospace; colo
 /* ---- Legal pages ---- */
 .legal ul { padding-left: 20px; line-height: 1.7; }
 .legal li { margin: 6px 0; }
-.legal code { font-family: "JetBrains Mono", monospace; font-size: 0.9em; background: var(--accent-soft); padding: 1px 6px; border-radius: 6px; }
+.legal code { font-family: "JetBrains Mono", monospace; font-size: 0.9em; color: var(--text); background: var(--accent-soft); padding: 1px 6px; border-radius: 6px; }
 
 /* ---- Owner dashboard ---- */
 .dash { max-width: 1120px; margin: 32px auto 24px; padding: 0 16px; display: grid; gap: 20px; }
