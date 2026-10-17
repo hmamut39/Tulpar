@@ -9,7 +9,8 @@
 
 import type { FrameworkHooks } from "@tulpar/web-kit";
 
-export function svelteHooks(): FrameworkHooks {
+/** `written`: figma id → the component the source wrote it on, for elements Svelte leaves unmarked. */
+export function svelteHooks(written: Record<string, string> = {}): FrameworkHooks {
   return {
     async settle(page, frameId) {
       const ok = await page.evaluate(async (id) => {
@@ -25,7 +26,7 @@ export function svelteHooks(): FrameworkHooks {
     },
 
     identify(page) {
-      return page.evaluate(() => {
+      return page.evaluate((written) => {
         type Meta = { type?: string; file?: string; line?: number; componentTag?: string; loc?: { file: string; line: number }; parent?: Meta };
         const metaOf = (el: Element) => (el as unknown as { __svelte_meta?: Meta }).__svelte_meta;
         const fromPackage = (file?: string) => !!file && /[\\/]node_modules[\\/]/.test(file);
@@ -40,7 +41,9 @@ export function svelteHooks(): FrameworkHooks {
           const id = el.dataset.figmaId!;
           const call = writtenCall(el);
           if (!call) {
-            if (!out[id]) out[id] = { component: el.localName, defined: true };
+            // An element Svelte created dynamically has no record at all; the source says what it was written as.
+            const fallback = !metaOf(el) ? written[id] : undefined;
+            if (!out[id] || fallback) out[id] = { component: fallback ?? el.localName, defined: true };
             continue;
           }
           // Up to the component's root element: the topmost ancestor from the same call.
@@ -53,7 +56,7 @@ export function svelteHooks(): FrameworkHooks {
           out[id] = { component: call.componentTag ?? el.localName, defined: true };
         }
         return out;
-      });
+      }, written);
     },
   };
 }

@@ -400,12 +400,14 @@ function visualCheck(
     const used = nearestColorToken(r.render, input.tokens);
     if (wanted && used && wanted.distance > OFF_SYSTEM && used.distance <= ON_TOKEN) {
       offSystem.set(r, `the design's ${r.design} matches no token of the design system (nearest: ${wanted.name} ${wanted.hex}); the render uses ${used.name}. Not counted against the code: check the colour with your designer`);
-    } else if (wanted && used && used.name === wanted.name && r.design !== r.render && used.distance <= ON_TOKEN) {
+    } else if (wanted && used && wanted.hex === used.hex && r.design !== r.render && used.distance <= ON_TOKEN) {
       // Drawn with the very token nearest the design's colour: as close as the design system allows.
       offSystem.set(r, `the design's ${r.design} is not exactly a token; the render uses the nearest, ${used.name} ${used.hex}. Not counted against the code`);
     }
   }
-  const excused = [...offSystem.keys()].reduce((n, r) => n + r.pixels, 0) / (result.width * result.height);
+  // Only the colour swap itself is excused (the region's share of pixels in that colour pair), never the
+  // shapes or text that also differ in the same region.
+  const excused = [...offSystem.keys()].reduce((n, r) => n + r.pixels * (r.colorShare ?? 0), 0) / (result.width * result.height);
   const mismatch = Math.max(0, result.mismatch - excused);
   const summary = `${pct(mismatch)} of pixels differ from the ${input.baseline.source} (limit ${pct(limit)})${excused > 0.001 ? `; ${pct(excused)} more is a design colour the design system has no exact token for` : ""}`;
   const details = result.regions.map((r) => {
@@ -429,7 +431,7 @@ function visualCheck(
     const drawn = r.render && input.tokens ? nearestColorToken(r.render, input.tokens) : undefined;
     const component = over && input.index.components.find((c) => c.name === over.component);
     const fix =
-      component && wanted && drawn && wanted.distance <= OFF_SYSTEM && wanted.name !== drawn.name
+      component && wanted && drawn && wanted.distance <= OFF_SYSTEM && wanted.hex !== drawn.hex
         ? ` → give <${component.name}> ${over!.figmaId} var(--${wanted.name}, ${wanted.hex}) through a colour prop that takes it${component.cssProperties?.length ? `, or its theming CSS variables (${component.cssProperties.slice(0, 4).map((p) => p.name).join(", ")}, and their hover and active counterparts)` : ""}`
         : "";
     return `${mismatch > limit ? "✗" : "–"} ${where}${colors}${fix}`;

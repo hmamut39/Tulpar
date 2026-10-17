@@ -17,6 +17,33 @@ interface Node {
   [k: string]: unknown;
 }
 
+/**
+ * Which component each data-figma-id is written on in the source (<Heading data-figma-id="e2">).
+ * The render needs it for elements Svelte creates dynamically (<svelte:element>, as Carbon's Heading
+ * does): those carry no __svelte_meta to say which component drew them.
+ */
+export async function componentsWrittenOn(root: string, entry: string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  let ast: { fragment?: { nodes: Node[] } };
+  try {
+    ast = (await compilerFor(root)).parse(readFileSync(join(root, entry), "utf8"), { modern: true }) as typeof ast;
+  } catch {
+    return out;
+  }
+  const visit = (n: Node) => {
+    if (n.type === "Component" && n.name) {
+      const id = (n.attributes ?? []).find((a) => a.type === "Attribute" && a.name === "data-figma-id");
+      const text = Array.isArray(id?.value) ? (id!.value as { type: string; data?: string }[]).map((p) => (p.type === "Text" ? p.data ?? "" : "")).join("") : "";
+      if (text) out[text] = n.name.split(".").at(-1)!;
+    }
+    for (const value of Object.values(n)) {
+      if (value && typeof value === "object" && "nodes" in (value as object)) for (const c of (value as { nodes: Node[] }).nodes) visit(c);
+    }
+  };
+  for (const n of ast.fragment?.nodes ?? []) visit(n);
+  return out;
+}
+
 export async function analyzeSvelte(root: string, entry: string, prefix: string): Promise<AnalyzeResult> {
   const text = readFileSync(join(root, entry), "utf8");
   const svelte = await compilerFor(root);

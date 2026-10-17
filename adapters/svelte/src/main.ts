@@ -8,7 +8,7 @@ import { PROTOCOL_VERSION, kebab, serve, type ComponentIndex, type ProjectParams
 import { closeBrowser, readTokens, render, runVitestBrowser, themingProperties, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
-import { analyzeSvelte } from "./verify/analyze.ts";
+import { analyzeSvelte, componentsWrittenOn } from "./verify/analyze.ts";
 import { build } from "./verify/build.ts";
 import { svelteHooks } from "./verify/hooks.ts";
 
@@ -87,7 +87,7 @@ serve({
 
   build: (params) => build(params, config(params).render ?? {}, prefix(params)),
 
-  render: (params) => render(params, config(params).render ?? {}, prefix(params), svelteHooks()),
+  render: async (params) => render(params, config(params).render ?? {}, prefix(params), svelteHooks(params.entry ? await componentsWrittenOn(params.root, params.entry) : {})),
 
   analyze: (params) => analyzeSvelte(params.root, params.entry, prefix(params)),
 
