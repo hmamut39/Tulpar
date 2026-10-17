@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { OutputChoice } from "@tulpar/core";
+import { tokenCost, type OutputChoice } from "@tulpar/core";
 import { generateCommand } from "./generate.ts";
 
 interface EvalCase {
@@ -101,7 +101,8 @@ export function summary(run: EvalRun, previous?: EvalRun): string {
   const tokens = run.results.reduce((n, r) => n + r.inputTokens + r.outputTokens, 0);
   const prevRate = previous ? rate(previous.results.filter((p) => run.results.some((r) => r.id === p.id)), (r) => r.status === "verified" || r.status === "unchecked-remain") : undefined;
   lines.push(`Eval ${run.at}${run.model ? ` · ${run.model}` : ""}`);
-  lines.push(`  ${passed}/${run.results.length} cases with no failing check${delta(passed / run.results.length, prevRate)} · ${tokens.toLocaleString("en-US")} tokens · ${run.results.reduce((n, r) => n + r.attempts, 0)} attempts`);
+  const cost = tokenCost({ inputTokens: run.results.reduce((n, r) => n + r.inputTokens, 0), outputTokens: run.results.reduce((n, r) => n + r.outputTokens, 0) });
+  lines.push(`  ${passed}/${run.results.length} cases with no failing check${delta(passed / run.results.length, prevRate)} · ${tokens.toLocaleString("en-US")} tokens${cost === undefined ? "" : ` (≈ $${cost.toFixed(2)})`} · ${run.results.reduce((n, r) => n + r.attempts, 0)} attempts`);
   for (const r of run.results) {
     const failing = Object.entries(r.checks).filter(([, ok]) => !ok).map(([id]) => id);
     lines.push(`  ${r.status === "verified" ? "✓" : r.status === "unchecked-remain" ? "–" : "✗"} ${r.id}: ${r.status}${failing.length ? ` (failing: ${failing.join(", ")})` : ""}, ${r.attempts} attempt(s)`);

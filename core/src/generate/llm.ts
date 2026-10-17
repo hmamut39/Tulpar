@@ -37,3 +37,14 @@ export class LlmError extends Error {
     this.status = status;
   }
 }
+
+/**
+ * What tokens cost, from the price per million input and output tokens the owner sets
+ * (TULPAR_OPENAI_INPUT_PER_M, TULPAR_OPENAI_OUTPUT_PER_M); undefined when no price is set.
+ */
+export function tokenCost(usage: { inputTokens: number; outputTokens: number }, env: Record<string, string | undefined> = process.env): number | undefined {
+  const input = Number(env.TULPAR_OPENAI_INPUT_PER_M || 0);
+  const output = Number(env.TULPAR_OPENAI_OUTPUT_PER_M || 0);
+  if (!input && !output) return undefined;
+  return Math.round(((usage.inputTokens / 1e6) * input + (usage.outputTokens / 1e6) * output) * 10000) / 10000;
+}

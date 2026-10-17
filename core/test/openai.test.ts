@@ -51,3 +51,12 @@ describe("model provider", () => {
     expect(calls[0]!.headers.authorization).toBeUndefined();
   });
 });
+
+describe("token cost", () => {
+  it("is priced from the owner's rates per million tokens, and absent without them", async () => {
+    const { tokenCost } = await import("../src/index.ts");
+    expect(tokenCost({ inputTokens: 1_000_000, outputTokens: 500_000 }, { TULPAR_OPENAI_INPUT_PER_M: "2", TULPAR_OPENAI_OUTPUT_PER_M: "8" })).toBe(6);
+    expect(tokenCost({ inputTokens: 13_000, outputTokens: 7_000 }, { TULPAR_OPENAI_INPUT_PER_M: "2", TULPAR_OPENAI_OUTPUT_PER_M: "8" })).toBe(0.082);
+    expect(tokenCost({ inputTokens: 13_000, outputTokens: 7_000 }, {})).toBeUndefined();
+  });
+});

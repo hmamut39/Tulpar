@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
+import { OpenAiLlm, fillName, generate, tokenCost, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
@@ -166,7 +166,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     console.log("");
     if (result.report) printReport(result.report);
     const label = { verified: "VERIFIED", "unchecked-remain": "NO FAILURES (some checks could not run)", failed: "FAILED" }[result.status];
-    console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}`);
+    console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}${(() => { const cost = tokenCost(result.usage); return cost === undefined ? "" : ` (≈ $${cost.toFixed(3)})`; })()}`);
     console.log(`Files: ${outDir}`);
   }
   return { code: result.status === "failed" ? 1 : 0, result, outDir, ...(png && { png }) };

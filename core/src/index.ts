@@ -19,7 +19,7 @@ export { tokens as nameTokens, normValue, valueOverlap, tokenOverlap, jaroWinkle
 export * from "./verify/types.ts";
 export { verify, visibleText, type Check, type CheckStatus, type VerifyInput, type VerifyReport } from "./verify/verify.ts";
 export { compareIndexes, signature, type DriftFinding, type DriftKind, type DriftOptions, type DriftReport, type DriftSeverity } from "./drift/drift.ts";
-export { LlmError, type Llm, type LlmImage, type LlmRequest, type LlmResponse } from "./generate/llm.ts";
+export { LlmError, tokenCost, type Llm, type LlmImage, type LlmRequest, type LlmResponse } from "./generate/llm.ts";
 export { DEFAULT_OPENAI_MODEL, OpenAiLlm, type OpenAiOptions } from "./generate/openai.ts";
 export { buildBrief, type Brief, type BriefInput, type Conventions, type InstanceHint } from "./generate/brief.ts";
 export { tokenHints, type TokenHint } from "./generate/tokens-hint.ts";
