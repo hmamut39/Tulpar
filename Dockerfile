@@ -45,6 +45,9 @@ RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-de
 
 COPY --chown=node:node . .
 
+# What each framework's adapter writes, read now so a cold start does not have to start them all.
+RUN node deploy/manifests.ts
+
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
 # deploy/start.sh prepares the volume as root, then runs the server as the "node" user.
 RUN mkdir -p data/figma data/out && ln -s /app/data/figma .cache/figma && ln -s /app/data/out out && chmod +x deploy/start.sh

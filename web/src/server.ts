@@ -100,7 +100,8 @@ function projectsIn(base: string): ProjectInfo[] {
 export function startServer(options: ServerOptions, port: number): Promise<{ url: string; close: () => Promise<void>; drain: () => Promise<void> }> {
   let projects = listProjects(options.repoRoot);
   // Each framework's adapter says which languages and stylings it writes: asked once, in the background.
-  const manifests = new Map<string, AdapterManifest>();
+  // The image carries them, read when it was built (deploy/manifests.ts); in development they are read live.
+  const manifests = new Map<string, AdapterManifest>(process.env.NODE_ENV === "production" ? Object.entries(builtManifests(options.repoRoot)) : []);
   const readManifests = () =>
     Promise.all(
       [...new Set(projects.map((p) => p.adapter))].filter((a) => !manifests.has(a)).map(async (adapter) => {
@@ -367,6 +368,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const language = body.language === "javascript" || body.language === "typescript" ? (body.language as "javascript" | "typescript") : undefined;
         const styling = ["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"].includes(String(body.styling)) ? (body.styling as NonNullable<OutputChoice["styling"]>) : undefined;
         const output = language || styling ? { ...(language && { language }), ...(styling && { styling }) } : undefined;
+        await manifestsRead;
         const manifest = manifests.get(project.adapter);
         if (manifest && !supportsOutput(manifest, output)) return json(res, 400, { error: "This framework does not write that language and styling. Pick one from the list." });
 
@@ -545,5 +547,13 @@ if (import.meta.filename === resolve(process.argv[1] ?? "")) {
       await Promise.all([server.close(), server.drain()]);
       process.exit(0);
     });
+  }
+}
+
+function builtManifests(repoRoot: string): Record<string, AdapterManifest> {
+  try {
+    return JSON.parse(readFileSync(join(repoRoot, "adapters", "manifests.json"), "utf8")) as Record<string, AdapterManifest>;
+  } catch {
+    return {};
   }
 }

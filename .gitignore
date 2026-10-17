@@ -14,3 +14,4 @@ out/
 *.vsix
 .claude/settings.local.json
 .vscode-test/
+adapters/manifests.json
