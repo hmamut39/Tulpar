@@ -107,9 +107,18 @@ function clean(message: string): string {
     .trim();
 }
 
+/**
+ * The environment Vitest runs in: NODE_ENV=test whatever the server's is (in production, React's
+ * production build has no act(), and every React test would fail), and none of the server's secrets.
+ */
+export function testEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const kept = Object.fromEntries(Object.entries(env).filter(([k]) => !/KEY|TOKEN|SECRET|PASSWORD|_PAT$|ACCESS_CODES|LICENSE|DATABASE|STRIPE/i.test(k)));
+  return { ...kept, NODE_ENV: "test" };
+}
+
 function run(cmd: string, args: string[], cwd: string, timeoutMs: number): Promise<{ code: number | null; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(cmd, args, { cwd, env: testEnv(process.env), stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
     child.stdout.on("data", (d) => (output = (output + d).slice(-4000)));
     child.stderr.on("data", (d) => (output = (output + d).slice(-4000)));

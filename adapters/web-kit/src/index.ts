@@ -6,7 +6,7 @@ export { closeBrowser, render, type FrameworkHooks } from "./render.ts";
 export { readTokens, mergeTokens, tokenPrefix, type TokenConfig } from "./tokens.ts";
 export { readCssTokens, parseCssValue, cssColor, type CssTokenConfig } from "./css-tokens.ts";
 export { typeShape } from "./typeshape.ts";
-export { runVitestBrowser, type VitestOptions } from "./tests.ts";
+export { runVitestBrowser, testEnv, type VitestOptions } from "./tests.ts";
 export { probeTokens, closeProbeBrowser, type RuntimeTokenConfig } from "./runtime-tokens.ts";
 export { readStylesheet } from "./stylesheet.ts";
 export { classCandidates, offScaleMessage, tailwindCss, type TailwindResult } from "./tailwind.ts";
