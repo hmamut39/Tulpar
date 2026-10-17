@@ -167,7 +167,13 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
   mapByComponentKeys(mapping, library, design);
   const tokens = host.manifest!.capabilities.tokens ? await host.call("tokens", project.params) : undefined;
   const notes = links.length ? [] : ["This project has no explicit Figma ↔ code links (no Code Connect files): the Figma → component mapping comes from the matcher's uncalibrated proposals and is unconfirmed."];
-  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), source: "figma", notes };
+  // Figma's own picture of the frame, for the pixel comparison: cached for good once fetched; fetched with
+  // the user's token only when it isn't. A failure (rate limit, network) leaves the pixel check unchecked.
+  const fileKey = input.fileKey ?? project.config.figma?.fileKey;
+  const client = new FigmaClient({ token: input.figmaToken ?? "", cacheDir });
+  client.offline = !input.figmaToken;
+  const png = fileKey ? await client.frameImage(fileKey, input.frame).catch(() => undefined) : undefined;
+  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), ...(png && { baseline: { png, source: "figma" as const } }), source: "figma", notes };
 }
 
 /**

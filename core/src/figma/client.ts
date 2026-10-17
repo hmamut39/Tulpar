@@ -110,6 +110,30 @@ export class FigmaClient {
     return body;
   }
 
+  /**
+   * A PNG of a frame as Figma draws it (base64), for the pixel comparison when no screenshot was given.
+   * Asked for once and cached for good: one request per frame, from the images endpoint's budget.
+   * Undefined offline, or when Figma cannot draw it.
+   */
+  async frameImage(fileKey: string, id: string): Promise<string | undefined> {
+    const file = join(this.#cacheDir, fileKey, "images", `${nodeFile(id).replace(/\.json$/, "")}@1x.png`);
+    try {
+      return (await readFile(file)).toString("base64");
+    } catch {
+      // not cached yet
+    }
+    if (this.offline) return undefined;
+    const res = await this.#fetch<{ images?: Record<string, string | null>; err?: string | null }>(`/v1/images/${fileKey}?ids=${encodeURIComponent(id)}&format=png&scale=1`);
+    const url = res.images?.[id];
+    if (!url) return undefined;
+    const png = await fetch(url);
+    if (!png.ok) return undefined;
+    const bytes = Buffer.from(await png.arrayBuffer());
+    await mkdir(join(this.#cacheDir, fileKey, "images"), { recursive: true });
+    await writeFile(file, bytes);
+    return bytes.toString("base64");
+  }
+
   async #fetch<T>(path: string): Promise<T> {
     const url = API + path;
 

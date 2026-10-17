@@ -2,7 +2,7 @@
 // with progress events the page polls. Jobs are forgotten after an hour.
 
 import { randomUUID } from "node:crypto";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { generateCommand } from "@tulpar/cli/generate";
@@ -155,6 +155,11 @@ export class JobQueue {
       for (const dir of [job.input.resultsDir, join(job.input.projectDir, ".tulpar", "generated", job.input.name), join(job.input.projectDir, ".tulpar", "build")]) {
         if (dir) rmSync(dir, { recursive: true, force: true });
       }
+      // Figma data from the visitor's own file (its frames and their pictures) is theirs: cached for the run
+      // only. The built-in design system's public kit stays cached for everyone. Jobs run one at a time.
+      if (job.input.fileKey && job.input.fileKey !== kitFileKey(job.input.projectDir) && /^[\w-]+$/.test(job.input.fileKey)) {
+        rmSync(resolve(this.#repoRoot, ".cache/figma", job.input.fileKey), { recursive: true, force: true });
+      }
       this.#running = false;
       try {
         this.#onFinish?.(job, Date.now() - started);
@@ -197,4 +202,13 @@ function verdictLine(r: VerifyReport): string {
 
 function summary(r: GenerationResult): string {
   return { verified: "Done: verified.", "unchecked-remain": "Done: no check failed; some could not run (see report).", failed: "Done, but checks still fail after the last attempt (see report)." }[r.status];
+}
+
+/** The Figma file of the project's built-in design-system kit (tulpar.json figma.fileKey), shared by everyone. */
+function kitFileKey(projectDir: string): string | undefined {
+  try {
+    return (JSON.parse(readFileSync(join(projectDir, "tulpar.json"), "utf8")) as { figma?: { fileKey?: string } }).figma?.fileKey;
+  } catch {
+    return undefined;
+  }
 }

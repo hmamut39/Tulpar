@@ -60,6 +60,7 @@ export async function evalCommand(options: { casesFile?: string; only?: string[]
         quiet: true,
         resultsDir: join(tmpdir(), "tulpar-eval", c.id),
         ...(c.frame && { frame: c.frame }),
+        ...(c.frame && process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }),
         ...(c.image && { image: resolve(c.image) }),
         ...(c.output && { output: c.output }),
       });
