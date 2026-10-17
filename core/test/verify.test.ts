@@ -262,6 +262,17 @@ describe("verify", () => {
     expect(layout("F", box(24, 24, 66, 24)).details.join()).toMatch(/Label \(6:1\): width 94 → 66/);
   });
 
+  it("judges a component holding placed content (a card holding a form) on its own text", () => {
+    const field = { ...instance("7:2", "B", 0, "name@company.com"), box: box(0, 40, 100, 40) } as DesignNode;
+    const label = text("7:3", "Email", box(0, 20, 60, 18));
+    const card = { ...instance("7:1", "B", 0, "Sign in"), box: box(0, 0, 300, 120), content: [label, field] } as DesignNode;
+    const page: DesignTree = { ...design, root: { ...(design.root as Extract<DesignNode, { kind: "container" }>), children: [card] } };
+    const run = (title: string) =>
+      verify(input([el("1:1", "x-footer", box(0, 0, 300, 120), `${title} Email`), el("7:1", "x-button", box(0, 0, 300, 120), `${title} Email`), el("7:3", "span", box(0, 20, 60, 18), "Email"), el("7:2", "x-button", box(0, 40, 100, 40), "")], { design: page })).checks.find((c) => c.id === "text")!;
+    expect(run("Sign in").details.join()).not.toMatch(/7:1/);
+    expect(run("Log in").details.join()).toMatch(/Button 7:1 \(7:1\): design says "Sign in"/);
+  });
+
   it("checks the typeface class when a screenshot names no font", () => {
     const shot = (fontClass: "sans-serif" | "serif") => ({
       ...design,

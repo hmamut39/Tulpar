@@ -1,0 +1,174 @@
+{
+  "at": "2026-10-17T18:26:21.013Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "react-carbon-figma",
+      "status": "unchecked-remain",
+      "attempts": 1,
+      "inputTokens": 2403,
+      "outputTokens": 908,
+      "seconds": 42,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "states": true
+      }
+    },
+    {
+      "id": "angular-carbon-figma",
+      "status": "unchecked-remain",
+      "attempts": 1,
+      "inputTokens": 2323,
+      "outputTokens": 1254,
+      "seconds": 44,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "states": true
+      }
+    },
+    {
+      "id": "wc-carbon-figma",
+      "status": "unchecked-remain",
+      "attempts": 1,
+      "inputTokens": 2142,
+      "outputTokens": 473,
+      "seconds": 32,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "states": true
+      }
+    },
+    {
+      "id": "svelte-carbon-figma",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 9618,
+      "outputTokens": 2297,
+      "seconds": 78,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "states": true
+      }
+    },
+    {
+      "id": "vue-elementplus-shot",
+      "status": "verified",
+      "attempts": 2,
+      "inputTokens": 9324,
+      "outputTokens": 5918,
+      "seconds": 148,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    },
+    {
+      "id": "react-radix-shot",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 17017,
+      "outputTokens": 4387,
+      "seconds": 88,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "visual": true,
+        "states": true
+      }
+    },
+    {
+      "id": "react-radix-tailwind-shot",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 17450,
+      "outputTokens": 4618,
+      "seconds": 88,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "visual": true,
+        "states": true
+      }
+    },
+    {
+      "id": "angular-primeng-shot",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 14845,
+      "outputTokens": 10790,
+      "seconds": 182,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": false,
+        "typeface": true,
+        "visual": false,
+        "states": true
+      }
+    }
+  ]
+}

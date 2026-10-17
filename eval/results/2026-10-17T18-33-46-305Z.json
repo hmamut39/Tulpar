@@ -1,0 +1,50 @@
+{
+  "at": "2026-10-17T18:33:46.305Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "react-radix-shot",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 26222,
+      "outputTokens": 5557,
+      "seconds": 111,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": false,
+        "states": true
+      }
+    },
+    {
+      "id": "angular-primeng-shot",
+      "status": "verified",
+      "attempts": 2,
+      "inputTokens": 8782,
+      "outputTokens": 6235,
+      "seconds": 124,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}

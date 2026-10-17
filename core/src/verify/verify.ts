@@ -23,7 +23,7 @@ import {
   type TestRunResult,
 } from "./types.ts";
 import { compareImages, type VisualComparison } from "./visual.ts";
-import { nearestColorToken } from "../generate/accent.ts";
+import { accentProp, familyOf, nearestColorToken } from "../generate/accent.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
@@ -228,6 +228,16 @@ export function verify(input: VerifyInput): VerifyReport {
         const inner = d.kind === "instance" && !visibleText(d) ? byId.get(d.id)?.text : undefined;
         if (inner) got = got.replace(inner, " ");
       }
+      // A component with content placed into it (a card holding a form) is judged on its own text (its
+      // title); each placed element that renders is checked on its own element.
+      if (e.node.kind === "instance" && e.node.content?.length) {
+        let own = el.text;
+        for (const p of e.node.content.flatMap((c) => [c, ...descendants(c)])) {
+          const t = byId.get(p.id)?.text;
+          if (t) own = own.replace(t, " ");
+        }
+        if (own.replace(/\s+/g, " ").trim() === want) got = own;
+      }
       for (const o of elements) {
         if (o === el || !o.text || below.has(o.figmaId) || o.figmaId === root.id || !inside(o.box, el.box)) continue;
         const theirs = expected.find((x) => x.node.id === o.figmaId);
@@ -430,9 +440,14 @@ function visualCheck(
     const wanted = r.design && input.tokens ? nearestColorToken(r.design, input.tokens) : undefined;
     const drawn = r.render && input.tokens ? nearestColorToken(r.render, input.tokens) : undefined;
     const component = over && input.index.components.find((c) => c.name === over.component);
+    // A component that chooses its colour by name (PrimeNG's severity, Radix's color) is told the value to
+    // set; otherwise the token, through a colour prop or its theming variables.
+    const byName = component && wanted && r.design ? accentProp(component.props, { color: r.design, options: familyOf(wanted.name) ? [{ family: familyOf(wanted.name)!, token: wanted.name, hex: wanted.hex, distance: wanted.distance }] : [] }) : undefined;
     const fix =
       component && wanted && drawn && wanted.distance <= OFF_SYSTEM && wanted.hex !== drawn.hex
-        ? ` → give <${component.name}> ${over!.figmaId} var(--${wanted.name}, ${wanted.hex}) through a colour prop that takes it${component.cssProperties?.length ? `, or its theming CSS variables (${component.cssProperties.slice(0, 4).map((p) => p.name).join(", ")}, and their hover and active counterparts)` : ""}`
+        ? byName
+          ? ` → set ${byName.prop}="${byName.value}" on <${component.name}> ${over!.figmaId} (the design system's name for this colour)`
+          : ` → give <${component.name}> ${over!.figmaId} var(--${wanted.name}, ${wanted.hex}) through a colour prop that takes it${component.cssProperties?.length ? `, or its theming CSS variables (${component.cssProperties.slice(0, 4).map((p) => p.name).join(", ")}, and their hover and active counterparts)` : ""}`
         : "";
     return `${mismatch > limit ? "✗" : "–"} ${where}${colors}${fix}`;
   });
