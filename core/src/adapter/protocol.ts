@@ -28,7 +28,27 @@ export interface AdapterManifest {
     tests?: boolean;
     forceStates: ("hover" | "focus" | "pressed" | "disabled")[];
     themes: boolean;
+    /** The language and styling combinations the adapter writes, its default first. Absent or empty: no choice. */
+    outputs?: OutputChoice[];
   };
+}
+
+/** Whether an adapter writes this language and styling; unset fields take the default's. */
+export function supportsOutput(manifest: AdapterManifest, choice: OutputChoice | undefined): boolean {
+  const outputs = manifest.capabilities.outputs ?? [];
+  if (!choice || (!choice.language && !choice.styling)) return true;
+  if (!outputs.length) return false;
+  const language = choice.language ?? outputs[0]!.language;
+  const styling = choice.styling ?? outputs.find((o) => o.language === language)?.styling ?? outputs[0]!.styling;
+  return outputs.some((o) => o.language === language && o.styling === styling);
+}
+
+const LANGUAGE_NAMES = { typescript: "TypeScript", javascript: "JavaScript" } as const;
+const STYLING_NAMES = { css: "CSS", "css-modules": "CSS Modules", scss: "SCSS", less: "LESS", tailwind: "Tailwind CSS", "styled-components": "styled-components", emotion: "Emotion" } as const;
+
+/** "TypeScript · CSS Modules". */
+export function outputName(o: OutputChoice): string {
+  return [o.language && LANGUAGE_NAMES[o.language], o.styling && STYLING_NAMES[o.styling]].filter(Boolean).join(" · ");
 }
 
 /** What every request carries: the project root, and the adapter's section of tulpar.json. */

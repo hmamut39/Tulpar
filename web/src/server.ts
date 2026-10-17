@@ -26,7 +26,8 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
-import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, type Llm, type OutputChoice } from "@tulpar/core";
+import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, supportsOutput, type AdapterManifest, type Llm, type OutputChoice } from "@tulpar/core";
+import { loadProject, withAdapter } from "@tulpar/cli/project";
 import { Accounts, type Account } from "./accounts.ts";
 import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, signInNext, startSignIn, type AuthConfig } from "./auth.ts";
 import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, revenue, verifyWebhook, type BillingConfig, type Revenue } from "./billing.ts";
@@ -98,6 +99,20 @@ function projectsIn(base: string): ProjectInfo[] {
 
 export function startServer(options: ServerOptions, port: number): Promise<{ url: string; close: () => Promise<void>; drain: () => Promise<void> }> {
   let projects = listProjects(options.repoRoot);
+  // Each framework's adapter says which languages and stylings it writes: asked once, in the background.
+  const manifests = new Map<string, AdapterManifest>();
+  const readManifests = () =>
+    Promise.all(
+      [...new Set(projects.map((p) => p.adapter))].filter((a) => !manifests.has(a)).map(async (adapter) => {
+        try {
+          const manifest = await withAdapter(await loadProject(projects.find((p) => p.adapter === adapter)!.dir), async (host) => host.manifest);
+          if (manifest) manifests.set(adapter, manifest);
+        } catch {
+          // An adapter that cannot start offers its default only.
+        }
+      }),
+    );
+  let manifestsRead = readManifests();
   const customRoot = join(options.repoRoot, "out", "projects");
   const addJobs = new Map<string, AddJob>();
   const addedToday = new Map<string, number[]>(); // who → when they added a design system
@@ -184,9 +199,12 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       if (req.method === "GET" && path === "/healthz") return json(res, 200, { ok: true, pending: queue.pending });
 
       if (req.method === "GET" && path === "/api/config") {
+        await manifestsRead;
         const model = llm();
         return json(res, 200, {
           projects: projects.map(({ id, adapter, label }) => ({ id, adapter, label })),
+          // Framework → the language and styling combinations it writes, its default first.
+          outputs: Object.fromEntries([...manifests].map(([adapter, m]) => [adapter, m.capabilities.outputs ?? []])),
           accessCodeRequired: codes.length > 0 && !auth,
           inviteCodes: codes.length > 0,
           signIn: !!auth,
@@ -289,6 +307,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           addProject(customRoot, { package: pkg, ...(typeof body.version === "string" && body.version.trim() && { version: body.version }), ...(framework && { framework }) }, (t) => job.steps.push(t), options.fetch)
             .then((id) => {
               projects = listProjects(options.repoRoot);
+              manifestsRead = readManifests();
               job.projectId = id;
               job.state = "done";
               log(JSON.stringify({ event: "design-system-added", at: new Date().toISOString(), project: id, by: account?.login ?? null }));
@@ -348,6 +367,8 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const language = body.language === "javascript" || body.language === "typescript" ? (body.language as "javascript" | "typescript") : undefined;
         const styling = ["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"].includes(String(body.styling)) ? (body.styling as NonNullable<OutputChoice["styling"]>) : undefined;
         const output = language || styling ? { ...(language && { language }), ...(styling && { styling }) } : undefined;
+        const manifest = manifests.get(project.adapter);
+        if (manifest && !supportsOutput(manifest, output)) return json(res, 400, { error: "This framework does not write that language and styling. Pick one from the list." });
 
         recent.push(Date.now());
         runs.set(visitor, recent);

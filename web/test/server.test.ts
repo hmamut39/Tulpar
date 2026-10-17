@@ -47,6 +47,11 @@ describe("web API", () => {
     expect(config).toMatchObject({ accessCodeRequired: true, model: "scripted" });
     expect(config.projects.map((p: { id: string }) => p.id)).toEqual(expect.arrayContaining(["carbon", "carbon-react"]));
     expect(JSON.stringify(config)).not.toContain("open-sesame");
+    // The language and styling choices come from the adapters, the default first.
+    expect(config.outputs.react[0]).toEqual({ language: "typescript", styling: "css" });
+    expect(config.outputs.react).toContainEqual({ language: "javascript", styling: "emotion" });
+    expect(config.outputs.angular.map((o: { language: string }) => o.language)).not.toContain("javascript");
+    expect(config.outputs["web-components"]).toEqual([]);
   });
 
   it("refuses without the access code, and explains bad input", async () => {
@@ -59,6 +64,8 @@ describe("web API", () => {
     expect(await bad({ image: "data:text/html;base64,PGgxPg==" })).toMatch(/PNG, JPEG or WebP/);
     expect(await bad({ figmaUrl: "" })).toBe("Paste a Figma frame link, upload a screenshot, or both.");
     expect(await bad({ scale: 7 })).toMatch(/Scale must be/);
+    expect(await bad({ language: "typescript", styling: "less" })).toMatch(/does not write that language and styling/);
+    expect(await bad({ project: "carbon", styling: "tailwind" })).toMatch(/does not write that language and styling/);
   });
 
   it("serves only its own files", async () => {

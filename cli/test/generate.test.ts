@@ -80,6 +80,14 @@ describe.skipIf(!ready)("tulpar generate on Carbon React", () => {
     expect(result!.files.map((f) => f.path)).not.toContain("../../escape.ts");
   }, 180_000);
 
+  it("refuses a language or styling the framework does not write, before calling the model", async () => {
+    const llm = new ScriptedLlm([]);
+    const { code, error } = await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, quiet: true, noRerank: true, output: { styling: "less" } });
+    expect(code).toBe(2);
+    expect(error).toMatch(/^react does not write LESS\. It writes: TypeScript · CSS, .*JavaScript · Emotion\.$/);
+    expect(llm.requests).toHaveLength(0);
+  }, 60_000);
+
   it("gives the model the translated props and the design-system API", async () => {
     const llm = new ScriptedLlm([answer(good)]);
     await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, attempts: 1, quiet: true, noRerank: true });

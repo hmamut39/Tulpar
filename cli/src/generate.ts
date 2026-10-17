@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { OpenAiLlm, fillName, generate, tokenCost, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
+import { OpenAiLlm, fillName, generate, outputName, supportsOutput, tokenCost, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
 import { formatFiles } from "./format.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
@@ -84,6 +84,15 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   const debug: { design?: unknown; attempts: unknown[] } = { attempts: [] };
   try {
     result = await withAdapter(project, async (host) => {
+    // A language or styling the adapter does not write is refused, never silently swapped for its default.
+    // What tulpar init read from the codebase is a preference: the default is used instead, and said so.
+    if (host.manifest && !supportsOutput(host.manifest, output)) {
+      const offered = (host.manifest.capabilities.outputs ?? []).map(outputName);
+      const why = `${project.config.adapter} does not write ${outputName(output!)}. ${offered.length ? `It writes: ${offered.join(", ")}.` : "It has one way of writing components; leave the language and styling unset."}`;
+      if (options.output) throw new Error(why);
+      log(`Note: tulpar.json asks for ${outputName(output!)}, but ${why} Using its default.`);
+      delete project.params.output;
+    }
     const ctx = options.frame
       ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) }, options.out, options.cache)
       : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out);

@@ -52,6 +52,8 @@ serve({
       tests: true,
       forceStates: ["hover", "pressed", "focus"],
       themes: true,
+      // What it writes, its default first.
+      outputs: (["typescript"] as const).flatMap((language) => (["less", "scss", "css"] as const).map((styling) => ({ language, styling }))),
     },
   }),
 

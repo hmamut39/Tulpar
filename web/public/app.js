@@ -6,14 +6,22 @@ const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
 const FRAMEWORK_KEY = "tulpar.framework";
 const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", "web-components": "Web Components" };
-// Language and styling each framework can write in: value "language:styling".
-const OUTPUTS = {
-  react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"], ["typescript:styled-components", "TypeScript · styled-components"], ["typescript:emotion", "TypeScript · Emotion"], ["javascript:styled-components", "JavaScript · styled-components"]],
-  svelte: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
-  angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
-  vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
-  "web-components": [["", "HTML · CSS · JavaScript"]],
-};
+// Framework → [value, label] for each language and styling it writes, its default first: from the
+// adapters themselves (/api/config), so the list is never more or less than what they write.
+let OUTPUTS = {};
+const LANGUAGE_LABELS = { typescript: "TypeScript", javascript: "JavaScript" };
+const STYLING_LABELS = { css: "CSS", "css-modules": "CSS Modules", scss: "SCSS", less: "LESS", tailwind: "Tailwind CSS", "styled-components": "styled-components", emotion: "Emotion" };
+// Vue and Svelte scope a plain style block to the component.
+const SCOPED = new Set(["vue", "svelte"]);
+function outputOptions(outputs) {
+  const all = {};
+  for (const [adapter, list] of Object.entries(outputs ?? {})) {
+    if (!list.length) continue;
+    all[adapter] = list.map((o) => [`${o.language ?? ""}:${o.styling ?? ""}`, [LANGUAGE_LABELS[o.language], o.styling === "css" && SCOPED.has(adapter) ? "scoped CSS" : STYLING_LABELS[o.styling]].filter(Boolean).join(" · ")]);
+  }
+  all["web-components"] ??= [["", "HTML · CSS · JavaScript"]];
+  return all;
+}
 const OUTPUT_KEY = "tulpar.output.";
 // Why the list is what it is: the languages a framework's components are written in.
 const OUTPUT_HINTS = {
@@ -58,6 +66,7 @@ const storage = {
 async function init() {
   const config = await (await fetch("/api/config")).json();
   projects = config.projects;
+  OUTPUTS = outputOptions(config.outputs);
   const rank = (a) => (FRAMEWORK_ORDER.includes(a) ? FRAMEWORK_ORDER.indexOf(a) : FRAMEWORK_ORDER.length);
   const adapters = [...new Set(projects.map((p) => p.adapter))].sort((a, b) => rank(a) - rank(b));
   $("framework").innerHTML =
