@@ -32,6 +32,19 @@ describe("bundling the team's language and styling", { timeout: 60_000 }, () => 
     expect(readStylesheet(join(dir, "Hidden.scss"))).toMatch(/gap: 12px/);
   });
 
+  it("builds styled-components for a project without it, with the project's own React", async () => {
+    writeFileSync(join(dir, "node_modules", "react", "index.js"), "export const marker = 'THE-PROJECT-REACT'; export default { marker }; export const createElement = () => null; export const useContext = () => null; export const useRef = () => ({}); export const useMemo = (f) => f(); export const useState = (v) => [v, () => {}]; export const useEffect = () => {}; export const useLayoutEffect = () => {}; export const useInsertionEffect = () => {}; export const useDebugValue = () => {}; export const createContext = () => ({ Provider: null, Consumer: null }); export const forwardRef = (f) => f; export const Children = {}; export const isValidElement = () => false; export const cloneElement = (e) => e; export const Fragment = 'f';\n");
+    writeFileSync(join(dir, "node_modules", "react", "package.json"), JSON.stringify({ name: "react", main: "index.js", exports: { ".": "./index.js", "./jsx-runtime": "./jsx-runtime.js" } }));
+    const out = await bundle({ code: 'import styled from "styled-components";\nwindow.Box = styled.div`display: grid;`;\n', resolveDir: dir, sourcefile: "styled.jsx", outDir: join(dir, "out3"), loader: "jsx" });
+    expect(out.log).toEqual([]);
+    expect(out.ok).toBe(true);
+    const js = readFileSync(join(dir, "out3", "bundle.js"), "utf8");
+    expect(js).toMatch(/THE-PROJECT-REACT/);
+    // Any other package the project lacks is still an error: only styling libraries fall back to Tulpar's.
+    const missing = await bundle({ code: 'import x from "lodash-es";\nwindow.x = x;\n', resolveDir: dir, sourcefile: "m.js", outDir: join(dir, "out4"), loader: "js" });
+    expect(missing.ok).toBe(false);
+  });
+
   it("reports a stylesheet that does not compile as a build error", async () => {
     writeFileSync(join(dir, "Broken.scss"), ".x { color: $undefined; }\n");
     const out = await bundle({ code: 'import "./Broken.scss";\n', resolveDir: dir, sourcefile: "e.js", outDir: join(dir, "out2"), loader: "js" });

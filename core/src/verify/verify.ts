@@ -176,15 +176,19 @@ export function verify(input: VerifyInput): VerifyReport {
     const details: string[] = [];
     let checked = 0;
     let within = 0;
+    const fromScreenshot = input.design.source.fileKey === "screenshot";
     for (const e of placed) {
       const el = byId.get(e.node.id);
       if (!el) continue;
       checked++;
       const t = e.node.kind === "text" ? tol.text : tol.box;
+      // A screenshot's text is measured in its own font, which the sandbox may not have: the width of a
+      // line follows the font (the typeface check covers that), so it gets a share of slack; its place does not.
+      const wt = e.node.kind === "text" && fromScreenshot ? Math.max(t, 0.35 * e.node.box!.width) : t;
       // The element's box, or what it draws: a design box measured from pixels (a screenshot, or
       // auto-width text) matches the drawn extent, while a block-level element fills its row.
-      const diffs = boxDiffs(e.node.box!, el.box, t);
-      if (diffs.length && el.drawnBox && !boxDiffs(e.node.box!, el.drawnBox, t).length) diffs.length = 0;
+      const diffs = boxDiffs(e.node.box!, el.box, t, wt);
+      if (diffs.length && el.drawnBox && !boxDiffs(e.node.box!, el.drawnBox, t, wt).length) diffs.length = 0;
       if (!el.visible) details.push(`✗ ${e.node.name} (${e.node.id}): visible in the design, not visible in the render`);
       else if (diffs.length) details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t})`);
       else within++;
@@ -542,11 +546,11 @@ function fontFamilies(n: DesignNode): string[] {
   return [...families];
 }
 
-function boxDiffs(want: Box, got: Box, tolerance: number): string[] {
+function boxDiffs(want: Box, got: Box, tolerance: number, widthTolerance = tolerance): string[] {
   const out: string[] = [];
   for (const k of ["x", "y", "width", "height"] as const) {
     const d = got[k] - want[k];
-    if (Math.abs(d) > tolerance + 1e-6) out.push(`${k} ${round(want[k])} → ${round(got[k])} (${d > 0 ? "+" : ""}${round(d)})`);
+    if (Math.abs(d) > (k === "width" ? widthTolerance : tolerance) + 1e-6) out.push(`${k} ${round(want[k])} → ${round(got[k])} (${d > 0 ? "+" : ""}${round(d)})`);
   }
   return out;
 }

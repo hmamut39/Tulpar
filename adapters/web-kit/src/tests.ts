@@ -6,7 +6,8 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import type { TestRunResult } from "@tulpar/core";
 
 export interface VitestOptions {
@@ -16,10 +17,14 @@ export interface VitestOptions {
   /** Extra lines at the top of the config (imports of plugins), and the plugins expression. */
   pluginImports?: string[];
   plugins?: string;
+  /** Packages to take from Tulpar's own installation when the project has none (styled-components, Emotion). */
+  fallbackModules?: string[];
   /** Setup files, relative to the root, run in the browser before the tests. */
   setupFiles?: string[];
   timeoutMs?: number;
 }
+
+const ownRequire = createRequire(import.meta.url);
 
 export async function runVitestBrowser(o: VitestOptions): Promise<TestRunResult> {
   const vitest = join(o.root, "node_modules", "vitest", "vitest.mjs");
@@ -30,6 +35,16 @@ export async function runVitestBrowser(o: VitestOptions): Promise<TestRunResult>
   await mkdir(dir, { recursive: true });
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const configFile = join(dir, `${id}.config.mjs`);
+  // Missing styling libraries come from Tulpar's copies; React stays the project's single copy.
+  const aliases = Object.fromEntries(
+    (o.fallbackModules ?? []).filter((m) => !existsSync(join(o.root, "node_modules", m))).flatMap((m) => {
+      try {
+        return [[m, dirname(ownRequire.resolve(`${m}/package.json`)).replace(/\\/g, "/")]];
+      } catch {
+        return [];
+      }
+    }),
+  );
   const reportFile = join(dir, `${id}.json`);
   const config = `import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
@@ -37,6 +52,7 @@ ${(o.pluginImports ?? []).join("\n")}
 export default defineConfig({
   root: ${JSON.stringify(o.root.replace(/\\/g, "/"))},
   ${o.plugins ? `plugins: ${o.plugins},` : ""}
+  resolve: { alias: ${JSON.stringify(aliases)}, dedupe: ["react", "react-dom"] },
   test: {
     globals: true,
     include: [${JSON.stringify(o.testFile.replace(/\\/g, "/"))}],

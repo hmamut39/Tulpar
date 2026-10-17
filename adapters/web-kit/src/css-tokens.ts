@@ -21,6 +21,11 @@ export interface CssTokenConfig {
   modes?: Record<string, string>;
   /** Pixels per rem (default 16). */
   remBase?: number;
+  /**
+   * Selectors whose tokens apply everywhere inside the app, like :root: the library's root class
+   * (Radix declares --space-1 and --radius-2 on .radix-themes).
+   */
+  scopes?: string[];
 }
 
 const DEFAULT_SELECTORS = new Set([":root", ":host", "html"]);
@@ -28,6 +33,7 @@ const DEFAULT_SELECTORS = new Set([":root", ":host", "html"]);
 export function readCssTokens(root: string, config: CssTokenConfig): { tokens: DesignToken[]; modes: string[]; gaps: string[] } {
   const gaps: string[] = [];
   const modeOf = new Map<string, string>([...DEFAULT_SELECTORS].map((s) => [s, "default"]));
+  for (const scope of config.scopes ?? []) modeOf.set(normSelector(scope), "default");
   for (const [mode, selector] of Object.entries(config.modes ?? {})) modeOf.set(normSelector(selector), mode);
   const prefix = config.prefix ? `--${config.prefix}-` : "--";
 
@@ -114,6 +120,11 @@ export function parseCssValue(value: string, remBase = 16): TokenValue {
   const len = /^(-?\d*\.?\d+)(px|rem)$/.exec(v);
   if (len) return { kind: "dimension", points: Number(len[1]) * (len[2] === "rem" ? remBase : 1) };
   if (v === "0") return { kind: "dimension", points: 0 };
+  // calc() of lengths and numbers once var() is resolved: Radix's calc(4px * var(--scaling)).
+  if (/^calc\(/.test(v)) {
+    const points = evalCalc(v, remBase);
+    if (points) return points.unit ? { kind: "dimension", points: points.value } : { kind: "number", value: points.value };
+  }
   if (/^-?\d*\.?\d+$/.test(v)) return { kind: "number", value: Number(v) };
   return { kind: "unresolved", text: v, reason: v.includes("var(") ? "refers to a property not declared on a theme selector" : "not a colour, length or number" };
 }
@@ -179,4 +190,54 @@ function oklabToSrgbLinear(L: number, a: number, b: number): [number, number, nu
 function fromLinear([r, g, b]: [number, number, number], a: number): Color {
   const c = (v: number) => Math.min(1, Math.max(0, gamma(Math.min(1, Math.max(0, v)))));
   return { space: "srgb", r: c(r), g: c(g), b: c(b), a };
+}
+
+/**
+ * A calc() of px, rem and plain numbers, with + - * / and parentheses: { value, unit } in points
+ * (unit false for a plain number), or undefined for anything else (%, vw, an unresolved var()).
+ */
+export function evalCalc(expr: string, remBase = 16): { value: number; unit: boolean } | undefined {
+  const tokens = expr.replace(/calc\(/g, "(").match(/-?\d*\.?\d+(?:px|rem)?|[()+*/-]/g);
+  if (!tokens || tokens.join("").replace(/\s/g, "") !== expr.replace(/calc\(/g, "(").replace(/\s/g, "")) return undefined;
+  let i = 0;
+  type Q = { value: number; unit: boolean };
+  const atom = (): Q | undefined => {
+    const t = tokens[i++];
+    if (t === "(") {
+      const v = sum();
+      return tokens[i++] === ")" ? v : undefined;
+    }
+    if (t === undefined) return undefined;
+    const m = /^(-?\d*\.?\d+)(px|rem)?$/.exec(t);
+    if (!m) return undefined;
+    return { value: Number(m[1]) * (m[2] === "rem" ? remBase : 1), unit: !!m[2] };
+  };
+  const product = (): Q | undefined => {
+    let left = atom();
+    while (left && (tokens[i] === "*" || tokens[i] === "/")) {
+      const op = tokens[i++];
+      const right = atom();
+      if (!right) return undefined;
+      if (op === "*") {
+        if (left.unit && right.unit) return undefined;
+        left = { value: left.value * right.value, unit: left.unit || right.unit };
+      } else {
+        if (right.unit || right.value === 0) return undefined;
+        left = { value: left.value / right.value, unit: left.unit };
+      }
+    }
+    return left;
+  };
+  const sum = (): Q | undefined => {
+    let left = product();
+    while (left && (tokens[i] === "+" || tokens[i] === "-")) {
+      const op = tokens[i++];
+      const right = product();
+      if (!right || right.unit !== left.unit) return undefined;
+      left = { value: op === "+" ? left.value + right.value : left.value - right.value, unit: left.unit };
+    }
+    return left;
+  };
+  const result = sum();
+  return result && i === tokens.length ? { value: Math.round(result.value * 1000) / 1000, unit: result.unit } : undefined;
 }

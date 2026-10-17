@@ -35,13 +35,15 @@ export interface Detected {
  * the tokens, so the render needs the provider (a setup file) and tokens are read from a probe page.
  * The setup uses the library's default theme; a team points it at its own.
  */
-const RUNTIME_RECIPES: { package: string; needs?: string; adapter: Adapter; file: string; setup: string; prefix?: string; modes: Record<string, string>; staticTokens?: boolean }[] = [
+const RUNTIME_RECIPES: { package: string; needs?: string; adapter: Adapter; file: string; setup: string; prefix?: string; modes: Record<string, string>; staticTokens?: boolean; scopes?: string[] }[] = [
   {
     // Radix Themes: tokens are in its stylesheet, but every component needs the <Theme> wrapper.
     package: "@radix-ui/themes",
     adapter: "react",
     file: "tulpar.setup.tsx",
     staticTokens: true,
+    // <Theme>'s defaults: scaling 100%, radius medium. The space, size and radius tokens are calc()s of these.
+    scopes: [".radix-themes:where([data-scaling='100%'])", "[data-radius='medium']"],
     modes: {},
     setup: `// How Tulpar renders components: inside Radix's <Theme>, as an app does. Set your accent colour, radius and scaling here.
 import type { ReactNode } from "react";
@@ -221,6 +223,8 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     const scope = cssTokenFiles.flatMap((x) => x.scopeClasses)[0];
     if (scope) {
       rootClass = scope.slice(1);
+      // Tokens declared on the root class (Radix: --space-1 on .radix-themes) apply everywhere inside it.
+      (tokens.css as Record<string, unknown>).scopes = [scope];
       why.push(`root class: ${rootClass} (declares its own tokens; the library's root component adds it, so the render does too)`);
     }
     themes = Object.fromEntries(Object.entries(modes).filter(([, s]) => /^\.[\w-]+$/.test(s)).map(([m, s]) => [m, s.slice(1)]));
@@ -265,6 +269,10 @@ export function detect(root: string, options: InitOptions = {}): Detected {
     } else {
       setup = recipe.file;
       extraFiles[recipe.file] = recipe.setup;
+      if (recipe.scopes && tokens.css) {
+        const css = tokens.css as { scopes?: string[] };
+        css.scopes = [...new Set([...(css.scopes ?? []), ...recipe.scopes])];
+      }
       if (!recipe.staticTokens) {
         tokens.runtime = { ...(recipe.prefix && { prefix: recipe.prefix }), modes: recipe.modes };
         why.push(`tokens: built by ${recipe.package} at runtime (${recipe.prefix ? `--${recipe.prefix}-*` : "custom properties"}), read from a probe page; setup: ${recipe.file} (the library's default theme: point it at yours)`);

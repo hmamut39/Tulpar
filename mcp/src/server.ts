@@ -96,7 +96,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
         screenshot: z.string().optional().describe("Path to a PNG, JPEG or WebP screenshot of the design"),
         attempts: z.number().int().min(1).max(5).optional().describe("Generate-verify-repair attempts (default 3)"),
         language: z.enum(["typescript", "javascript"]).optional().describe("React and Vue: write TypeScript (default) or JavaScript, to match the codebase"),
-        styling: z.enum(["css", "css-modules", "scss", "less", "tailwind"]).optional().describe("React: css (default), css-modules, scss or tailwind. Vue: css (scoped, default), scss, less, css-modules or tailwind. Angular: less (default), scss or css"),
+        styling: z.enum(["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"]).optional().describe("React: css (default), css-modules, scss, tailwind, styled-components or emotion. Vue: css (scoped, default), scss, less, css-modules or tailwind. Angular: less (default), scss or css"),
         writeTo: z.string().optional().describe("Directory to write the files into, e.g. inside the user's workspace"),
         overwrite: z.boolean().optional().describe("Allow replacing existing files in writeTo (default false)"),
       }),

@@ -15,7 +15,12 @@
         "modes": {
           "light": ".light",
           "dark": ".dark"
-        }
+        },
+        "scopes": [
+          ".radix-themes",
+          ".radix-themes:where([data-scaling='100%'])",
+          "[data-radius='medium']"
+        ]
       }
     },
     "render": {

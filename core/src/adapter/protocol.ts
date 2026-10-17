@@ -42,7 +42,7 @@ export interface ProjectParams {
 /** The language and styling a team writes in, when the framework allows a choice. */
 export interface OutputChoice {
   language?: "typescript" | "javascript";
-  styling?: "css" | "css-modules" | "scss" | "less" | "tailwind";
+  styling?: "css" | "css-modules" | "scss" | "less" | "tailwind" | "styled-components" | "emotion";
 }
 
 export interface Methods {

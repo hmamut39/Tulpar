@@ -1,11 +1,12 @@
 // Static scan of a React implementation: components used, and hard-coded values in
-// style={{…}} objects and in the CSS files it imports.
+// style={{…}} objects, in the CSS files it imports, and in its CSS-in-JS (styled-components, Emotion).
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import ts from "typescript";
 import type { AnalyzeResult, StyleFact } from "@tulpar/core";
 import { classify, declarations, readStylesheet } from "@tulpar/web-kit";
+import { cssInJsLiterals } from "./css-in-js.ts";
 
 export function analyzeReact(root: string, entry: string, prefix: string): AnalyzeResult {
   const file = join(root, entry);
@@ -52,8 +53,16 @@ export function analyzeReact(root: string, entry: string, prefix: string): Analy
         }
       }
     }
+    // The component's own script modules (Card.styles.ts with its styled components) are scanned for CSS-in-JS.
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text.startsWith(".") && !/\.(css|scss)$/.test(node.moduleSpecifier.text)) {
+      const base = join(dirname(file), node.moduleSpecifier.text);
+      const local = [base, ...[".ts", ".tsx", ".js", ".jsx"].map((ext) => base + ext)].find((p) => existsSync(p) && /\.(tsx?|jsx?)$/.test(p));
+      if (local) scripts.add(local);
+    }
     ts.forEachChild(node, visit);
   };
+  const scripts = new Set<string>([file]);
   visit(sf);
+  for (const s of scripts) literals.push(...cssInJsLiterals(root, s, prefix));
   return { componentsUsed: [...used], literals };
 }

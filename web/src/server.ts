@@ -26,7 +26,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
-import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, type Llm } from "@tulpar/core";
+import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, type Llm, type OutputChoice } from "@tulpar/core";
 import { Accounts, type Account } from "./accounts.ts";
 import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, signInNext, startSignIn, type AuthConfig } from "./auth.ts";
 import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, revenue, verifyWebhook, type BillingConfig, type Revenue } from "./billing.ts";
@@ -346,7 +346,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         if (!llm()) return json(res, 503, { error: "The server has no OpenAI key configured (OPENAI_API_KEY)." });
         // The team's language and styling, where the framework offers a choice.
         const language = body.language === "javascript" || body.language === "typescript" ? (body.language as "javascript" | "typescript") : undefined;
-        const styling = ["css", "css-modules", "scss", "less", "tailwind"].includes(String(body.styling)) ? (body.styling as "css" | "css-modules" | "scss" | "less" | "tailwind") : undefined;
+        const styling = ["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"].includes(String(body.styling)) ? (body.styling as NonNullable<OutputChoice["styling"]>) : undefined;
         const output = language || styling ? { ...(language && { language }), ...(styling && { styling }) } : undefined;
 
         recent.push(Date.now());

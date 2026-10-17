@@ -54,3 +54,30 @@ describe("wide-gamut colours", () => {
     expect(cssColor("color(display-p3 0.5 0.5 0.5 / 50%)")?.a).toBe(0.5);
   });
 });
+
+describe("tokens on a library's root class, computed with calc()", () => {
+  it("reads Radix-style tokens: declared on the root class and its defaults, scaled by calc()", async () => {
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = mkdtempSync(join(tmpdir(), "tulpar-calc-"));
+    writeFileSync(
+      join(dir, "t.css"),
+      ".radix-themes{--space-3:calc(12px * var(--scaling));--radius-2:calc(4px * var(--scaling) * var(--radius-factor));--wide:calc(100% - 4px)}" +
+        ".radix-themes:where([data-scaling='100%']){--scaling:1}.radix-themes:where([data-scaling='90%']){--scaling:0.9}[data-radius='medium']{--radius-factor:1}",
+    );
+    const set = readCssTokens(dir, { files: ["t.css"], scopes: [".radix-themes", ".radix-themes:where([data-scaling='100%'])", "[data-radius='medium']"] });
+    const value = (n: string) => set.tokens.find((t) => t.name === n)?.values.default;
+    expect(value("space-3")).toEqual({ kind: "dimension", points: 12 });
+    expect(value("radius-2")).toEqual({ kind: "dimension", points: 4 });
+    // Percentages depend on the container: not a token value.
+    expect(value("wide")?.kind).toBe("unresolved");
+  });
+
+  it("evaluates calc() of px, rem and numbers only", () => {
+    expect(parseCssValue("calc((8px + 4px) / 2)")).toEqual({ kind: "dimension", points: 6 });
+    expect(parseCssValue("calc(1rem - 2px)")).toEqual({ kind: "dimension", points: 14 });
+    expect(parseCssValue("calc(1.5 * 2)")).toEqual({ kind: "number", value: 3 });
+    expect(parseCssValue("calc(4px * 2px)").kind).toBe("unresolved");
+  });
+});

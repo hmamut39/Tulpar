@@ -252,6 +252,16 @@ describe("verify", () => {
     });
   });
 
+  it("gives a screenshot's text width slack for the font, but not its position, and not a Figma design's", () => {
+    const heading = text("6:1", "Sign in", box(24, 24, 94, 24));
+    const page = (fileKey: string): DesignTree => ({ ...design, source: { ...design.source, fileKey }, root: { ...(design.root as Extract<DesignNode, { kind: "container" }>), children: [heading] } });
+    const layout = (fileKey: string, b: RenderedElement["box"]) =>
+      verify(input([el("1:1", "x-footer", box(0, 0, 300, 40), "Sign in"), el("6:1", "h1", b, "Sign in")], { design: page(fileKey) })).checks.find((c) => c.id === "layout")!;
+    expect(layout("screenshot", box(24, 24, 66, 24)).details.join()).not.toMatch(/6:1/);
+    expect(layout("screenshot", box(24, 60, 66, 24)).details.join()).toMatch(/Label \(6:1\): y 24 → 60/);
+    expect(layout("F", box(24, 24, 66, 24)).details.join()).toMatch(/Label \(6:1\): width 94 → 66/);
+  });
+
   it("checks the typeface class when a screenshot names no font", () => {
     const shot = (fontClass: "sans-serif" | "serif") => ({
       ...design,

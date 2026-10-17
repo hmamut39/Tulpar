@@ -3,9 +3,13 @@
 
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import * as esbuild from "esbuild";
 import * as sass from "sass";
+
+/** Where Tulpar's own packages are installed (styled-components, Emotion), for projects without them. */
+const OWN_MODULES = dirname(dirname(createRequire(import.meta.url).resolve("styled-components/package.json")));
 
 export interface BundleResult {
   ok: boolean;
@@ -48,6 +52,32 @@ export async function bundle(input: BundleInput): Promise<BundleResult> {
     },
   };
   // SCSS the implementation imports, compiled to CSS (a .module.scss stays a CSS Module).
+  // One React: a library resolved from Tulpar's own copies (styled-components, Emotion, when the project
+  // has none) must use the project's React, never a second one (two Reacts break hooks).
+  const oneReact: esbuild.Plugin = {
+    name: "one-react",
+    setup(build) {
+      build.onResolve({ filter: /^react(-dom)?(\/.*)?$/ }, async (args) => {
+        if (args.pluginData?.oneReact) return undefined;
+        const resolved = await build.resolve(args.path, { resolveDir: input.resolveDir, kind: args.kind, pluginData: { oneReact: true } });
+        return resolved.errors.length ? undefined : { path: resolved.path };
+      });
+    },
+  };
+  // The styling libraries a team may write with (styled-components, Emotion): the project's own copy, or
+  // Tulpar's when it has none. Only these: any other package the code imports must be the project's.
+  const stylingLibraries: esbuild.Plugin = {
+    name: "styling-libraries",
+    setup(build) {
+      build.onResolve({ filter: /^(styled-components|@emotion\/(react|styled|cache|css|is-prop-valid))(\/.*)?$/ }, async (args) => {
+        if (args.pluginData?.styling) return undefined;
+        const own = await build.resolve(args.path, { resolveDir: args.resolveDir, kind: args.kind, pluginData: { styling: true } });
+        if (!own.errors.length) return { path: own.path };
+        const ours = await build.resolve(args.path, { resolveDir: OWN_MODULES, kind: args.kind, pluginData: { styling: true } });
+        return ours.errors.length ? undefined : { path: ours.path };
+      });
+    },
+  };
   const scss: esbuild.Plugin = {
     name: "scss",
     setup(build) {
@@ -72,7 +102,7 @@ export async function bundle(input: BundleInput): Promise<BundleResult> {
       outfile: join(input.outDir, "bundle.js"),
       logLevel: "silent",
       write: true,
-      plugins: [separatePackageCss, scss, ...(input.plugins ?? [])],
+      plugins: [oneReact, stylingLibraries, separatePackageCss, scss, ...(input.plugins ?? [])],
     });
     const cssFile = join(input.outDir, "bundle.css");
     return { ok: true, log: result.warnings.map((w) => `warning: ${w.text}`), css: existsSync(cssFile) ? await readFile(cssFile, "utf8") : "", packageCss };
