@@ -1,5 +1,8 @@
 {
   "adapter": "svelte",
+  "figma": {
+    "fileKey": "b8xYgmx2Js30XaldxPkOs9"
+  },
   "svelte": {
     "packages": [
       "node_modules/carbon-components-svelte"
@@ -19,6 +22,9 @@
       "stylesheets": [
         "node_modules/carbon-components-svelte/css/all.css"
       ]
-    }
+    },
+    "codeConnect": [
+      "../../.cache/repos/carbon/packages/react/code-connect"
+    ]
   }
 }

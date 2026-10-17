@@ -33,6 +33,9 @@ describe.skipIf(!existsSync(carbon))("Svelte adapter on Carbon for Svelte", { ti
     expect(button.events.map((e) => e.name)).toContain("click");
     expect(button.props.some((p) => p.name === "onclick" || p.name === "aria-label")).toBe(false);
     expect(gaps.join()).toMatch(/HTML attributes components pass through were omitted/);
+    // A component that reads its parent's state with no fallback only works inside that parent.
+    expect(components.find((c) => c.name === "ModalFooter")!.insideOf).toEqual(["ComposedModal"]);
+    expect(components.find((c) => c.name === "Button")!.insideOf).toBeUndefined();
   });
 
   it("finds components (inside blocks too) and hard-coded values in the style block and attributes", async () => {

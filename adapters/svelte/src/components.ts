@@ -118,6 +118,7 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
       provenance: DTS,
     });
   }
+  placement(packageDir, components);
   for (const c of components) {
     for (const prop of c.props) {
       if (prop.typeText && prop.typeText.length > 400) prop.typeText = `${prop.typeText.slice(0, 399)}…`;
@@ -146,4 +147,27 @@ function componentTypes(type: ts.Type, checker: ts.TypeChecker): { props: ts.Typ
     return { props: checker.getTypeOfSymbol(params[1]!) };
   }
   return undefined;
+}
+
+/**
+ * Components that only work inside another: they read a context with no fallback (const { closeModal }
+ * = getContext("carbon:ComposedModal")), and only the components that set that context provide it. Read
+ * from each component's .svelte source, next to its declarations; contexts read optionally are skipped.
+ */
+function placement(packageDir: string, components: CodeComponent[]): void {
+  const required = new Map<CodeComponent, string[]>();
+  const providers = new Map<string, string[]>();
+  for (const c of components) {
+    if (!c.sourcePath?.endsWith(".svelte.d.ts")) continue;
+    const file = join(packageDir, c.sourcePath.replace(/\.d\.ts$/, ""));
+    if (!existsSync(file)) continue;
+    const source = readFileSync(file, "utf8");
+    const needs = [...source.matchAll(/const\s*\{[^}]*\}\s*=\s*getContext\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]!);
+    if (needs.length) required.set(c, needs);
+    for (const m of source.matchAll(/setContext\(\s*["']([^"']+)["']/g)) providers.set(m[1]!, [...(providers.get(m[1]!) ?? []), c.name]);
+  }
+  for (const [c, keys] of required) {
+    const inside = [...new Set(keys.flatMap((k) => providers.get(k) ?? []))].filter((n) => n !== c.name);
+    if (inside.length) c.insideOf = inside;
+  }
 }

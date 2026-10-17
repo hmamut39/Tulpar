@@ -76,6 +76,8 @@ export interface CodeComponent {
   events: CodeEvent[];
   /** CSS custom properties the component reads for theming (e.g. --el-button-bg-color): the documented way to give it a token it has no prop for. */
   cssProperties?: { name: string; description?: string }[];
+  /** Components it only works inside, because it reads state they provide (a footer that needs its modal). */
+  insideOf?: string[];
   provenance: Provenance;
 }
 
