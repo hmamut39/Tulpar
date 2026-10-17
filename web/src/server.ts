@@ -97,6 +97,10 @@ function projectsIn(base: string): ProjectInfo[] {
     });
 }
 
+// Adapters' manifests, fixed for the code that runs: shared by every server in the process.
+const MANIFESTS = new Map<string, AdapterManifest>();
+const READING = new Map<string, Promise<void>>();
+
 export function startServer(options: ServerOptions, port: number): Promise<{ url: string; close: () => Promise<void>; drain: () => Promise<void> }> {
   let projects = listProjects(options.repoRoot);
   // Each framework's adapter says which languages and stylings it writes: asked once, in the background.
@@ -552,9 +556,6 @@ if (import.meta.filename === resolve(process.argv[1] ?? "")) {
     });
   }
 }
-
-const MANIFESTS = new Map<string, AdapterManifest>();
-const READING = new Map<string, Promise<void>>();
 
 function builtManifests(repoRoot: string): Record<string, AdapterManifest> {
   try {

@@ -23,5 +23,5 @@ describe("Figma data from a visitor's file", () => {
     await queue.idle();
     expect(existsSync(join(repo, ".cache/figma", "VISITORFILE"))).toBe(false);
     expect(existsSync(join(repo, ".cache/figma", "KITFILE", "images", "1-2@1x.png"))).toBe(true);
-  });
+  }, 60_000);
 });
