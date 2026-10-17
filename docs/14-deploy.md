@@ -79,6 +79,20 @@ Before buying, check the trademark: "Tulpar" is a common name in Turkey and Cent
 (Otokar's "Tulpar" armoured vehicle, and several companies). Search USPTO (tmsearch.uspto.gov),
 EUIPO and TÜRKPATENT for software classes (9 and 42).
 
+## Self-hosting (inside a company network)
+
+The image that runs tulparsi.com runs anywhere Docker does, with the company's own keys and model:
+
+```sh
+docker build -t tulpar .
+docker run -p 8080:8080 -v tulpar-data:/app/data   -e TULPAR_ACCESS_CODES=team-code-1,team-code-2   -e OPENAI_API_KEY=…   -e OPENAI_BASE_URL=https://<resource>.openai.azure.com/openai/v1   -e TULPAR_OPENAI_MODEL=<deployment name>   tulpar
+```
+
+- **Model:** `OPENAI_BASE_URL` points Tulpar at any OpenAI-compatible endpoint (Azure OpenAI takes its key in an `api-key` header; Tulpar sends it that way). Requests are sent with `store: false`.
+- **Access:** invite codes (`TULPAR_ACCESS_CODES`) without GitHub sign-in or payments; or GitHub sign-in with the company's own OAuth app (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TULPAR_SESSION_SECRET`, `TULPAR_ORIGIN`). Leave the `STRIPE_*` settings empty and there is no billing.
+- **Data:** designs and generated code stay in the container: working files are deleted when a run ends, results are kept in memory for an hour. Generated code runs only in sandboxed Chromium with the network blocked.
+- **The company's design system:** mount its repository (or add it from npm on the page) and run `tulpar init` in it; see docs/15.
+
 ## Launch stages
 
 1. **Private beta (now, once hosted):** 5–10 invited front-end developers, one code each. Watch the log lines and ask for feedback weekly.

@@ -26,11 +26,20 @@ export class OpenAiLlm implements Llm {
     this.name = `openai:${this.#model}`;
   }
 
-  /** From OPENAI_API_KEY (and optionally TULPAR_OPENAI_MODEL), or undefined when no key is set. */
+  /**
+   * From OPENAI_API_KEY, or undefined when no key is set. Optionally TULPAR_OPENAI_MODEL (the model or a
+   * deployment name) and OPENAI_BASE_URL: any OpenAI-compatible endpoint, such as a company's Azure OpenAI
+   * resource (https://<resource>.openai.azure.com/openai/v1) or its own gateway, so designs and code stay
+   * with the provider the company chose.
+   */
   static fromEnv(): OpenAiLlm | undefined {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return undefined;
-    return new OpenAiLlm({ apiKey, ...(process.env.TULPAR_OPENAI_MODEL && { model: process.env.TULPAR_OPENAI_MODEL }) });
+    return new OpenAiLlm({
+      apiKey,
+      ...(process.env.TULPAR_OPENAI_MODEL && { model: process.env.TULPAR_OPENAI_MODEL }),
+      ...(process.env.OPENAI_BASE_URL && { baseUrl: process.env.OPENAI_BASE_URL.replace(/\/+$/, "") }),
+    });
   }
 
   async complete(request: LlmRequest): Promise<LlmResponse> {
@@ -53,7 +62,8 @@ export class OpenAiLlm implements Llm {
     };
     const res = await fetch(`${this.#baseUrl}/responses`, {
       method: "POST",
-      headers: { authorization: `Bearer ${this.#apiKey}`, "content-type": "application/json" },
+      // Azure OpenAI takes its key in an api-key header; everyone else, a bearer token.
+      headers: { ...(/\.azure\.com\b/.test(this.#baseUrl) ? { "api-key": this.#apiKey } : { authorization: `Bearer ${this.#apiKey}` }), "content-type": "application/json" },
       body: JSON.stringify(body),
     });
     const data = (await res.json().catch(() => ({}))) as OpenAiResponse;
