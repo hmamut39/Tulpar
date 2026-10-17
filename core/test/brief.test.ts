@@ -50,3 +50,18 @@ describe("repairs that look at the render", () => {
     expect(repair!.images!.map((i) => i.base64)).toEqual(["DESIGN"]);
   });
 });
+
+describe("repairs start from the best attempt so far", () => {
+  it("sets aside a repair that made things worse and repairs the better one", async () => {
+    const files = (body: string) => ({ files: [{ path: "Footer.tsx", content: body }], notes: "" });
+    const check = (id: string) => ({ id, title: id, status: "fail", summary: `${id} failed`, details: [] });
+    const report = (...failing: string[]) => ({ frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: "fail", headline: "", checks: failing.map(check), warnings: [] }) as unknown as VerifyReport;
+    const llm = new ScriptedLlm([files("// first"), files("// second"), files("// third"), files("// fourth")]);
+    const reports = [report("layout", "colors"), report("layout"), report("layout", "colors", "spacing")];
+    let n = 0;
+    await generate({ llm, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions, maxAttempts: 4, verify: async () => reports[n++] ?? report("layout") });
+    // The fourth request repairs the second attempt (one failure), not the third (three).
+    expect(llm.requests[3]!.text).toContain("// second");
+    expect(llm.requests[3]!.text).not.toContain("// third");
+  });
+});

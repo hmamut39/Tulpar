@@ -84,7 +84,8 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
 
   for (let n = 1; n <= maxAttempts; n++) {
     options.onEvent?.({ type: "generating", attempt: n });
-    const previous = attempts.at(-1);
+    // Repair from the best attempt so far, not the latest: a repair that made things worse is set aside, as a developer would.
+    const previous = attempts.length ? bestAttempt(attempts) : undefined;
     // After visual failures, the model looks at its own render next to the design, as a developer would.
     const looked = previous?.report && previous.report.checks.some((c) => c.status === "fail" && VISUAL.has(c.id)) ? options.renderOf?.(previous.report) : undefined;
     const images = [...(options.image ? [options.image] : []), ...(looked ? [looked] : [])];
