@@ -1,6 +1,7 @@
 # The VS Code extension: when its version changes on main (and CI passed), package it, publish it to
 # Open VSX (Cursor, Windsurf, VSCodium), and attach the .vsix to a GitHub release for the Visual Studio
-# Marketplace upload. A version already on Open VSX is never published twice.
+# Marketplace upload (or publish it there too, once VSCE_PAT is set). A version already on Open VSX is
+# never published twice.
 name: Extension
 
 on:
@@ -47,6 +48,13 @@ jobs:
         run: |
           if [ -z "$OVSX_PAT" ]; then echo "::warning::OVSX_PAT is not set; not publishing to Open VSX."; exit 0; fi
           npx --yes ovsx@0.10.5 publish "tulpar-${{ steps.version.outputs.version }}.vsix"
+      - name: Publish to the Visual Studio Marketplace
+        if: steps.version.outputs.new
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then echo "::notice::VSCE_PAT is not set; upload the .vsix from the GitHub release by hand."; exit 0; fi
+          npx --yes @vscode/vsce@3.6.2 publish --packagePath "tulpar-${{ steps.version.outputs.version }}.vsix"
       - name: Release the .vsix for the Visual Studio Marketplace
         if: steps.version.outputs.new
         env:
