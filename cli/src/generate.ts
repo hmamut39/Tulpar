@@ -30,6 +30,8 @@ export interface GenerateCommandOptions {
   /** A picture of the design: a file path (CLI) or the image itself (web). */
   image?: string | LlmImage;
   attempts?: number;
+  /** Independent first drafts to verify before repairing the best (each is a model call). */
+  candidates?: number;
   theme?: string;
   /** A model to use instead of OpenAI (tests, offline development). */
   llm?: Llm;
@@ -121,10 +123,11 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       ...(tokens && { tokens }),
       ...(ctx.library && { library: ctx.library }),
       maxAttempts: options.attempts ?? 3,
+      ...(options.candidates && { candidates: options.candidates }),
       ...(image && { image }),
       onEvent: (e) => {
         options.onEvent?.(e);
-        if (e.type === "generating") log(`Attempt ${(attempt = e.attempt)}: asking ${llm.name}…`);
+        if (e.type === "generating") log(`Attempt ${(attempt = e.attempt)}${e.repair ? "" : e.attempt > 1 ? " (another draft)" : ""}: asking ${llm.name}…`);
         if (e.type === "generated") log(`  wrote ${e.files.join(", ") || "no files"}`);
         if (e.type === "verified") log(`  verification: ${e.report.verdict}${e.report.checks.filter((c) => c.status === "fail").map((c) => `; ✗ ${c.summary}`).join("")}`);
       },

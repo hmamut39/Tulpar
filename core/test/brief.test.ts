@@ -65,3 +65,23 @@ describe("repairs start from the best attempt so far", () => {
     expect(llm.requests[3]!.text).not.toContain("// third");
   });
 });
+
+describe("several first drafts", () => {
+  it("verifies each draft independently, then repairs the best one", async () => {
+    const files = (body: string) => ({ files: [{ path: "Footer.tsx", content: body }], notes: "" });
+    const check = (id: string) => ({ id, title: id, status: "fail", summary: `${id} failed`, details: [] });
+    const report = (...failing: string[]) => ({ frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: "fail", headline: "", checks: failing.map(check), warnings: [] }) as unknown as VerifyReport;
+    const llm = new ScriptedLlm([files("// draft a"), files("// draft b"), files("// repair")]);
+    const reports = [report("layout", "colors"), report("layout"), report()];
+    let n = 0;
+    const events: { attempt: number; repair: boolean }[] = [];
+    const result = await generate({ llm, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions, candidates: 2, maxAttempts: 3, verify: async () => reports[n++]!, onEvent: (e) => e.type === "generating" && events.push({ attempt: e.attempt, repair: e.repair }) });
+    // The second draft is a fresh start, not a repair of the first.
+    expect(llm.requests[1]!.text).not.toContain("YOUR PREVIOUS ATTEMPT");
+    expect(llm.requests[2]!.text).toContain("// draft b");
+    expect(events).toEqual([{ attempt: 1, repair: false }, { attempt: 2, repair: false }, { attempt: 3, repair: true }]);
+    // It stops once an attempt passes: 2 drafts + 1 repair, not 2 + 2.
+    expect(result.attempts).toHaveLength(3);
+    expect(result.files[0]!.content).toBe("// repair");
+  });
+});

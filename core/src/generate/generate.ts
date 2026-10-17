@@ -32,7 +32,7 @@ export interface GenerationResult {
 
 export type GenerationEvent =
   | { type: "brief"; brief: Brief }
-  | { type: "generating"; attempt: number }
+  | { type: "generating"; attempt: number; /** false for a first draft */ repair: boolean }
   | { type: "generated"; attempt: number; files: string[] }
   | { type: "verifying"; attempt: number }
   | { type: "verified"; attempt: number; report: VerifyReport };
@@ -42,6 +42,8 @@ export interface GenerateOptions extends BriefInput {
   /** Build, render and verify a set of files; supplied by the caller (it knows the adapter). */
   verify: (files: GeneratedFile[]) => Promise<VerifyReport>;
   maxAttempts?: number;
+  /** Independent first drafts, each verified; repairs (maxAttempts - 1 of them) start from the best. Default 1. */
+  candidates?: number;
   /** An image of the design (e.g. a screenshot) for the model to look at. */
   image?: LlmImage;
   /** The render a verification produced, so a repair after visual failures can look at what it drew. */
@@ -82,10 +84,12 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
   const usage = { inputTokens: 0, outputTokens: 0 };
   let model = options.llm.name;
 
-  for (let n = 1; n <= maxAttempts; n++) {
-    options.onEvent?.({ type: "generating", attempt: n });
+  const candidates = Math.max(1, Math.floor(options.candidates ?? 1));
+  // The first `candidates` attempts are independent drafts; the rest repair.
+  for (let n = 1; n <= candidates + maxAttempts - 1; n++) {
+    options.onEvent?.({ type: "generating", attempt: n, repair: n > candidates });
     // Repair from the best attempt so far, not the latest: a repair that made things worse is set aside, as a developer would.
-    const previous = attempts.length ? bestAttempt(attempts) : undefined;
+    const previous = n > candidates ? bestAttempt(attempts) : undefined;
     // After visual failures, the model looks at its own render next to the design, as a developer would.
     const looked = previous?.report && previous.report.checks.some((c) => c.status === "fail" && VISUAL.has(c.id)) ? options.renderOf?.(previous.report) : undefined;
     const images = [...(options.image ? [options.image] : []), ...(looked ? [looked] : [])];

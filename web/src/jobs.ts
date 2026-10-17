@@ -185,7 +185,7 @@ function describe(e: GenerationEvent): string {
     case "brief":
       return `Read the design: ${e.brief.instances.length} design-system instances, ${e.brief.tokens.length} colour variables.`;
     case "generating":
-      return e.attempt === 1 ? "Writing the component…" : `Repairing (attempt ${e.attempt})…`;
+      return e.repair ? `Repairing (attempt ${e.attempt})…` : e.attempt === 1 ? "Writing the component…" : `Writing another draft (attempt ${e.attempt})…`;
     case "generated":
       return `Wrote ${e.files.join(", ") || "no files"}.`;
     case "verifying":

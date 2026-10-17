@@ -1,4 +1,4 @@
-// tulpar eval [--only <id,id>] [--cases eval/cases.json]
+// tulpar eval [--only <id,id>] [--cases eval/cases.json] [--candidates N]
 //
 // The eval benchmark: the same designs on every run (eval/cases.json), across frameworks and styling,
 // generated and verified as a user's run would be. For each case: the verdict, which checks passed, the
@@ -38,7 +38,7 @@ export interface EvalRun {
   results: CaseResult[];
 }
 
-export async function evalCommand(options: { casesFile?: string; only?: string[]; out?: string; cache?: string } = {}): Promise<number> {
+export async function evalCommand(options: { casesFile?: string; only?: string[]; out?: string; cache?: string; candidates?: number } = {}): Promise<number> {
   const casesFile = resolve(options.casesFile ?? "eval/cases.json");
   const all = (JSON.parse(readFileSync(casesFile, "utf8")) as { cases: EvalCase[] }).cases;
   const cases = options.only?.length ? all.filter((c) => options.only!.includes(c.id)) : all;
@@ -63,6 +63,7 @@ export async function evalCommand(options: { casesFile?: string; only?: string[]
         ...(c.frame && process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }),
         ...(c.image && { image: resolve(c.image) }),
         ...(c.output && { output: c.output }),
+        ...(options.candidates && { candidates: options.candidates }),
       });
       const r = outcome.result;
       model ??= r?.model;

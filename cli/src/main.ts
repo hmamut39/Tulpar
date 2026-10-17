@@ -59,6 +59,7 @@ const { positionals, values } = parseArgs({
     test: { type: "string" },
     json: { type: "boolean", default: false },
     attempts: { type: "string" },
+    candidates: { type: "string" },
     to: { type: "string" },
     package: { type: "string" },
     adapter: { type: "string" },
@@ -109,7 +110,7 @@ switch (command) {
     }
     const frame = ref?.nodeId ?? values.frame;
     if (!target || (!frame && !values.image) || !values.name) usage();
-    const outcome = await generateCommand(target, { ...(values.json && { quiet: true }), ...(frame && { frame }), ...(values.scale && { scale: Number(values.scale) }), ...(ref && { fileKey: ref.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }), name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.theme && { theme: values.theme }), ...((values.language || values.styling) && { output: { ...(values.language && { language: values.language as "typescript" | "javascript" }), ...(values.styling && { styling: values.styling as NonNullable<OutputChoice["styling"]> }) } }) });
+    const outcome = await generateCommand(target, { ...(values.json && { quiet: true }), ...(frame && { frame }), ...(values.scale && { scale: Number(values.scale) }), ...(ref && { fileKey: ref.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }), name: values.name, out: values.out, cache: values.cache, ...(values.image && { image: values.image }), ...(values.attempts && { attempts: Number(values.attempts) }), ...(values.candidates && { candidates: Number(values.candidates) }), ...(values.theme && { theme: values.theme }), ...((values.language || values.styling) && { output: { ...(values.language && { language: values.language as "typescript" | "javascript" }), ...(values.styling && { styling: values.styling as NonNullable<OutputChoice["styling"]> }) } }) });
     // --json: one machine-readable result on stdout, for editors and scripts.
     if (values.json) {
       const r = outcome.result;
@@ -129,7 +130,7 @@ switch (command) {
     break;
   }
   case "eval":
-    process.exitCode = await evalCommand({ ...(values.only && { only: values.only.split(",") }), ...(values.cases && { casesFile: values.cases }), out: values.out, cache: values.cache });
+    process.exitCode = await evalCommand({ ...(values.only && { only: values.only.split(",") }), ...(values.cases && { casesFile: values.cases }), ...(values.candidates && { candidates: Number(values.candidates) }), out: values.out, cache: values.cache });
     break;
   case "verify":
     if (values.figma && !values.frame) values.frame = parseFigmaUrl(values.figma)?.nodeId;
@@ -161,9 +162,9 @@ function usage(): never {
       "       tulpar match <projectDir> [--evaluate [--rerank]]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--test <test file>] [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
-      "       tulpar eval [--only <id,id>] [--cases eval/cases.json]   the benchmark (calls the model: costs money)",
+      "       tulpar eval [--only <id,id>] [--cases eval/cases.json] [--candidates N]   the benchmark (calls the model: costs money)",
       "       tulpar check <projectDir> [files...] [--format text|github|json]   hard-coded values and invented tokens, no model",
-      "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3] [--language typescript|javascript] [--styling css|css-modules|scss|less|tailwind|styled-components|emotion]",
+      "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3] [--candidates 1] [--language typescript|javascript] [--styling css|css-modules|scss|less|tailwind|styled-components|emotion]",
     ].join("\n"),
   );
   process.exit(2);
