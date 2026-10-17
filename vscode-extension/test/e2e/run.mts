@@ -1,6 +1,6 @@
 // End-to-end test of the extension inside a real VS Code: a local Tulpar server with a signed-in
 // account, and VS Code (downloaded by @vscode/test-electron) running the extension against it.
-// Run: node vscode-extension/test/e2e/run.ts   (in CI under xvfb-run on Linux)
+// Run: node vscode-extension/test/e2e/run.mts   (in CI under xvfb-run on Linux)
 
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

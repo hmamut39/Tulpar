@@ -1,4 +1,4 @@
-// Runs inside VS Code's extension host (see run.ts): the extension as a user gets it, against a local
+// Runs inside VS Code's extension host (see run.mts): the extension as a user gets it, against a local
 // Tulpar server. Exercises activation, the commands, the sign-in callback (as the browser delivers it),
 // the token in secret storage, and the account shown in the status bar.
 "use strict";

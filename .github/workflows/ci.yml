@@ -68,7 +68,7 @@ jobs:
         with:
           path: .vscode-test
           key: vscode-test-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: xvfb-run -a node vscode-extension/test/e2e/run.ts
+      - run: xvfb-run -a node vscode-extension/test/e2e/run.mts
 
   image:
     runs-on: ubuntu-latest
