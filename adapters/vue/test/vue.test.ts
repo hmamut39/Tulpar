@@ -93,4 +93,10 @@ describe.skipIf(!existsSync(elementPlus))("index of Element Plus", () => {
     expect(c("ElButton").props.some((p) => ["ref", "class", "style", "onVnodeMounted"].includes(p.name))).toBe(false);
     expect(gaps.join()).toMatch(/props Vue gives every component/);
   });
+
+  it("knows which components only work inside another (they inject a key and throw without it)", () => {
+    expect(c("ElTabPane").insideOf).toEqual(["ElTabs"]);
+    expect(c("ElMenuItem").insideOf).toEqual(["ElMenu"]);
+    expect(c("ElButton").insideOf).toBeUndefined();
+  });
 });

@@ -7,8 +7,8 @@
 // - `on…` props are the component's events, named the way templates write them (@click, @update:modelValue);
 // - `$slots` are its slots, `default` being the default slot.
 
-import { existsSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import ts from "typescript";
 import type { CodeComponent, CodeEvent, CodeProp, CodeSlot, Provenance } from "@tulpar/core";
 import { typeShape } from "@tulpar/web-kit";
@@ -134,6 +134,7 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
   }
   if (duplicates) gaps.push(`${duplicates} components are exported under two names; each is listed once, by the first.`);
   if (inheritedTotal) gaps.push(`${inheritedTotal} props Vue gives every component (key, ref, class, style, vnode hooks) were omitted.`);
+  placement(packageDir, pkgJson, components);
   return { components, pkg };
 }
 
@@ -154,4 +155,49 @@ function instanceType(type: ts.Type): ts.Type | undefined {
 function callable(type: ts.Type): boolean {
   if (type.getCallSignatures().length) return true;
   return type.isUnion() && type.types.some((t) => t.getCallSignatures().length > 0);
+}
+
+/**
+ * Components that only work inside another: they inject a key and throw when it is missing
+ * (Element Plus's tab pane: `if (!tabsRoot) throwError(…, "usage: <el-tabs><el-tab-pane /></el-tabs>")`),
+ * and only the components that provide that key supply it. Read from the package's compiled modules; a
+ * component's name is its `name` option. Injections with a fallback, or never checked, are optional.
+ */
+function placement(packageDir: string, pkgJson: { module?: string; main?: string }, components: CodeComponent[]): void {
+  const known = new Set(components.map((c) => c.name));
+  const entry = [pkgJson.module, pkgJson.main].find((p) => p && existsSync(join(packageDir, p)));
+  if (!entry) return;
+  const files: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    if (depth > 6 || files.length > 20000) return;
+    for (const f of readdirSync(dir)) {
+      const path = join(dir, f);
+      if (f === "node_modules") continue;
+      if (statSync(path).isDirectory()) walk(path, depth + 1);
+      else if (/\.(mjs|js)$/.test(f) && !f.endsWith(".map")) files.push(path);
+    }
+  };
+  walk(dirname(join(packageDir, entry)), 0);
+
+  const required = new Map<string, Set<string>>();
+  const providers = new Map<string, Set<string>>();
+  for (const file of files) {
+    const source = readFileSync(file, "utf8");
+    if (!source.includes("inject(") && !source.includes("provide(")) continue;
+    const constName = /\bconst COMPONENT_NAME\s*=\s*["']([A-Z]\w+)["']/.exec(source)?.[1];
+    const names = [...source.matchAll(/\bname:\s*(?:["']([A-Z]\w+)["']|COMPONENT_NAME)/g)].map((m) => m[1] ?? constName).filter((n): n is string => !!n && known.has(n));
+    if (!names.length) continue;
+    for (const m of source.matchAll(/const\s+(\w+)\s*=\s*inject\(\s*(\w+)\s*\)/g)) {
+      const after = source.slice(m.index! + m[0].length, m.index! + m[0].length + 300);
+      if (!new RegExp(String.raw`if\s*\(\s*!${m[1]}\s*\)[^;]*throw`, "i").test(after)) continue;
+      for (const n of names) required.set(n, new Set([...(required.get(n) ?? []), m[2]!]));
+    }
+    for (const m of source.matchAll(/provide\(\s*(\w+)\s*,/g)) for (const n of names) providers.set(m[1]!, new Set([...(providers.get(m[1]!) ?? []), n]));
+  }
+  for (const c of components) {
+    const keys = required.get(c.name);
+    if (!keys) continue;
+    const inside = [...new Set([...keys].flatMap((k) => [...(providers.get(k) ?? [])]))].filter((n) => n !== c.name);
+    if (inside.length) c.insideOf = inside;
+  }
 }
