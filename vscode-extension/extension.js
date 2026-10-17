@@ -40,6 +40,18 @@ function activate(ctx) {
     vscode.window.registerUriHandler({ handleUri }),
   );
   refreshStatus();
+  // For the end-to-end tests only (VS Code runs the extension in Test mode there): start a sign-in
+  // without opening a browser, deliver the browser's callback, and read what the user would see.
+  if (ctx.extensionMode === vscode.ExtensionMode.Test) {
+    return {
+      startSignIn: () => (pendingState = randomBytes(16).toString("hex")),
+      deliverCallback: (query) => handleUri(vscode.Uri.parse(`${vscode.env.uriScheme}://${ctx.extension.id}/auth?${query}`)),
+      refreshStatus,
+      statusText: () => statusItem.text,
+      hasToken: async () => !!(await ctx.secrets.get(TOKEN)),
+      signOut,
+    };
+  }
 }
 
 function settings() {
@@ -60,7 +72,7 @@ async function signIn() {
 async function handleUri(uri) {
   if (uri.path !== "/auth") return;
   const token = lib.tokenFromCallback(uri.query, pendingState);
-  if (!token) return vscode.window.showErrorMessage('Tulpar: that sign-in link was not started from this window. Run "Tulpar: Sign in" again.');
+  if (!token) return void vscode.window.showErrorMessage('Tulpar: that sign-in link was not started from this window. Run "Tulpar: Sign in" again.');
   pendingState = undefined;
   await context.secrets.store(TOKEN, token);
   const me = await refreshStatus();
@@ -176,7 +188,7 @@ async function generateHosted(preferred) {
   try {
     config = await api("GET", "/api/config");
   } catch (e) {
-    return vscode.window.showErrorMessage(`Tulpar: ${e.message}`);
+    return void vscode.window.showErrorMessage(`Tulpar: ${e.message}`);
   }
   const pick = await vscode.window.showQuickPick(
     config.projects.map((p) => ({ label: p.label, description: p.id, project: p })),
@@ -222,17 +234,17 @@ async function generateHosted(preferred) {
   }
   refreshStatus();
   const result = lib.fromJob(job);
-  if (!result.ok) return vscode.window.showErrorMessage(`Tulpar: ${result.error}`);
+  if (!result.ok) return void vscode.window.showErrorMessage(`Tulpar: ${result.error}`);
   if (job.hasRender) await saveRender(job.id, design.name).catch(() => undefined);
   await deliver(result, design.name, design.targetDir);
 }
 
 function reportApiError(e) {
   if (e.upgrade) {
-    return vscode.window.showWarningMessage(`Tulpar: ${e.message}`, "See plans").then((a) => a && vscode.env.openExternal(vscode.Uri.parse(new URL("/pricing", settings().server).href)));
+    return void vscode.window.showWarningMessage(`Tulpar: ${e.message}`, "See plans").then((a) => a && vscode.env.openExternal(vscode.Uri.parse(new URL("/pricing", settings().server).href)));
   }
-  if (e.signIn) return vscode.window.showWarningMessage(`Tulpar: ${e.message}`, "Sign in").then((a) => a && signIn());
-  return vscode.window.showErrorMessage(`Tulpar: ${e.message}`);
+  if (e.signIn) return void vscode.window.showWarningMessage(`Tulpar: ${e.message}`, "Sign in").then((a) => a && signIn());
+  return void vscode.window.showErrorMessage(`Tulpar: ${e.message}`);
 }
 
 /** The final render, kept with the extension's own storage (not in the user's project) and opened beside the code. */
@@ -318,20 +330,20 @@ async function generateLocal(preferred) {
       (_progress, token) => runCli(node, repo, lib.generateArgs({ repo, project: pick.project.dir, name: design.name, figmaUrl: design.figmaUrl, screenshot: design.screenshot }), token),
     );
   } catch (e) {
-    return vscode.window.showErrorMessage(`Tulpar: ${e.message}`);
+    return void vscode.window.showErrorMessage(`Tulpar: ${e.message}`);
   }
-  if (!result.ok) return vscode.window.showErrorMessage(`Tulpar: ${result.error}`);
+  if (!result.ok) return void vscode.window.showErrorMessage(`Tulpar: ${result.error}`);
   context.workspaceState.update("tulpar.lastRender", undefined);
   await deliver(result, design.name, design.targetDir);
 }
 
 async function verify() {
   const { repo, node } = settings();
-  if (!repo) return vscode.window.showInformationMessage('Tulpar: verifying a file runs the checks on this machine. Set "tulpar.repoPath" to a local copy of the Tulpar repository (github.com/hmamut39/Tulpar).');
+  if (!repo) return void vscode.window.showInformationMessage('Tulpar: verifying a file runs the checks on this machine. Set "tulpar.repoPath" to a local copy of the Tulpar repository (github.com/hmamut39/Tulpar).');
   const file = vscode.window.activeTextEditor?.document.uri.fsPath;
-  if (!file) return vscode.window.showErrorMessage("Tulpar: open the implementation file to verify.");
+  if (!file) return void vscode.window.showErrorMessage("Tulpar: open the implementation file to verify.");
   const project = lib.projectOf(file);
-  if (!project) return vscode.window.showErrorMessage("Tulpar: this file is not inside a Tulpar project (no tulpar.json above it).");
+  if (!project) return void vscode.window.showErrorMessage("Tulpar: this file is not inside a Tulpar project (no tulpar.json above it).");
   const figmaUrl = await vscode.window.showInputBox({ title: "The Figma frame this file implements", ignoreFocusOut: true, validateInput: (v) => (/figma\.com\/.+node-id=/.test(v) ? undefined : "A Figma link to a frame (it contains node-id=)") });
   if (!figmaUrl) return;
   const test = lib.testFileFor(file);
@@ -341,7 +353,7 @@ async function verify() {
     const result = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Tulpar: verifying against the design", cancellable: true }, (_p, token) =>
       runCli(node, repo, lib.verifyArgs({ repo, project, entry: path.relative(project, file), figmaUrl, ...(test && { test: path.relative(project, test) }) }), token),
     );
-    if (!result.ok) return vscode.window.showErrorMessage("Tulpar: verification could not start; see the Tulpar output.");
+    if (!result.ok) return void vscode.window.showErrorMessage("Tulpar: verification could not start; see the Tulpar output.");
     output.appendLine(lib.reportLines(result.report).join("\n"));
     const msg = { pass: "passes every check", incomplete: "no check failed; some could not be checked", fail: "fails some checks" }[result.report.verdict];
     (result.report.verdict === "fail" ? vscode.window.showWarningMessage : vscode.window.showInformationMessage)(`Tulpar: ${path.basename(file)} ${msg}.`);

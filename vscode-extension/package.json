@@ -2,7 +2,7 @@
   "name": "tulpar",
   "displayName": "Tulpar — Figma & screenshots to verified components",
   "description": "Turn a Figma frame or a screenshot into a component built with your design system — React, Vue, Angular, Svelte or Web Components — then build, render and check it against the design before you see it.",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "publisher": "tulparsi",
   "author": { "name": "Mamuti Aishan (Hasan)" },
   "license": "SEE LICENSE IN LICENSE.txt",

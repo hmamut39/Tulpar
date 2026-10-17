@@ -52,6 +52,24 @@ jobs:
       # Tests that need the Figma cache (not in the repository) skip themselves here.
       - run: npm test
 
+  # The VS Code extension, end to end inside a real VS Code against a local Tulpar server: activation,
+  # commands, the sign-in callback, the token in secret storage, the account in the status bar.
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: .vscode-test
+          key: vscode-test-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: xvfb-run -a node vscode-extension/test/e2e/run.mts
+
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 30
