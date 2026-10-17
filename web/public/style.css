@@ -207,7 +207,21 @@ select { appearance: none; padding-right: 40px; cursor: pointer; }
 .copy { border: 1px solid color-mix(in srgb, var(--cloud) 18%, transparent); background: transparent; color: var(--cloud); font: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 7px; cursor: pointer; }
 .copy:hover { background: color-mix(in srgb, var(--cloud) 10%, transparent); }
 pre { margin: 0; padding: 16px 18px; overflow: auto; max-height: 540px; }
-code { font: 13px/1.65 "JetBrains Mono", ui-monospace, Consolas, monospace; color: var(--cloud); white-space: pre; }
+/* Phones must not enlarge some text blocks and not others: line numbers would drift from their lines. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Line numbers beside the code, scrolling with it (one scroll area). */
+.code-body { display: flex; overflow: auto; max-height: 540px; }
+.code-body pre { overflow: visible; max-height: none; font: 13px/22px "JetBrains Mono", ui-monospace, Consolas, monospace; }
+.code-body pre:not(.gutter) { flex: 1; padding-left: 12px; }
+.gutter { padding-right: 0; text-align: right; user-select: none; font: 13px/22px "JetBrains Mono", ui-monospace, Consolas, monospace; color: color-mix(in srgb, var(--slate) 80%, transparent); border-right: 1px solid color-mix(in srgb, var(--cloud) 8%, transparent); padding-right: 12px; }
+/* Syntax colours from the five-colour palette only: tints of indigo and rose on the ink background. */
+.hljs-keyword, .hljs-tag, .hljs-name, .hljs-built_in, .hljs-selector-tag, .hljs-literal { color: color-mix(in srgb, var(--indigo) 55%, var(--cloud)); }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-selector-class, .hljs-selector-id, .hljs-title, .hljs-title.function_, .hljs-title.class_ { color: color-mix(in srgb, var(--indigo) 25%, var(--cloud)); }
+.hljs-string, .hljs-number, .hljs-regexp, .hljs-symbol, .hljs-template-variable, .hljs-variable.constant_, .hljs-meta .hljs-string { color: color-mix(in srgb, var(--rose) 55%, var(--cloud)); }
+.hljs-comment, .hljs-quote, .hljs-meta, .hljs-punctuation { color: var(--slate); }
+.hljs-comment { font-style: italic; }
+.hljs-variable, .hljs-params, .hljs-subst { color: var(--cloud); }
+code { font: 13px/22px "JetBrains Mono", ui-monospace, Consolas, monospace; color: var(--cloud); white-space: pre; }
 
 .foot { max-width: 1160px; margin: 0 auto; padding: 8px 20px 40px; color: var(--muted); font-size: 13px; text-align: center; }
 @media (max-width: 560px) {

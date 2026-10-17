@@ -316,8 +316,16 @@ function setBusy(busy) {
   $("submitLabel").textContent = busy ? "Generating…" : "Generate component";
 }
 
+// Code reads as in an editor: colours by language, and line numbers. highlight.js escapes what it shows.
+const LANGUAGE = { tsx: "typescript", ts: "typescript", jsx: "javascript", js: "javascript", mjs: "javascript", vue: "xml", svelte: "xml", html: "xml", css: "css", scss: "scss", less: "less", json: "json" };
 function showFile(i) {
-  $("code").textContent = files[i]?.content ?? "";
+  const content = files[i]?.content ?? "";
+  const language = LANGUAGE[(files[i]?.path ?? "").split(".").pop()];
+  const code = $("code");
+  code.dataset.raw = content;
+  if (window.hljs && language) code.innerHTML = window.hljs.highlight(content, { language, ignoreIllegals: true }).value;
+  else code.textContent = content;
+  $("gutter").textContent = content.split("\n").map((_, n) => n + 1).join("\n");
   for (const b of $("fileTabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(Number(b.dataset.file) === i));
 }
 
@@ -329,7 +337,7 @@ function selectTab(name) {
 document.querySelector(".tabs").addEventListener("click", (e) => { const t = e.target.closest("[data-tab]"); if (t) selectTab(t.dataset.tab); });
 $("fileTabs").addEventListener("click", (e) => { const t = e.target.closest("[data-file]"); if (t) showFile(Number(t.dataset.file)); });
 $("copy").addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText($("code").textContent); $("copy").textContent = "Copied"; } catch { $("copy").textContent = "Copy failed"; }
+  try { await navigator.clipboard.writeText($("code").dataset.raw ?? $("code").textContent); $("copy").textContent = "Copied"; } catch { $("copy").textContent = "Copy failed"; }
   setTimeout(() => ($("copy").textContent = "Copy"), 1500);
 });
 
