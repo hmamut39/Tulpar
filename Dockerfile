@@ -1,46 +1,48 @@
+# syntax=docker/dockerfile:1.7-labs
 # Tulpar web page, as a container. Build: docker build -t tulpar .
 # Run:  docker run -p 8080:8080 --env-file .env -v tulpar-data:/app/data tulpar
 #
 # Needs at runtime: OPENAI_API_KEY and TULPAR_ACCESS_CODES (see .env.example); in production the
 # server refuses to start without access codes. Hosting: fly.toml and docs/14-deploy.md.
 # Figma data (the cache and the library read from it) lives in the /app/data volume.
+#
+# Layers go from what changes least to what changes most, and files are owned by "node" as they are
+# written: a chown over the installed packages at the end would copy gigabytes into a new layer.
 
 FROM node:24-bookworm-slim
 
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Dependencies first, for layer caching.
-COPY package.json package-lock.json ./
-COPY core/package.json core/
-COPY cli/package.json cli/
-COPY web/package.json web/
-COPY adapters/web-kit/package.json adapters/web-kit/
-COPY adapters/web-components/package.json adapters/web-components/
-COPY adapters/react/package.json adapters/react/
-COPY adapters/angular/package.json adapters/angular/
-COPY adapters/vue/package.json adapters/vue/
-COPY adapters/svelte/package.json adapters/svelte/
-RUN npm ci --omit=dev --ignore-scripts \
- && npx playwright install --with-deps chromium
+# System packages: Chromium's libraries, and git for Carbon's Code Connect files.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* \
+ && chown node:node /app
 
-# The example projects (design systems the page offers), pinned by their lockfiles.
-COPY examples/ examples/
-# --include=dev: the test tools (Vitest browser mode) are dev dependencies of the example projects.
-RUN for d in examples/*/; do (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev); done
+# Tulpar's own dependencies: the manifests only, so a code change reuses this layer.
+COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node --parents core/package.json cli/package.json web/package.json mcp/package.json adapters/*/package.json ./
+RUN npm ci --omit=dev --ignore-scripts \
+ && npx playwright install --with-deps chromium \
+ && chown -R node:node /app/node_modules
+
+USER node
+
+# The example projects (design systems the page offers), pinned by their lockfiles; only the manifests,
+# so editing an example's config reuses its installed packages. --include=dev: the test tools.
+COPY --chown=node:node --parents examples/*/package.json examples/*/package-lock.json ./
+RUN for d in examples/*/; do (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done
 
 # Carbon's Code Connect files: the explicit Figma ↔ code links (public repository).
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* \
- && git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-design-system/carbon.git .cache/repos/carbon \
+RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-design-system/carbon.git .cache/repos/carbon \
  && git -C .cache/repos/carbon sparse-checkout set --no-cone '**/*.figma.ts' '**/*.figma.tsx'
 
-COPY . .
+COPY --chown=node:node . .
 
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
 # deploy/start.sh prepares the volume as root, then runs the server as the "node" user.
-RUN mkdir -p data/figma data/out && ln -s /app/data/figma .cache/figma && ln -s /app/data/out out \
- && chown -R node:node /app && chmod +x deploy/start.sh
+RUN mkdir -p data/figma data/out && ln -s /app/data/figma .cache/figma && ln -s /app/data/out out && chmod +x deploy/start.sh
 
+USER root
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD node -e "fetch('http://localhost:'+(process.env.PORT||8080)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 CMD ["deploy/start.sh"]
