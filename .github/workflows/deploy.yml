@@ -31,7 +31,7 @@ jobs:
         id: ready
         run: if [ -n "$FLY_API_TOKEN" ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; else echo "::notice::FLY_API_TOKEN is not set; not deploying."; fi
       - if: steps.ready.outputs.ok
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.SHA }}
       - if: steps.ready.outputs.ok
