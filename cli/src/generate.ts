@@ -117,6 +117,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       index: ctx.index,
       conventions,
       ...(Object.keys(examples).length && { examples }),
+      renderOf: (report) => (pngs.has(report) ? { mime: "image/png", base64: pngs.get(report)! } : undefined),
       ...(tokens && { tokens }),
       ...(ctx.library && { library: ctx.library }),
       maxAttempts: options.attempts ?? 3,

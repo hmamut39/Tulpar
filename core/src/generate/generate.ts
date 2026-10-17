@@ -44,8 +44,13 @@ export interface GenerateOptions extends BriefInput {
   maxAttempts?: number;
   /** An image of the design (e.g. a screenshot) for the model to look at. */
   image?: LlmImage;
+  /** The render a verification produced, so a repair after visual failures can look at what it drew. */
+  renderOf?: (report: VerifyReport) => LlmImage | undefined;
   onEvent?: (e: GenerationEvent) => void;
 }
+
+/** Failures a picture of the render helps fix: what it looks like, not what the code says. */
+const VISUAL = new Set(["layout", "visual", "text", "typeface", "states"]);
 
 const FILES_SCHEMA = {
   name: "generated_component",
@@ -80,10 +85,13 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
   for (let n = 1; n <= maxAttempts; n++) {
     options.onEvent?.({ type: "generating", attempt: n });
     const previous = attempts.at(-1);
+    // After visual failures, the model looks at its own render next to the design, as a developer would.
+    const looked = previous?.report && previous.report.checks.some((c) => c.status === "fail" && VISUAL.has(c.id)) ? options.renderOf?.(previous.report) : undefined;
+    const images = [...(options.image ? [options.image] : []), ...(looked ? [looked] : [])];
     const response = await options.llm.complete({
       instructions: instructions(brief),
-      text: previous ? repairText(brief, previous) : briefText(brief),
-      ...(options.image && { images: [options.image] }),
+      text: previous ? repairText(brief, previous, looked ? (options.image ? "The second image is your previous attempt as it rendered; the first is the design. Compare them." : "The image is your previous attempt as it rendered.") : undefined) : briefText(brief),
+      ...(images.length && { images }),
       schema: FILES_SCHEMA,
       maxOutputTokens: 16000,
     });
@@ -192,7 +200,7 @@ function briefText(b: Brief): string {
   ].join("\n");
 }
 
-function repairText(b: Brief, previous: Attempt): string {
+function repairText(b: Brief, previous: Attempt, picture?: string): string {
   const failures = [
     ...previous.rejected,
     ...(previous.report?.checks.filter((c) => c.status === "fail").flatMap((c) => [`${c.title}: ${c.summary}`, ...c.details.filter((d) => d.startsWith("✗")).map((d) => `  ${d}`)]) ?? []),
@@ -202,6 +210,7 @@ function repairText(b: Brief, previous: Attempt): string {
     ``,
     `YOUR PREVIOUS ATTEMPT FAILED THESE CHECKS — fix every one, change nothing else:`,
     ...failures.map((f) => `- ${f}`),
+    ...(picture ? [``, picture] : []),
     ``,
     `YOUR PREVIOUS FILES`,
     ...previous.files.map((f) => `--- ${f.path}\n${f.content}`),
