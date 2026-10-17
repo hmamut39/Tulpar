@@ -54,7 +54,7 @@ Nothing from steps 0–6 is replaced. Each phase adds to what exists.
 | G4 | **Hosting** | Deploy the web page as a container. Sign-in or invite codes, per-user limits and a monthly spending cap on the OpenAI key | 🟡 Prepared: Dockerfile, access code, per-visitor limits. Needs a hosting account from you, and a first real deploy |
 | G5 | **Screenshot input** | OpenAI vision turns an image into the same design model, recognising design-system components. Results are marked lower confidence than Figma | ✅ Done (docs/09): a screenshot alone works, in the page and in `tulpar generate --image`; the screenshot enables the pixel comparison |
 | G6 | **Angular** | Adapter + generator: `.component.ts`, `.html`, `.less`, `.spec.ts` | ✅ Done (docs/11): Carbon for Angular; index, JIT build, render, verify; real model passes on attempt 1 |
-| G7 | **Run the generated tests** | Execute `.test.tsx` / `.spec.ts` in a sandbox and add the result to the report (today: delivered, marked "not run") | ✅ Done (docs/12): Vitest browser mode in Chromium, network locked; React and Angular; failures go back for repair |
+| G7 | **Run the generated tests** | Execute `.test.tsx` / `.spec.ts` in a sandbox and add the result to the report (today: delivered, marked "not run") | ✅ Done (docs/12): Vitest browser mode in Chromium, network locked; React, Vue, Angular, Svelte and Web Components (the HTML file imports as a module with `mount()`); failures go back for repair |
 | G8 | **IDE** | VS Code extension (generate from a Figma link; files land in the workspace) and an MCP server (Cursor, Claude Code, Copilot) | ✅ Done (docs/13): MCP server (Claude Code, Cursor, VS Code/Copilot) and a VS Code extension (.vsix) |
 | G9 | **Your own design system** | Index a team's own repository, from GitHub or locally in the IDE, instead of only the built-in Carbon examples. **Done locally (2026-10-10):** `tulpar init`, CSS-variable tokens and the standard Custom Elements Manifest; first run on Shoelace passes (docs/15). Next: React and Angular libraries other than Carbon, and indexing a repo from GitHub on the web page. | 🔄 In progress |
 | G10 | **More stacks** | Vue, Svelte, plain HTML/CSS; then non-JavaScript UI stacks: Flutter (Dart), Jetpack Compose (Kotlin), SwiftUI, Blazor (C#), and Python and Java UI frameworks. One adapter each; the core doesn't change (proven in step 5) | Ongoing, one stack at a time |
@@ -89,7 +89,7 @@ Live at tulparsi.com since 2026-10-11 (Fly.io; GitHub sign-in; free trial and Pr
 1. ✅ **`tulpar check` and a GitHub Action** (`uses: hmamut39/Tulpar@main`): hard-coded values and invented tokens on every pull request, no model.
 2. ✅ **The eval benchmark**: `tulpar eval`, 8 fixed cases across five frameworks, scored and compared run to run (on demand: each run costs model money).
 3. ✅ **Repository RAG**: the team's own uses of each component go into the brief (lexical retrieval).
-4. 🔄 **The smarter loop**: ✅ the repair sees its own render beside the design; next: cost per run shown, best-of-N and model routing.
+4. 🔄 **The smarter loop**: ✅ the repair sees its own render beside the design; ✅ cost per run shown; ✅ repairs start from the best attempt so far; ✅ best-of-N (`--candidates N`: independent drafts, each verified, the best repaired; opt-in); next: model routing (a cheaper model for first drafts), measured with `tulpar eval`.
 5. ✅ **MCP resources** (components and tokens per project) and `tulpar_check`.
 6. ✅ **Self-hosting and bring-your-own model**: any OpenAI-compatible endpoint (Azure OpenAI, a gateway); docs/14.
 7. **The first non-JavaScript stack** (Flutter).
@@ -120,7 +120,7 @@ _Add ideas here, and they'll be folded into the roadmap._
 
 - **A hosted app spends the owner's money.** Every generation is an OpenAI call, and repairs add more. The app needs sign-in or invite codes, per-user limits and a spending cap before it is public.
 - **Company confidentiality.** Teams at large companies usually may not send internal designs or code to a third-party website. The hosted app serves public and personal use; companies need the local or self-hosted mode (the same app, run inside their network) and the IDE extension.
-- **Running generated code safely on a server.** It is bundled without being executed, then rendered only inside headless Chromium with the network blocked. Generated tests are delivered, and marked "not run" until a sandboxed test runner exists. The server never executes generated Node code.
+- **Running generated code safely on a server.** It is bundled without being executed, then rendered only inside headless Chromium with the network blocked. Generated tests run in Vitest browser mode, inside the same locked-down Chromium. The server never executes generated Node code.
 - **Screenshots carry far less than Figma:** no component names, tokens or exact layers. Recognition relies on the vision model, and verification falls back to pixel comparison. The report must say so.
 - **The user's own design system.** The hosted app starts with the design systems it knows (Carbon Web Components and Carbon React). Indexing a user's private repository is the self-hosted or IDE mode's job.
 - **Figma access.** Each user connects their own Figma (a personal access token at first, OAuth later). The owner's free-plan API budget cannot serve other people.
