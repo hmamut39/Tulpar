@@ -82,6 +82,18 @@ v1 proved the flow end to end: Figma or a screenshot in, verified code out, in t
 | "Is our code safe?" | **Privacy and self-hosting.** A clear data policy (OpenAI `store: false` is already set), self-hosted mode (the same Docker image inside a company network), bring-your-own model key, and Azure OpenAI / other providers behind the same `Llm` interface. | — |
 | "Will it learn our style?" | **The data flywheel, then fine-tuning.** Record (design, accepted code, verifier report) and thumbs-up/down, with consent. **Fine-tuning comes later:** it needs thousands of good examples to beat retrieval plus a strong model, and the verifier already fixes most errors. When the data exists: preference tuning (DPO) of a smaller, cheaper model on verified outputs. | Fine-tuning is real, but premature today. RAG and verification give more value per dollar now. |
 
+### Status and order (2026-10-17)
+
+Live at tulparsi.com since 2026-10-11 (Fly.io; GitHub sign-in; free trial and Pro through Stripe). Done since v2 was written: G4 hosting, G9 for npm design systems (web "Add from npm", `tulpar init`), G10 Vue and Svelte, the VS Code extension on the Visual Studio Marketplace and Open VSX, interaction states, Tailwind/styled-components/Emotion, CI/CD that ships the tested image with a live check and rollback. Order of what remains:
+
+1. **`tulpar check` and a GitHub Action** (the CI check above): no model cost; puts the verifier on every pull request.
+2. **The eval benchmark**: fixed frames × frameworks, run on demand (each run costs model money).
+3. **Repository RAG**.
+4. **The smarter loop**: the repair sees the diff image; cost per run shown; then best-of-N and model routing.
+5. **MCP resources** and `tulpar_check`.
+6. **Self-hosting and bring-your-own model key.**
+7. **The first non-JavaScript stack** (Flutter).
+
 ### Launch plan
 
 | Stage | When | What |

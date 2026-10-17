@@ -20,6 +20,7 @@ import { generateCommand } from "./generate.ts";
 import { initCommand } from "./init.ts";
 import { match } from "./match.ts";
 import { verifyCommand } from "./verify.ts";
+import { checkCommand } from "./check.ts";
 import {
   AdapterHost,
   parseFigmaUrl,
@@ -63,6 +64,7 @@ const { positionals, values } = parseArgs({
     force: { type: "boolean", default: false },
     language: { type: "string" },
     styling: { type: "string" },
+    format: { type: "string" },
   },
 });
 
@@ -117,6 +119,12 @@ switch (command) {
     if (!target || !values.from || !values.to) usage();
     process.exitCode = await drift(target, values.from, values.to, values.out);
     break;
+  case "check": {
+    if (!target) usage();
+    const format = values.format === "github" || values.format === "json" ? values.format : "text";
+    process.exitCode = (await checkCommand(target, rest, { format })).code;
+    break;
+  }
   case "verify":
     if (values.figma && !values.frame) values.frame = parseFigmaUrl(values.figma)?.nodeId;
     if (!target || !rest[0] || !values.frame) usage();
@@ -147,6 +155,7 @@ function usage(): never {
       "       tulpar match <projectDir> [--evaluate [--rerank]]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--test <test file>] [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
+      "       tulpar check <projectDir> [files...] [--format text|github|json]   hard-coded values and invented tokens, no model",
       "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3] [--language typescript|javascript] [--styling css|css-modules|scss|less|tailwind|styled-components|emotion]",
     ].join("\n"),
   );
