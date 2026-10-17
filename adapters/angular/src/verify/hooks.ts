@@ -27,7 +27,17 @@ export function angularHooks(known: Set<string>): FrameworkHooks {
           const out: Record<string, { component: string; defined: boolean }> = {};
           for (const el of document.querySelectorAll<HTMLElement>("[data-figma-id]")) {
             const instances = ng ? [ng.getComponent(el), ...ng.getDirectives(el)].filter((x): x is object => !!x) : [];
-            const named = instances.map((i) => byValue.get(i.constructor)).find((n): n is string => !!n);
+            // Several design-system directives on one element: one may apply another as a host directive
+            // (PrimeNG's InputPassword brings InputText). The one the template wrote is the one whose
+            // selector matches the element: its attribute (pInputPassword) or tag is there.
+            type Def = { selectors?: unknown[][] };
+            const written = (ctor: unknown) => {
+              const def = ((ctor as { ɵcmp?: Def; ɵdir?: Def }).ɵcmp ?? (ctor as { ɵdir?: Def }).ɵdir)?.selectors ?? [];
+              return def.some(([tag, ...rest]) => (typeof tag === "string" && tag ? tag === el.localName : rest.some((a) => typeof a === "string" && a !== "" && el.hasAttribute(a))));
+            };
+            const known = instances.filter((i) => byValue.has(i.constructor));
+            const chosen = known.find((i) => written(i.constructor)) ?? known[0];
+            const named = chosen ? byValue.get(chosen.constructor) : undefined;
             // A custom element Angular didn't turn into a component is unknown markup, not a design-system component.
             const unknownCustom = el.localName.includes("-") && !ng?.getComponent(el);
             out[el.dataset.figmaId!] = { component: named ?? el.localName, defined: !unknownCustom || !!named };
