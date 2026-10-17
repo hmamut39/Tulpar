@@ -96,6 +96,8 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
       // an image or a form control. A block-level host can be wider than what it draws (a checkbox and its label).
       const drawn = (host: Element) => {
         const text: string[] = [];
+        // Text present in the DOM but not drawn (screen-reader-only, fully transparent): innerText still has it.
+        const hidden: string[] = [];
         let box: { l: number; t: number; r: number; b: number } | undefined;
         const add = (r: DOMRect) => {
           if (r.width <= 0 || r.height <= 0) return;
@@ -118,12 +120,24 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
           // hidden; their content is visible all the same.
           const contents = n instanceof HTMLSlotElement || getComputedStyle(n).display === "contents";
           if (!contents && !visible(n)) return;
+          // Text for screen readers only (.sr-only, assistive text): clipped to nothing or a 1 px box. Not drawn.
+          if (!contents && n !== host) {
+            const cs = getComputedStyle(n);
+            const r = n.getBoundingClientRect();
+            if (/rect\(0(px)?,? 0(px)?,? 0(px)?,? 0(px)?\)/.test(cs.clip) || cs.clipPath === "inset(50%)" || cs.opacity === "0" || (cs.position === "absolute" && r.width <= 1 && r.height <= 1)) {
+              const s = (n.textContent ?? "").replace(/\s+/g, " ").trim();
+              if (s) hidden.push(s);
+              return;
+            }
+          }
           if (n !== host) {
             const cs = getComputedStyle(n);
             const paints = !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || ["Top", "Right", "Bottom", "Left"].some((s) => parseFloat(cs[`border${s}Width` as "borderTopWidth"]) > 0 && cs[`border${s}Style` as "borderTopStyle"] !== "none") || /^(img|svg|canvas|video|input|textarea|select)$/.test(n.localName);
             if (paints) add(n.getBoundingClientRect());
           }
           if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
+            // A checkbox's or radio's value ("on") is form data, never drawn.
+            if (n instanceof HTMLInputElement && /^(checkbox|radio|hidden|range|color|file)$/.test(n.type)) return;
             const value = n.value ? (n.type === "password" ? "•".repeat(n.value.length) : n.value) : n.placeholder;
             if (value) text.push(value);
             return;
@@ -131,14 +145,15 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
           for (const c of childrenOf(n)) visit(c);
         };
         visit(host);
-        return { text: text.join(" ").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim(), box };
+        return { text: text.join(" ").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim(), box, hidden };
       };
       return [...document.querySelectorAll<HTMLElement>("[data-figma-id]")].map((el) => {
         const r = el.getBoundingClientRect();
-        const inner = (el.innerText || el.textContent || "").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
         // Light-DOM text first; a component that draws its text in its shadow root (a label or
         // placeholder set by attribute) is read through it.
         const d = drawn(el);
+        let inner = (el.innerText || el.textContent || "").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
+        for (const h of d.hidden) inner = inner.replace(h, " ").replace(/\s+/g, " ").trim();
         return {
           figmaId: el.dataset.figmaId!,
           tag: el.localName,

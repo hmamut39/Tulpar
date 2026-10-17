@@ -84,6 +84,7 @@ function collisions(dir, files) {
 const OUTPUTS = {
   react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"], ["typescript:styled-components", "TypeScript · styled-components"], ["typescript:emotion", "TypeScript · Emotion"], ["javascript:styled-components", "JavaScript · styled-components"]],
   vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
+  svelte: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
   angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
 };
 

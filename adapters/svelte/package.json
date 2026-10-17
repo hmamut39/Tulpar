@@ -1,0 +1,14 @@
+{
+  "name": "@tulpar/adapter-svelte",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "tulpar-adapter-svelte": "./src/main.ts" },
+  "dependencies": {
+    "@tulpar/core": "0.0.0",
+    "@tulpar/web-kit": "0.0.0",
+    "esbuild": "0.28.2",
+    "svelte": "5.57.2",
+    "typescript": "~6.0.0"
+  }
+}

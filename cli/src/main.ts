@@ -140,7 +140,7 @@ function figmaClient(): FigmaClient {
 function usage(): never {
   console.error(
     [
-      "usage: tulpar init [dir] [--figma <file URL>] [--package <name>] [--adapter react|angular|vue|web-components] [--force]",
+      "usage: tulpar init [dir] [--figma <file URL>] [--package <name>] [--adapter react|angular|vue|svelte|web-components] [--force]",
       "       tulpar model <fileKey> <nodeId>... [--offline]",
       "       tulpar library <fileKey> [--batch 4] [--offline]",
       "       tulpar index <projectDir>",

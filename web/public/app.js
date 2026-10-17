@@ -5,10 +5,11 @@ import { initAccount, refreshAllowance, showNotice, signedIn, upgrade } from "./
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
 const FRAMEWORK_KEY = "tulpar.framework";
-const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", "web-components": "Web Components" };
+const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", "web-components": "Web Components" };
 // Language and styling each framework can write in: value "language:styling".
 const OUTPUTS = {
   react: [["typescript:css", "TypeScript · CSS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["typescript:scss", "TypeScript · SCSS"], ["javascript:css", "JavaScript · CSS"], ["javascript:css-modules", "JavaScript · CSS Modules"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"], ["typescript:styled-components", "TypeScript · styled-components"], ["typescript:emotion", "TypeScript · Emotion"], ["javascript:styled-components", "JavaScript · styled-components"]],
+  svelte: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
   angular: [["typescript:less", "TypeScript · LESS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:css", "TypeScript · CSS"]],
   vue: [["typescript:css", "TypeScript · scoped CSS"], ["typescript:scss", "TypeScript · SCSS"], ["typescript:less", "TypeScript · LESS"], ["typescript:css-modules", "TypeScript · CSS Modules"], ["javascript:css", "JavaScript · scoped CSS"], ["javascript:scss", "JavaScript · SCSS"], ["typescript:tailwind", "TypeScript · Tailwind CSS"], ["javascript:tailwind", "JavaScript · Tailwind CSS"]],
   "web-components": [["", "HTML · CSS · JavaScript"]],
@@ -19,9 +20,10 @@ const OUTPUT_HINTS = {
   react: "React components are written in TypeScript or JavaScript. Pick the styling your team uses.",
   vue: "Vue single-file components, in TypeScript or JavaScript, with the style block your team uses.",
   angular: "Angular is written in TypeScript. Pick the stylesheet language your team uses.",
+  svelte: "Svelte 5 components, in TypeScript or JavaScript, with scoped styles or Tailwind.",
   "web-components": "Web Components are written in HTML, CSS and JavaScript only.",
 };
-const LANGUAGES_LATER = "Other languages arrive with their frameworks: Svelte, Flutter (Dart), SwiftUI (Swift) and Jetpack Compose (Kotlin) are coming.";
+const LANGUAGES_LATER = "Other languages arrive with their frameworks: Flutter (Dart), SwiftUI (Swift) and Jetpack Compose (Kotlin) are coming.";
 function fillOutputs() {
   const adapter = $("framework").value;
   const options = OUTPUTS[adapter] ?? [["", "The framework's default"]];
@@ -34,14 +36,14 @@ function fillOutputs() {
 $("output").addEventListener("change", () => storage.set(OUTPUT_KEY + $("framework").value, $("output").value));
 
 // Shown so people know what is coming, but never selectable before an adapter exists for it.
-const COMING_SOON = ["Svelte", "Flutter (Dart)", "SwiftUI (Swift)", "Jetpack Compose (Kotlin)"];
+const COMING_SOON = ["Flutter (Dart)", "SwiftUI (Swift)", "Jetpack Compose (Kotlin)"];
 // Most-used first; the page opens on the first one unless the visitor chose another before.
-const FRAMEWORK_ORDER = ["react", "vue", "angular", "web-components"];
+const FRAMEWORK_ORDER = ["react", "vue", "angular", "svelte", "web-components"];
 // Product names for known packages; anything else shows its package name.
 const PRODUCTS = {
   "@carbon/react": "Carbon (IBM)", "@carbon/web-components": "Carbon (IBM)", "carbon-components-angular": "Carbon (IBM)",
   "@mui/material": "Material UI (MUI)", "@chakra-ui/react": "Chakra UI", "@radix-ui/themes": "Radix Themes",
-  "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG", "element-plus": "Element Plus",
+  "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG", "element-plus": "Element Plus", "carbon-components-svelte": "Carbon (IBM)",
 };
 let projects = [];
 let current = null; // the job being shown

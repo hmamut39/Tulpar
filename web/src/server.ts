@@ -85,7 +85,7 @@ export function listProjects(repoRoot: string): ProjectInfo[] {
 
 function projectsIn(base: string): ProjectInfo[] {
   if (!existsSync(base)) return [];
-  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue" };
+  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte" };
   return readdirSync(base, { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(join(base, d.name, "tulpar.json")))
     .map((d) => {
@@ -280,7 +280,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         if (recent.length >= 5) return json(res, 429, { error: "You can add 5 design systems a day." });
         const pkg = String(body.package ?? "").trim();
         if (!pkg) return json(res, 400, { error: "Type the npm package name of your design system." });
-        const framework = ["react", "angular", "vue", "web-components"].includes(String(body.framework)) ? (body.framework as Framework) : undefined;
+        const framework = ["react", "angular", "vue", "svelte", "web-components"].includes(String(body.framework)) ? (body.framework as Framework) : undefined;
         recent.push(Date.now());
         addedToday.set(who, recent);
         const job: AddJob = { id: randomUUID(), state: "running", steps: ["Waiting for the installer…"] };

@@ -34,6 +34,8 @@ export interface BundleInput {
   plugins?: esbuild.Plugin[];
   /** Compile-time flags a framework's build expects (Vue's __VUE_OPTIONS_API__). */
   define?: Record<string, string>;
+  /** Package export conditions to resolve with (Svelte packages publish components under "svelte"). */
+  conditions?: string[];
 }
 
 export async function bundle(input: BundleInput): Promise<BundleResult> {
@@ -99,6 +101,7 @@ export async function bundle(input: BundleInput): Promise<BundleResult> {
       target: "es2022",
       jsx: "automatic",
       define: { "process.env.NODE_ENV": '"production"', ...input.define },
+      ...(input.conditions && { conditions: input.conditions }),
       outfile: join(input.outDir, "bundle.js"),
       logLevel: "silent",
       write: true,

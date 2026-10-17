@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { detect } from "@tulpar/cli/init";
 import { loadProject, withAdapter } from "@tulpar/cli/project";
 
-export type Framework = "react" | "angular" | "vue" | "web-components";
+export type Framework = "react" | "angular" | "vue" | "svelte" | "web-components";
 
 export interface AddRequest {
   package: string;
@@ -43,6 +43,7 @@ const BASELINE: Record<Framework, Record<string, string>> = {
     "@angular/forms": "22.2.0", "@angular/platform-browser": "22.2.0", "@angular/router": "22.2.0", rxjs: "7.8.2", "zone.js": "0.16.3",
   },
   vue: { vue: "^3.5.0" },
+  svelte: { svelte: "^5.0.0" },
   "web-components": {},
 };
 
@@ -62,7 +63,7 @@ export async function resolvePackage(req: AddRequest, fetchImpl: typeof fetch = 
   const meta = (await res.json()) as { version: string; peerDependencies?: Record<string, string>; dependencies?: Record<string, string>; dist?: { unpackedSize?: number }; customElements?: string };
   if ((meta.dist?.unpackedSize ?? 0) > MAX_UNPACKED) throw new Error(`${name} is too large to install here (${Math.round((meta.dist!.unpackedSize ?? 0) / 1048576)} MB).`);
   const deps = { ...meta.dependencies, ...meta.peerDependencies };
-  const framework: Framework = req.framework ?? (deps["@angular/core"] ? "angular" : deps.react ? "react" : deps.vue ? "vue" : "web-components");
+  const framework: Framework = req.framework ?? (deps["@angular/core"] ? "angular" : deps.react ? "react" : deps.vue ? "vue" : deps.svelte ? "svelte" : "web-components");
   return { name, version: meta.version, framework };
 }
 
@@ -77,7 +78,7 @@ export async function addProject(root: string, req: AddRequest, step: (text: str
   }
   // The data disk is shared and small: a cap on how many design systems are installed.
   if (listCustom(root).length >= MAX_PROJECTS) throw new Error("Tulpar has no room for more design systems right now. Write to us and we'll make space.");
-  step(`Installing ${name}@${version} (${{ "web-components": "Web Components", react: "React", angular: "Angular", vue: "Vue" }[framework]})…`);
+  step(`Installing ${name}@${version} (${{ "web-components": "Web Components", react: "React", angular: "Angular", vue: "Vue", svelte: "Svelte" }[framework]})…`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "package.json"), JSON.stringify({ name: id, private: true, description: `${name}@${version}, added from the Tulpar web page.`, dependencies: { [name]: version, ...BASELINE[framework] } }, null, 2) + "\n");

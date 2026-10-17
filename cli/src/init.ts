@@ -1,4 +1,4 @@
-// tulpar init [dir] [--figma <file URL or key>] [--package <name>] [--adapter react|angular|vue|web-components] [--force]
+// tulpar init [dir] [--figma <file URL or key>] [--package <name>] [--adapter react|angular|vue|svelte|web-components] [--force]
 //
 // Points Tulpar at a team's own design system: finds the framework, the design-system package,
 // its tokens (DTCG files or CSS custom properties, with theme selectors as modes), stylesheets
@@ -20,7 +20,7 @@ export interface InitOptions {
   noCheck?: boolean;
 }
 
-type Adapter = "react" | "angular" | "vue" | "web-components";
+type Adapter = "react" | "angular" | "vue" | "svelte" | "web-components";
 
 export interface Detected {
   adapter: Adapter;
@@ -154,8 +154,8 @@ export function detect(root: string, options: InitOptions = {}): Detected {
   const deps: string[] = Object.keys({ ...pkg.peerDependencies, ...pkg.devDependencies, ...pkg.dependencies });
   const why: string[] = [];
 
-  const adapter: Adapter = (options.adapter as Adapter) ?? (deps.includes("@angular/core") ? "angular" : deps.includes("react") ? "react" : deps.includes("vue") ? "vue" : "web-components");
-  why.push(options.adapter ? `adapter: ${adapter} (given)` : `adapter: ${adapter} (${adapter === "angular" ? "@angular/core" : adapter === "react" ? "react" : adapter === "vue" ? "vue" : "none of react, @angular/core or vue"} in package.json)`);
+  const adapter: Adapter = (options.adapter as Adapter) ?? (deps.includes("@angular/core") ? "angular" : deps.includes("react") ? "react" : deps.includes("vue") ? "vue" : deps.includes("svelte") ? "svelte" : "web-components");
+  why.push(options.adapter ? `adapter: ${adapter} (given)` : `adapter: ${adapter} (${adapter === "angular" ? "@angular/core" : adapter === "react" ? "react" : adapter === "vue" ? "vue" : adapter === "svelte" ? "svelte" : "none of react, @angular/core, vue or svelte"} in package.json)`);
 
   // The design-system package: given, or the dependency that looks most like one.
   const dirOf = (name: string) => join(root, "node_modules", name);
@@ -351,11 +351,11 @@ function scorePackage(dir: string, adapter: Adapter): { score: number; evidence:
     score += 2;
     evidence.push("described as components / design system");
   }
-  if ((adapter === "react" && /react/i.test(words)) || (adapter === "angular" && /angular/i.test(words)) || (adapter === "vue" && /vue/i.test(words))) {
+  if ((adapter === "react" && /react/i.test(words)) || (adapter === "angular" && /angular/i.test(words)) || (adapter === "vue" && /\bvue/i.test(words)) || (adapter === "svelte" && /svelte/i.test(words))) {
     score += 1;
     evidence.push(`mentions ${adapter}`);
   }
-  if (pkg.peerDependencies?.react || pkg.peerDependencies?.["@angular/core"] || pkg.peerDependencies?.vue) {
+  if (pkg.peerDependencies?.react || pkg.peerDependencies?.["@angular/core"] || pkg.peerDependencies?.vue || pkg.peerDependencies?.svelte) {
     score += 2;
     evidence.push("framework peer dependency");
   }

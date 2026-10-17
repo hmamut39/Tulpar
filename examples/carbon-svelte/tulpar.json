@@ -1,0 +1,24 @@
+{
+  "adapter": "svelte",
+  "svelte": {
+    "packages": [
+      "node_modules/carbon-components-svelte"
+    ],
+    "styleDirs": [
+      "node_modules/carbon-components-svelte"
+    ],
+    "tokens": {
+      "css": {
+        "files": [
+          "node_modules/carbon-components-svelte/css/all.css"
+        ],
+        "prefix": "cds"
+      }
+    },
+    "render": {
+      "stylesheets": [
+        "node_modules/carbon-components-svelte/css/all.css"
+      ]
+    }
+  }
+}

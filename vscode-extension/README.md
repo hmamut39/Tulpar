@@ -4,7 +4,7 @@
 
 Tulpar writes the component with your design system's real components and tokens (Carbon, Material UI, Chakra UI, Radix Themes, PrimeNG, Element Plus, Shoelace, or your own from npm). Then it builds the component, renders it in a sandboxed browser and checks it against the design before you see it. Anything that fails goes back to the model to fix, and the report tells you what it checked and what it couldn't.
 
-Frameworks: **React, Vue, Angular, Web Components**. You pick the language and styling your team writes, such as TypeScript or JavaScript with CSS, CSS Modules, SCSS or Less.
+Frameworks: **React, Vue, Angular, Svelte, Web Components**. You pick the language and styling your team writes: TypeScript or JavaScript with CSS, CSS Modules, SCSS, Less, Tailwind CSS, styled-components or Emotion.
 
 ## Get started
 
