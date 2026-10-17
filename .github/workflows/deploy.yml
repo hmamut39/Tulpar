@@ -1,5 +1,8 @@
 # Deploys main to Fly.io after CI passes, once the FLY_API_TOKEN secret exists
 # (fly tokens create deploy -x 999999h; GitHub → Settings → Secrets → Actions). See docs/14-deploy.md.
+#
+# It releases the image CI built and tested (registry.fly.io/tulpar:<commit>), then checks the live
+# site; if the site is not healthy, it rolls back to the image that was running before.
 name: Deploy
 
 on:
@@ -19,19 +22,48 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SITE: https://tulparsi.com
     steps:
       - name: Skip until Fly.io is set up
         id: ready
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: if [ -n "$FLY_API_TOKEN" ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; else echo "::notice::FLY_API_TOKEN is not set; not deploying."; fi
       - if: steps.ready.outputs.ok
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.SHA }}
       - if: steps.ready.outputs.ok
-        uses: superfly/flyctl-actions/setup-flyctl@master
-      - if: steps.ready.outputs.ok
-        run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        uses: superfly/flyctl-actions/setup-flyctl@1.6
+      - name: Note the running image, to roll back to
+        if: steps.ready.outputs.ok
+        id: before
+        run: echo "image=$(flyctl image show --app tulpar --json | jq -r '(if type == "array" then .[0] else . end) | .Registry + "/" + .Repository + "@" + .Digest')" >> "$GITHUB_OUTPUT"
+      - name: Release the tested image
+        if: steps.ready.outputs.ok
+        run: |
+          echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin >/dev/null
+          if docker manifest inspect "registry.fly.io/tulpar:$SHA" >/dev/null 2>&1; then
+            flyctl deploy --app tulpar --image "registry.fly.io/tulpar:$SHA"
+          else
+            echo "::notice::No tested image for $SHA in the registry; building on Fly."
+            flyctl deploy --app tulpar --remote-only
+          fi
+      - name: Check the live site
+        if: steps.ready.outputs.ok
+        id: smoke
+        run: |
+          ok=
+          for i in $(seq 1 20); do
+            if curl -fs "$SITE/healthz" >/dev/null && curl -fs "$SITE/api/config" -o config.json; then ok=1; break; fi
+            sleep 6
+          done
+          [ -n "$ok" ] || { echo "the site is not answering"; exit 1; }
+          for a in react vue angular svelte web-components; do grep -q "\"adapter\":\"$a\"" config.json || { echo "no $a project on the live site"; exit 1; }; done
+          curl -fs "$SITE/" | grep -q "<title>Tulpar</title>"
+      - name: Roll back
+        if: failure() && steps.smoke.outcome == 'failure' && steps.before.outputs.image != ''
+        run: |
+          echo "::error::The new release failed its live check; rolling back to ${{ steps.before.outputs.image }}"
+          flyctl deploy --app tulpar --image "${{ steps.before.outputs.image }}"

@@ -1,5 +1,7 @@
-# Every push and pull request: typecheck and tests, then build the production image and
-# smoke-test it (it must refuse to start without access codes, and serve the page with them).
+# Every push and pull request: typecheck and the whole test suite (with the example design systems
+# installed, so the adapters' integration tests run instead of skipping), then build the production
+# image and smoke-test it. On main, the tested image is pushed to Fly's registry: the deploy releases
+# exactly that image instead of building another.
 name: CI
 
 on:
@@ -10,10 +12,15 @@ on:
 permissions:
   contents: read
 
+# A newer push makes an older run of the same branch pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,9 +28,28 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Chromium for rendering and Vitest browser mode, cached by Playwright's version.
+      - id: playwright
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      # The example design systems: the Vue, Svelte, React and Angular integration tests run against them.
+      - uses: actions/cache@v4
+        id: examples
+        with:
+          path: examples/*/node_modules
+          key: examples-${{ runner.os }}-${{ hashFiles('examples/*/package-lock.json') }}
+      - if: steps.examples.outputs.cache-hit != 'true'
+        run: for d in examples/*/; do (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done
       - run: npm run typecheck
-      # Tests that need the Carbon examples installed or the Figma cache skip themselves here.
+      # Tests that need the Figma cache (not in the repository) skip themselves here.
       - run: npm test
 
   image:
@@ -42,7 +68,7 @@ jobs:
       - name: Refuses to start in production without access codes
         run: |
           if docker run --rm -e NODE_ENV=production tulpar:ci; then echo "started without access codes"; exit 1; fi
-      - name: Serves the page and the health check
+      - name: Serves the page, the health check and every framework
         run: |
           set -x
           docker run -d --name tulpar-smoke -p 8080:8080 -e TULPAR_ACCESS_CODES=ci-code tulpar:ci
@@ -50,7 +76,18 @@ jobs:
           curl -fs localhost:8080/healthz
           curl -fs localhost:8080/ -o page.html && grep -q "<title>Tulpar</title>" page.html
           curl -fs localhost:8080/api/config -o config.json && grep -q '"accessCodeRequired":true' config.json
+          for a in react vue angular svelte web-components; do grep -q "\"adapter\":\"$a\"" config.json || { echo "no $a project"; exit 1; }; done
           curl -fsI localhost:8080/ -o headers.txt && grep -qi "content-security-policy" headers.txt
           docker exec tulpar-smoke test -f /app/data/out/library.json
       - if: failure()
         run: docker logs tulpar-smoke || true
+      # main only: the image that passed is the one that ships.
+      - name: Push the tested image to Fly's registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then echo "::notice::FLY_API_TOKEN is not set; the deploy will build the image itself."; exit 0; fi
+          echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
+          docker tag tulpar:ci registry.fly.io/tulpar:${{ github.sha }}
+          docker push registry.fly.io/tulpar:${{ github.sha }}

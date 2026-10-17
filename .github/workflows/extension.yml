@@ -1,0 +1,58 @@
+# The VS Code extension: when its version changes on main (and CI passed), package it, publish it to
+# Open VSX (Cursor, Windsurf, VSCodium), and attach the .vsix to a GitHub release for the Visual Studio
+# Marketplace upload. A version already on Open VSX is never published twice.
+name: Extension
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: extension
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Is this version new?
+        id: version
+        run: |
+          v=$(node -p "require('./package.json').version")
+          id=$(node -p "const p=require('./package.json'); p.publisher + '/' + p.name")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if curl -fs "https://open-vsx.org/api/$id/$v" >/dev/null; then echo "::notice::$id $v is already on Open VSX."; else echo "new=1" >> "$GITHUB_OUTPUT"; fi
+      - name: Package
+        if: steps.version.outputs.new
+        run: npx --yes @vscode/vsce@3.6.2 package --no-dependencies
+      - name: Publish to Open VSX
+        if: steps.version.outputs.new
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then echo "::warning::OVSX_PAT is not set; not publishing to Open VSX."; exit 0; fi
+          npx --yes ovsx@0.10.5 publish "tulpar-${{ steps.version.outputs.version }}.vsix"
+      - name: Release the .vsix for the Visual Studio Marketplace
+        if: steps.version.outputs.new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="extension-v${{ steps.version.outputs.version }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" "tulpar-${{ steps.version.outputs.version }}.vsix" \
+            --title "VS Code extension ${{ steps.version.outputs.version }}" \
+            --notes "Published to Open VSX. For the Visual Studio Marketplace: download the .vsix and upload it at https://marketplace.visualstudio.com/manage/publishers/tulparsi (⋮ → Update)."
