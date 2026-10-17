@@ -73,7 +73,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     "tulpar_projects",
     {
       title: "List Tulpar projects",
-      description: "The design systems and frameworks Tulpar can generate for: each project pairs a component library with a framework (React, Angular, Web Components…). Use a project's id in tulpar_generate and tulpar_verify.",
+      description: "The design systems and frameworks Tulpar can generate for: each project pairs a component library with a framework (React, Vue, Angular, Svelte or Web Components). Use a project's id in tulpar_generate and tulpar_verify.",
       inputSchema: z.object({}),
       outputSchema: z.object({ projects: z.array(z.object({ id: z.string(), adapter: z.string(), dir: z.string() })) }),
     },
@@ -88,15 +88,15 @@ export function createServer(options: TulparMcpOptions): McpServer {
     {
       title: "Generate a verified component from Figma or a screenshot",
       description:
-        "Writes a UI component with the project's own design-system components and tokens, from a Figma frame link and/or a screenshot. Tulpar builds and renders it, checks it against the design (components used vs invented, tokens vs hard-coded values, layout, text, typeface, its generated tests, pixels when a screenshot is given), and repairs failures. Returns the files and the verification report. Takes 30–120 seconds.",
+        "Writes a UI component with the project's own design-system components and tokens, from a Figma frame link and/or a screenshot. Tulpar builds and renders it, checks it against the design (components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, its generated tests, pixels when a screenshot is given), and repairs failures. Returns the files and the verification report. Takes 30–120 seconds.",
       inputSchema: z.object({
         project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
         name: z.string().describe("PascalCase component name, e.g. CheckoutCard"),
         figmaUrl: z.string().optional().describe("A Figma frame link (right-click the frame → Copy link to selection)"),
         screenshot: z.string().optional().describe("Path to a PNG, JPEG or WebP screenshot of the design"),
         attempts: z.number().int().min(1).max(5).optional().describe("Generate-verify-repair attempts (default 3)"),
-        language: z.enum(["typescript", "javascript"]).optional().describe("React and Vue: write TypeScript (default) or JavaScript, to match the codebase"),
-        styling: z.enum(["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"]).optional().describe("React: css (default), css-modules, scss, tailwind, styled-components or emotion. Vue: css (scoped, default), scss, less, css-modules or tailwind. Angular: less (default), scss or css"),
+        language: z.enum(["typescript", "javascript"]).optional().describe("React, Vue and Svelte: write TypeScript (default) or JavaScript, to match the codebase"),
+        styling: z.enum(["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"]).optional().describe("React: css (default), css-modules, scss, tailwind, styled-components or emotion. Vue: css (scoped, default), scss, less, css-modules or tailwind. Svelte: css (scoped, default) or tailwind. Angular: less (default), scss or css"),
         writeTo: z.string().optional().describe("Directory to write the files into, e.g. inside the user's workspace"),
         overwrite: z.boolean().optional().describe("Allow replacing existing files in writeTo (default false)"),
       }),
@@ -163,7 +163,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     "tulpar_verify",
     {
       title: "Verify a component against a Figma frame",
-      description: "Builds and renders an existing implementation inside a Tulpar project, and checks it against a Figma frame: design-system components used vs invented, tokens vs hard-coded values, layout, text, typeface, and its tests when given. Reports pass, fail or not-checked for each.",
+      description: "Builds and renders an existing implementation inside a Tulpar project, and checks it against a Figma frame: design-system components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, and its tests when given. Reports pass, fail or not-checked for each.",
       inputSchema: z.object({
         project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
         entry: z.string().describe("The implementation's entry file, relative to the project (e.g. src/Card.tsx)"),
