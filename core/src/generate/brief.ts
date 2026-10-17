@@ -44,6 +44,8 @@ export interface Brief {
   /** Spacing and size tokens that exist in code, with their values: the only ones the model may use. */
   dimensions: { name: string; codeRef?: string; points: number }[];
   conventions: Conventions;
+  /** The team's own uses of the components this design needs, to follow its conventions. */
+  examples: { component: string; file: string; code: string }[];
 }
 
 export interface BriefInput {
@@ -55,6 +57,8 @@ export interface BriefInput {
   library?: Library;
   conventions: Conventions;
   mode?: string;
+  /** How the team's own code already uses design-system components: component name → snippets from its repository. */
+  examples?: Record<string, { file: string; code: string }[]>;
 }
 
 export function buildBrief(input: BriefInput): Brief {
@@ -119,6 +123,7 @@ export function buildBrief(input: BriefInput): Brief {
     outline: [`ROOT maps to: ${rootComponent ?? "no design-system component (compose it)"}`, ...lines].join("\n"),
     instances,
     components,
+    examples: [...new Set(used)].flatMap((name) => (input.examples?.[name] ?? []).map((e) => ({ component: name, ...e }))),
     tokens: input.tokens ? tokenHints(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : [],
     ...(accent && { accent }),
     dimensions: (input.tokens?.tokens ?? [])

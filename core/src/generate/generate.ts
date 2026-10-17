@@ -170,6 +170,10 @@ function briefText(b: Brief): string {
     ``,
     `DESIGN-SYSTEM COMPONENTS (their real API)`,
     b.components || "(none mapped)",
+    ...(b.examples.length
+      ? [``, `HOW THIS CODEBASE ALREADY USES THEM (follow its conventions: the props it sets, how it lays them out; the design still decides what to build)`, ...b.examples.map((e) => `- ${e.component}, in ${e.file}:
+    ${e.code}`)]
+      : []),
     ``,
     `TOKENS FOR THE DESIGN'S COLOURS (Figma variable → candidate tokens, best first)`,
     ...(b.tokens.length ? b.tokens.map((t) => `- ${t.variable} (used ${t.uses}×): ${t.tokens.slice(0, 4).map((x) => x.codeRef ?? x.name).join(", ") || "no token has this value: report it in notes"}`) : ["(none)"]),

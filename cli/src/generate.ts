@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { OpenAiLlm, fillName, generate, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
+import { codebaseExamples } from "./examples.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
@@ -97,6 +98,17 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     const workDir = join(".tulpar", "generated", options.name);
     let attempt = 0;
 
+    // How the team's own code already uses these components (searched as written: a name, or the tag
+    // its markup starts with, <cds-button>), so the generation follows its conventions.
+    const tagOf = new Map<string, string>();
+    for (const name of new Set(ctx.mapping.values())) {
+      const markup = ctx.index.components.find((c) => c.name === name)?.markup;
+      tagOf.set(/^<([a-z][\w-]*)/.exec(markup ?? "")?.[1] ?? name, name);
+    }
+    const found = codebaseExamples(project.root, [...tagOf.keys()]);
+    const examples = Object.fromEntries(Object.entries(found).map(([tag, uses]) => [tagOf.get(tag)!, uses]));
+    if (Object.keys(examples).length) log(`Found how this codebase uses ${Object.keys(examples).join(", ")}: ${Object.values(examples).flat().length} example(s) in the brief.`);
+
     return generate({
       llm,
       name: options.name,
@@ -104,6 +116,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       mapping: ctx.mapping,
       index: ctx.index,
       conventions,
+      ...(Object.keys(examples).length && { examples }),
       ...(tokens && { tokens }),
       ...(ctx.library && { library: ctx.library }),
       maxAttempts: options.attempts ?? 3,
