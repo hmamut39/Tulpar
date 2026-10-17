@@ -18,8 +18,12 @@ import "./ModalActions.css";
 export default function ModalActions() {
   return (
     <ModalFooter data-figma-id="3906:50588">
-      <Button kind="secondary" size="xl" data-figma-id="4122:87677">Button</Button>
-      <Button kind="primary" size="xl" data-figma-id="4122:86445">Button</Button>
+      <Button kind="secondary" size="xl" data-figma-id="4122:87677">
+        Button
+      </Button>
+      <Button kind="primary" size="xl" data-figma-id="4122:86445">
+        Button
+      </Button>
     </ModalFooter>
   );
 }

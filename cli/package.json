@@ -7,7 +7,9 @@
     "tulpar": "./src/main.ts"
   },
   "dependencies": {
-    "@tulpar/core": "0.0.0"
+    "@tulpar/core": "0.0.0",
+    "prettier": "3.9.10",
+    "prettier-plugin-svelte": "4.1.1"
   },
   "exports": {
     "./generate": "./src/generate.ts",

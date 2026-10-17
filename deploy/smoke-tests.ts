@@ -3,6 +3,7 @@
 // image, as the server's user, in the sandboxed browser. No model is called. Run: node deploy/smoke-tests.ts
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { formatFiles } from "../cli/src/format.ts";
 import { loadProject, withAdapter } from "../cli/src/project.ts";
 import type { TestRunResult } from "@tulpar/core";
 
@@ -66,4 +67,12 @@ for (const c of cases) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+// Generated files are formatted in the image too (Prettier, and its Svelte plugin).
+const formatted = await formatFiles(repo, [
+  { path: "A.tsx", content: "export default function A(){return <b>Go</b>}" },
+  { path: "A.svelte", content: "<script>let a=1</script>\n<b>{a}</b>" },
+]);
+const formatOk = formatted[0]!.content === "export default function A() {\n  return <b>Go</b>;\n}\n" && formatted[1]!.content.includes("  let a = 1;");
+if (!formatOk) failed++;
+console.log(`${formatOk ? "ok  " : "FAIL"} formatting: ${formatOk ? "TSX and Svelte formatted" : JSON.stringify(formatted.map((f) => f.content))}`);
 process.exit(failed ? 1 : 0);

@@ -8,6 +8,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { OpenAiLlm, fillName, generate, tokenCost, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
+import { formatFiles } from "./format.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
@@ -131,6 +132,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
         if (e.type === "generated") log(`  wrote ${e.files.join(", ") || "no files"}`);
         if (e.type === "verified") log(`  verification: ${e.report.verdict}${e.report.checks.filter((c) => c.status === "fail").map((c) => `; ✗ ${c.summary}`).join("")}`);
       },
+      format: (files) => formatFiles(join(project.root, workDir), files),
       verify: async (files) => {
         await writeFiles(project, workDir, files);
         const entry = join(workDir, conventions.entry.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");

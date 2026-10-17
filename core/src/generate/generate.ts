@@ -41,6 +41,8 @@ export interface GenerateOptions extends BriefInput {
   llm: Llm;
   /** Build, render and verify a set of files; supplied by the caller (it knows the adapter). */
   verify: (files: GeneratedFile[]) => Promise<VerifyReport>;
+  /** Formats accepted files the way the project does, before they are verified and delivered. */
+  format?: (files: GeneratedFile[]) => Promise<GeneratedFile[]>;
   maxAttempts?: number;
   /** Independent first drafts, each verified; repairs (maxAttempts - 1 of them) start from the best. Default 1. */
   candidates?: number;
@@ -114,6 +116,7 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
       else files.push({ path, content: f.content });
     }
     for (const e of expected) if (!files.some((f) => f.path === e)) rejected.push(`Missing file "${e}".`);
+    if (options.format && files.length) files.splice(0, files.length, ...(await options.format(files)));
     options.onEvent?.({ type: "generated", attempt: n, files: files.map((f) => f.path) });
 
     const attempt: Attempt = { files, rejected, ...(response.usage && { usage: response.usage }) };
