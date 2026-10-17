@@ -25,7 +25,8 @@ describe("accessibility of the web pages", { timeout: 120_000 }, () => {
   afterAll(async () => {
     await browser?.close();
     await server?.close();
-  });
+    // Closing Chromium can be slow while the rest of the suite runs in parallel.
+  }, 60_000);
 
   for (const scheme of ["light", "dark"] as const) {
     it(`has no WCAG A or AA violations in ${scheme} mode`, async () => {

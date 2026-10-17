@@ -11,5 +11,10 @@
   },
   "scripts": {
     "code-connect": "git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-design-system/carbon.git ../../.cache/repos/carbon && git -C ../../.cache/repos/carbon sparse-checkout set --no-cone '**/*.figma.ts' '**/*.figma.tsx'"
+  },
+  "devDependencies": {
+    "@vitest/browser-playwright": "^5.0.5",
+    "playwright": "^1.63.0",
+    "vitest": "^5.0.5"
   }
 }

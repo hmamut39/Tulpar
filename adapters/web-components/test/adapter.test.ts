@@ -34,7 +34,7 @@ describe("web-components adapter on a fixture package", () => {
     expect(host.manifest).toMatchObject({
       id: "web-components",
       protocolVersion: PROTOCOL_VERSION,
-      capabilities: { index: true, tokens: true, links: true, build: true, render: { supported: true }, runtimeStyleProvenance: true, emit: false, forceStates: ["hover", "pressed", "focus"] },
+      capabilities: { index: true, tokens: true, links: true, build: true, render: { supported: true }, runtimeStyleProvenance: true, emit: false, tests: true, forceStates: ["hover", "pressed", "focus"] },
     });
     await expect(host.call("emit" as "index", { root: fixtureRoot, config: {} })).rejects.toMatchObject({ code: ErrorCodes.MethodNotFound });
     await host.stop();

@@ -3,10 +3,11 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { exampleImport, indexPackage } from "./components.ts";
 import { readLinks } from "./links.ts";
-import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { build } from "./verify/build.ts";
 import { webComponentHooks } from "./verify/hooks.ts";
 import { analyzeImplementation, parseImplementation } from "./verify/impl.ts";
@@ -38,6 +39,7 @@ serve({
       render: { supported: true, hostOS: ["linux", "windows", "macos"] },
       runtimeStyleProvenance: true,
       staticProvenance: true,
+      tests: true,
       forceStates: ["hover", "pressed", "focus"],
       themes: true,
     },
@@ -80,6 +82,17 @@ serve({
     return analyzeImplementation(impl, params.entry, prefix(params.config));
   },
 
+  // Specs run in Vitest browser mode; Tulpar's plugin makes Name.html importable, with a mount().
+  test: (params) => {
+    const setup = (params.config as Config).render?.setup;
+    return runVitestBrowser({
+      root: params.root,
+      testFile: params.entry,
+      pluginImports: [`import { tulparWebComponents } from ${JSON.stringify(pathToFileURL(join(import.meta.dirname, "verify", "vitest-plugin.mjs")).href)};`],
+      plugins: `[tulparWebComponents(${setup ? JSON.stringify(join(params.root, setup).replace(/\\/g, "/")) : ""})]`,
+    });
+  },
+
   conventions: (params) => {
     const dir = packageDirs(params)[0] ?? params.root;
     const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).name as string;
@@ -90,7 +103,10 @@ serve({
     return {
       language: "HTML, CSS and JavaScript modules",
       framework: `Web Components (${pkg})`,
-      files: [{ path: "{name}.html", role: "component", description: "One HTML file: a <script type=\"module\"> that imports the design-system elements it uses, a <style> block for the component's own layout, and the markup." }],
+      files: [
+        { path: "{name}.html", role: "component", description: "One HTML file: a <script type=\"module\"> that imports the design-system elements it uses, a <style> block for the component's own layout, and the markup." },
+        { path: "{name}.test.js", role: "test", description: "Vitest tests: it mounts, shows the design's text, and uses the design-system elements." },
+      ],
       entry: "{name}.html",
       rules: [
         `Import each design-system element from its own module, the way the component list gives it, e.g. ${importLine}`,
@@ -98,6 +114,7 @@ serve({
         "Put data-figma-id attributes directly on the custom elements.",
         `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
         "Use only static imports at the top of the module script; no top-level await or dynamic import().",
+        `In {name}.test.js import { describe, it, expect } from "vitest" and { mount } from "./{name}.html" (Tulpar makes the HTML file a module: mount() runs its scripts, puts its style and markup into document.body and returns the host element). Await customElements.whenDefined(tag) and the element's updateComplete before querying; the elements' own internals are in their shadowRoot, the text you wrote is in the light DOM.`,
       ],
       importExample: importLine,
     };
