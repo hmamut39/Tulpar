@@ -10,13 +10,15 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { McpServer } from "@modelcontextprotocol/server";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
 import { loadDotEnv } from "@tulpar/cli/env";
 import { generateCommand } from "@tulpar/cli/generate";
 import { verifyCommand } from "@tulpar/cli/verify";
-import { parseFigmaUrl, type Llm, type VerifyReport } from "@tulpar/core";
+import { checkCommand } from "@tulpar/cli/check";
+import { loadProject, withAdapter } from "@tulpar/cli/project";
+import { parseFigmaUrl, type ComponentIndex, type Llm, type TokenSet, type VerifyReport } from "@tulpar/core";
 
 export interface TulparMcpOptions {
   repoRoot: string;
@@ -183,7 +185,76 @@ export function createServer(options: TulparMcpOptions): McpServer {
     },
   );
 
+  server.registerTool(
+    "tulpar_check",
+    {
+      title: "Check code against the design system",
+      description: "Reviews component files in a Tulpar project, whoever wrote them, with no model and no design: hard-coded colours, type and spacing that should be design tokens, and var(--…) tokens the design system does not have. Use it on code you just wrote. Each finding has its file and line.",
+      inputSchema: z.object({
+        project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
+        files: z.array(z.string()).describe("Component files (or their stylesheets) to check, absolute or relative to the project"),
+      }),
+      outputSchema: z.object({ findings: z.array(z.object({ kind: z.string(), file: z.string(), line: z.number().optional(), message: z.string() })) }),
+    },
+    async (args) => {
+      const project = findProject(options, args.project);
+      const files = args.files.map((f) => (isAbsolute(f) ? f : join(project.dir, f)));
+      const { findings } = await checkCommand(project.dir, files, { quiet: true });
+      const text = findings.length ? findings.map((f) => `✗ ${f.file}${f.line ? `:${f.line}` : ""}  ${f.message}`).join("\n") : "No hard-coded values and no invented tokens.";
+      return { content: [{ type: "text", text }], structuredContent: { findings } };
+    },
+  );
+
+  // The design system as resources: any assistant can read the components and tokens, and write
+  // design-system code even when it does not call tulpar_generate.
+  const projectResources = (kind: string, label: string) =>
+    new ResourceTemplate(`tulpar://projects/{id}/${kind}`, {
+      list: () => ({ resources: listProjects(options).map((p) => ({ uri: `tulpar://projects/${p.id}/${kind}`, name: `${p.id} ${label}`, mimeType: "text/markdown" })) }),
+    });
+  server.registerResource("components", projectResources("components", "components"), { title: "Design-system components", description: "A project's design-system components: import path, props with their allowed values, slots, events, where each must be placed, and its theming CSS variables.", mimeType: "text/markdown" }, async (uri, vars) => {
+    const project = await loadProject(findProject(options, String(vars.id)).dir);
+    const index = await withAdapter(project, (h) => h.call("index", project.params));
+    return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: componentsMarkdown(String(vars.id), index) }] };
+  });
+  server.registerResource("tokens", projectResources("tokens", "tokens"), { title: "Design tokens", description: "A project's design tokens as code writes them (var(--…)), with their values, grouped by kind.", mimeType: "text/markdown" }, async (uri, vars) => {
+    const project = await loadProject(findProject(options, String(vars.id)).dir);
+    const tokens = await withAdapter(project, async (h) => (h.manifest!.capabilities.tokens ? h.call("tokens", project.params) : undefined));
+    return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: tokensMarkdown(String(vars.id), tokens) }] };
+  });
+
   return server;
+}
+
+function componentsMarkdown(id: string, index: ComponentIndex): string {
+  const pkg = index.package?.name ?? index.components[0]?.module ?? "the design system";
+  const lines = [`# ${id}: design-system components`, "", `Import from \`${pkg}\`. Use these components; never re-create them with plain elements.`, ""];
+  for (const c of index.components.filter((x) => !x.deprecated)) {
+    const props = c.props.filter((p) => !p.internal && !p.deprecated).map((p) => `${p.name}${p.required ? "" : "?"}: ${p.type?.kind === "enum" ? p.type.values.slice(0, 12).map((v) => JSON.stringify(v)).join(" | ") : (p.typeText ?? p.type?.kind ?? "unknown")}`);
+    lines.push(`## ${c.name}`);
+    if (c.markup) lines.push(`Written as: \`${c.markup}\``);
+    if (props.length) lines.push(`Props: ${props.join("; ")}`);
+    if (c.slots.length) lines.push(`Slots: ${c.slots.map((s) => s.name || "default").join(", ")}`);
+    if (c.events.length) lines.push(`Events: ${c.events.map((e) => e.name).join(", ")}`);
+    if (c.insideOf?.length) lines.push(`Must be placed inside: ${c.insideOf.join(" or ")}`);
+    if (c.cssProperties?.length) lines.push(`Theming CSS variables: ${c.cssProperties.slice(0, 16).map((p) => p.name).join(", ")}`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+function tokensMarkdown(id: string, set: TokenSet | undefined): string {
+  if (!set?.tokens.length) return `# ${id}: design tokens\n\nNo tokens are configured for this project.`;
+  const lines = [`# ${id}: design tokens`, "", "Write every colour, type and spacing value as one of these, with its value as the fallback: var(--name, value).", ""];
+  const byType = new Map<string, string[]>();
+  for (const t of set.tokens) {
+    const v = t.values.default ?? Object.values(t.values)[0];
+    const hex = (x: number) => Math.round(x * 255).toString(16).padStart(2, "0");
+    const value = v?.kind === "color" ? `#${hex(v.color.r)}${hex(v.color.g)}${hex(v.color.b)}` : v?.kind === "dimension" ? `${v.points}px` : v?.kind === "number" ? String(v.value) : "";
+    if (!value) continue;
+    byType.set(t.type, [...(byType.get(t.type) ?? []), `- \`${t.codeRef ?? t.name}\`: ${value}`]);
+  }
+  for (const [type, items] of byType) lines.push(`## ${type}`, ...items.slice(0, 400), "");
+  return lines.join("\n");
 }
 
 function error(text: string) {

@@ -46,7 +46,7 @@ describe("Tulpar MCP server", () => {
 
   it("offers three tools", async () => {
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["tulpar_generate", "tulpar_projects", "tulpar_verify"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["tulpar_check", "tulpar_generate", "tulpar_projects", "tulpar_verify"]);
   });
 
   it("lists the projects", async () => {
@@ -81,4 +81,43 @@ describe("Tulpar MCP server", () => {
     expect(r.structuredContent!.verdict).toBe("incomplete");
     expect(r.content[0]!.text).toContain("✓ 3 of 3 design-system components used, 0 invented");
   }, 180_000);
+});
+
+const radixReady = existsSync(join(repo, "examples/radix/node_modules/@radix-ui/themes"));
+describe.skipIf(!radixReady)("Tulpar MCP resources and check", { timeout: 120_000 }, () => {
+  let c: Client;
+  beforeAll(async () => {
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await createServer({ repoRoot: repo, llm: new ScriptedLlm([]), rerank: false }).connect(serverSide);
+    c = new Client({ name: "test", version: "1.0.0" });
+    await c.connect(clientSide);
+  });
+  afterAll(() => c.close());
+
+  it("lists each project's components and tokens as resources", async () => {
+    const { resources } = await c.listResources();
+    expect(resources.map((r) => r.uri)).toEqual(expect.arrayContaining(["tulpar://projects/radix/components", "tulpar://projects/radix/tokens"]));
+  });
+
+  it("reads a project's components and tokens for an assistant to write with", async () => {
+    const components = await c.readResource({ uri: "tulpar://projects/radix/components" });
+    const text = (components.contents[0] as { text: string }).text;
+    expect(text).toMatch(/^# radix: design-system components/);
+    expect(text).toMatch(/## Button\nProps: .*variant\?: /);
+    const tokens = (await c.readResource({ uri: "tulpar://projects/radix/tokens" })).contents[0] as { text: string };
+    expect(tokens.text).toMatch(/## dimension[\s\S]*`var\(--space-3\)`: 12px/);
+  });
+
+  it("checks code an assistant wrote: hard-coded values and invented tokens, by file and line", async () => {
+    const dir = await mkdtemp(join(repo, "examples/radix/mcp-check-"));
+    await writeFile(join(dir, "Card.tsx"), 'import "./Card.css";\nexport default function Card() { return <div className="card" />; }\n');
+    await writeFile(join(dir, "Card.css"), ".card {\n  padding: 13px;\n  gap: var(--space-33, 4px);\n}\n");
+    try {
+      const result = (await c.callTool({ name: "tulpar_check", arguments: { project: "radix", files: [join(dir, "Card.tsx")] } })) as { structuredContent: { findings: { kind: string; line?: number }[] } };
+      expect(result.structuredContent.findings.map((f) => `${f.kind}:${f.line}`).sort()).toEqual(["hard-coded:2", "invented-token:3"]);
+    } finally {
+      const { rmSync } = await import("node:fs");
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
