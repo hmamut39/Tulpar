@@ -13,3 +13,4 @@ out/
 .vitest/
 *.vsix
 .claude/settings.local.json
+.vscode-test/
