@@ -142,6 +142,12 @@ function instructions(b: Brief): string {
     `- Text must match the design character for character.`,
     `- Express what the design shows with the component's own API: a label as its label, a placeholder as its placeholder, a value as its value. Never imitate one with another (e.g. placeholder text in a slot, hidden with script) to get past a check; a reviewer rejects that even when every check passes.`,
     `- Pick tokens by meaning as well as value: a spacing token for spacing, a font-size token for font size. When no token of the right kind has the value, use the nearest token of the right kind.`,
+    `- Write code a senior developer would merge as it is: no unused imports, variables or dead code; accessible markup (every field has a label tied to it, buttons have a type, images have alt text); names that say what things are; comments only where the code cannot say it.`,
+    ...(c.files.some((f) => f.role === "test")
+      ? [
+          `- The tests are kept and run by the team, so they test what a person sees and does: find things by role, label and visible text (the heading, a field by its label, a button by its name), check each design-system component is there (by its data-figma-id), type and click as a user would, and assert what changes on screen. Never assert a design-system component's internal markup, class names or default attribute values (a checkbox's value, an inner wrapper): they change between library versions and the test then fails for no reason.`,
+        ]
+      : []),
     `- Write exactly these files and no others: ${c.files.map((f) => f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))).join(", ")}.`,
     ...c.rules.map((r) => `- ${r.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))}`),
     `Answer with JSON: { "files": [{ "path", "content" }], "notes" }.`,
