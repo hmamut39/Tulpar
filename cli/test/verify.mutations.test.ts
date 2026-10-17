@@ -92,7 +92,7 @@ describe.skipIf(!ready)("verifier on the Carbon modal footer", () => {
     expect(failing(baseline)).toEqual([]);
     expect(baseline.verdict).toBe("incomplete");
     // The Web Components adapter cannot run tests yet; it says so.
-    expect(baseline.checks.filter((c) => c.status === "not-checked").map((c) => c.id)).toEqual(["tests", "visual"]);
+    expect(baseline.checks.filter((c) => c.status === "not-checked").map((c) => c.id)).toEqual(existsSync(join(repo, ".cache/figma/b8xYgmx2Js30XaldxPkOs9/images/3906-50588@1x.png")) ? ["tests"] : ["tests", "visual"]);
     // Its interactive elements are hovered, pressed and focused for real.
     expect(baseline.checks.find((c) => c.id === "states")!.status).toBe("pass");
     expect(baseline.headline).toContain("3 of 3 design-system components used, 0 invented");

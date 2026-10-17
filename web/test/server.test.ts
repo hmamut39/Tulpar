@@ -9,6 +9,7 @@ import { ScriptedLlm } from "@tulpar/core";
 import { startServer } from "../src/server.ts";
 
 const repo = resolve(import.meta.dirname, "../..");
+const framePictured = existsSync(resolve(repo, ".cache/figma/b8xYgmx2Js30XaldxPkOs9/images/3906-50588@1x.png"));
 const ready = existsSync(resolve(repo, "examples/carbon-react/node_modules/@carbon/react")) && existsSync(resolve(repo, "out/library.json")) && existsSync(resolve(repo, ".cache/figma/b8xYgmx2Js30XaldxPkOs9/nodes/410-13792.json"));
 const FRAME = "https://www.figma.com/design/b8xYgmx2Js30XaldxPkOs9/Carbon?node-id=3906-50588&m=dev";
 
@@ -73,12 +74,13 @@ describe("web API", () => {
       await new Promise((r) => setTimeout(r, 500));
     }
     expect(job.state).toBe("done");
-    expect(job.result.status).toBe("unchecked-remain");
+    expect(["verified", "unchecked-remain"]).toContain(job.result.status);
+    expect(job.result.report.checks.find((c: { id: string }) => c.id === "visual").status).toBe(framePictured ? "pass" : "not-checked");
     expect(job.result.report.checks.filter((c: { status: string }) => c.status === "fail")).toEqual([]);
     expect(JSON.stringify(job)).not.toContain("figd_secret");
     // One usage line per job: what ran and how it went, never the token, the code or the files.
     const line = JSON.parse(logged.at(-1)!);
-    expect(line).toMatchObject({ event: "job", project: "carbon-react", source: "figma", state: "done", status: "unchecked-remain", attempts: 1 });
+    expect(line).toMatchObject({ event: "job", project: "carbon-react", source: "figma", state: "done", status: job.result.status, attempts: 1 });
     expect(line.invite).toMatch(/^[a-f0-9]{8}$/);
     expect(logged.join()).not.toMatch(/figd_secret|open-sesame|ModalFooter/);
 

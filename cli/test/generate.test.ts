@@ -10,6 +10,7 @@ import { ScriptedLlm } from "@tulpar/core";
 import { generateCommand } from "../src/generate.ts";
 
 const repo = resolve(import.meta.dirname, "../..");
+const framePictured = existsSync(join(repo, ".cache/figma/b8xYgmx2Js30XaldxPkOs9/images/3906-50588@1x.png"));
 const project = join(repo, "examples/carbon-react");
 const ready = existsSync(join(project, "node_modules/@carbon/react")) && existsSync(join(repo, "out/library.json")) && existsSync(join(repo, ".cache/figma/b8xYgmx2Js30XaldxPkOs9/nodes/410-13792.json"));
 
@@ -62,10 +63,12 @@ describe.skipIf(!ready)("tulpar generate on Carbon React", () => {
     expect(repair).toContain("#0f62fe");
 
     // No check fails after the repair; pixels and states remain honestly unchecked.
-    expect(result!.status).toBe("unchecked-remain");
+    // No check fails; with Figma's picture of the frame cached, the pixel check runs and passes.
+    expect(["verified", "unchecked-remain"]).toContain(result!.status);
+    expect(result!.report!.checks.find((c) => c.id === "visual")!.status).toBe(framePictured ? "pass" : "not-checked");
     expect(result!.report!.checks.filter((c) => c.status === "fail")).toEqual([]);
     expect(await readFile(join(outDir!, "ModalActions.test.tsx"), "utf8")).toBe(test);
-    expect(JSON.parse(await readFile(join(outDir!, "tulpar-report.json"), "utf8"))).toMatchObject({ status: "unchecked-remain", attempts: 2 });
+    expect(JSON.parse(await readFile(join(outDir!, "tulpar-report.json"), "utf8"))).toMatchObject({ status: result!.status, attempts: 2 });
   }, 180_000);
 
   it("rejects files it did not ask for, and gives up honestly when attempts run out", async () => {
