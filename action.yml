@@ -1,0 +1,48 @@
+# Tulpar check as a GitHub Action: reviews a pull request's component changes against your design
+# system (hard-coded colours, type and spacing; tokens that do not exist), whoever wrote the code,
+# and marks each finding on its line. No AI model is called.
+#
+#   - uses: actions/checkout@v4
+#   - run: npm ci                       # your project's dependencies (the design system must be installed)
+#   - uses: hmamut39/Tulpar@main
+#     with:
+#       project: .                      # the folder with your tulpar.json (run `tulpar init` once)
+name: Tulpar check
+description: Hard-coded values and invented tokens in a pull request's components, checked against your design system.
+branding:
+  icon: check-square
+  color: purple
+inputs:
+  project:
+    description: The folder that holds tulpar.json.
+    default: "."
+  files:
+    description: Files to check (space separated). Default, in a pull request, its changed files; otherwise the whole project.
+    default: ""
+  github-token:
+    description: Used to list a pull request's changed files.
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - name: Install Tulpar
+      shell: bash
+      run: cd "$GITHUB_ACTION_PATH" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+    - name: Check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PROJECT: ${{ inputs.project }}
+        FILES: ${{ inputs.files }}
+        PR: ${{ github.event.pull_request.number }}
+      run: |
+        files="$FILES"
+        if [ -z "$files" ] && [ -n "$PR" ]; then
+          files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | select(.status != "removed") | .filename' | tr '\n' ' ')
+          if [ -z "$files" ]; then echo "No changed files."; exit 0; fi
+        fi
+        # shellcheck disable=SC2086
+        node "$GITHUB_ACTION_PATH/cli/src/main.ts" check "$PROJECT" $files --format github
