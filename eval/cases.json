@@ -1,0 +1,13 @@
+{
+  "about": "The eval benchmark: the same designs on every run, across frameworks and styling. Run with `npm run tulpar -- eval` (each run calls the model: it costs money). Figma frames come from the cache (.cache/figma); screenshots from eval/fixtures.",
+  "cases": [
+    { "id": "react-carbon-figma", "project": "examples/carbon-react", "frame": "3906:50588", "name": "ModalActions" },
+    { "id": "angular-carbon-figma", "project": "examples/carbon-angular", "frame": "3906:50588", "name": "ModalActions" },
+    { "id": "wc-carbon-figma", "project": "examples/carbon", "frame": "3906:50588", "name": "ModalActions" },
+    { "id": "svelte-carbon-figma", "project": "examples/carbon-svelte", "frame": "3906:50588", "name": "ModalActions" },
+    { "id": "vue-elementplus-shot", "project": "examples/element-plus", "image": "eval/fixtures/signin.png", "name": "SignInCard" },
+    { "id": "react-radix-shot", "project": "examples/radix", "image": "eval/fixtures/signin.png", "name": "SignInCard" },
+    { "id": "react-radix-tailwind-shot", "project": "examples/radix", "image": "eval/fixtures/signin.png", "name": "SignInCard", "output": { "styling": "tailwind" } },
+    { "id": "angular-primeng-shot", "project": "examples/primeng", "image": "eval/fixtures/signin.png", "name": "SignInCard" }
+  ]
+}

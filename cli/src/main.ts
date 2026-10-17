@@ -21,6 +21,7 @@ import { initCommand } from "./init.ts";
 import { match } from "./match.ts";
 import { verifyCommand } from "./verify.ts";
 import { checkCommand } from "./check.ts";
+import { evalCommand } from "./eval.ts";
 import {
   AdapterHost,
   parseFigmaUrl,
@@ -65,6 +66,8 @@ const { positionals, values } = parseArgs({
     language: { type: "string" },
     styling: { type: "string" },
     format: { type: "string" },
+    only: { type: "string" },
+    cases: { type: "string" },
   },
 });
 
@@ -125,6 +128,9 @@ switch (command) {
     process.exitCode = (await checkCommand(target, rest, { format })).code;
     break;
   }
+  case "eval":
+    process.exitCode = await evalCommand({ ...(values.only && { only: values.only.split(",") }), ...(values.cases && { casesFile: values.cases }), out: values.out, cache: values.cache });
+    break;
   case "verify":
     if (values.figma && !values.frame) values.frame = parseFigmaUrl(values.figma)?.nodeId;
     if (!target || !rest[0] || !values.frame) usage();
@@ -155,6 +161,7 @@ function usage(): never {
       "       tulpar match <projectDir> [--evaluate [--rerank]]",
       "       tulpar verify <projectDir> <implementation> --frame <nodeId> [--test <test file>] [--theme <name>]",
       "       tulpar drift <projectDir> --from <version> --to <version>",
+      "       tulpar eval [--only <id,id>] [--cases eval/cases.json]   the benchmark (calls the model: costs money)",
       "       tulpar check <projectDir> [files...] [--format text|github|json]   hard-coded values and invented tokens, no model",
       "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3] [--language typescript|javascript] [--styling css|css-modules|scss|less|tailwind|styled-components|emotion]",
     ].join("\n"),

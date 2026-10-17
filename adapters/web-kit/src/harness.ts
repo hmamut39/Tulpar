@@ -1,6 +1,7 @@
 // The harness page: the implementation, alone, at the Figma frame's exact size,
 // with the project's global stylesheets and its own CSS marked as its own.
 
+import { createRequire } from "node:module";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -45,8 +46,29 @@ export interface HarnessInput {
   packageCss?: string[];
 }
 
+/**
+ * Typefaces design systems are drawn in, shipped with Tulpar (open licences, from Fontsource): the render's
+ * network is blocked, so a design system's web fonts (Carbon's IBM Plex from IBM's CDN) never download, and
+ * a machine may not have them installed. Loaded after the design system's stylesheets, their @font-face
+ * rules win for the same family, so every machine renders with the real typeface.
+ */
+const SHIPPED_FONTS: string[] = (() => {
+  const require = createRequire(import.meta.url);
+  const out: string[] = [];
+  for (const family of ["ibm-plex-sans", "ibm-plex-mono", "roboto", "inter", "open-sans"]) {
+    for (const weight of ["300", "400", "500", "600", "700", "400-italic"]) {
+      try {
+        out.push(require.resolve(`@fontsource/${family}/${weight}.css`));
+      } catch {
+        // a weight the family does not have
+      }
+    }
+  }
+  return out;
+})();
+
 export async function writeHarness(h: HarnessInput): Promise<string> {
-  const sheets = [...new Set([...(h.render.stylesheets ?? []).map((s) => resolve(h.root, s)), ...(h.packageCss ?? [])])];
+  const sheets = [...new Set([...(h.render.stylesheets ?? []).map((s) => resolve(h.root, s)), ...(h.packageCss ?? []), ...SHIPPED_FONTS])];
   const links = sheets.map((s) => `<link rel="stylesheet" href="${pathToFileURL(s).href}">`).join("\n");
   const page = `<!doctype html>
 <html lang="en">
