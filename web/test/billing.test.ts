@@ -37,6 +37,13 @@ describe("accounts", () => {
     expect(a.consume(me.id, new Date(Date.UTC(2026, 9, 6))).consumed).toBe(false);
     // A month later the allowance is back.
     expect(a.consume(me.id, new Date(Date.UTC(2026, 10, 2)))).toMatchObject({ consumed: true, remaining: 2 });
+    // The month starts on the billing date (the 1st), not on the day of first use (the 2nd).
+    expect(a.get(me.id)!.periodStart).toBe(new Date(Date.UTC(2026, 10, 1)).toISOString());
+    // Stripe's renewal starts the next billing period: the month's generations come back on the billing date.
+    expect(a.applySubscription("cus_1", "active", Date.UTC(2026, 11, 1) / 1000)).toMatchObject({ used: 0 });
+    // The same period sent again (a retried or later update) gives nothing back.
+    a.consume(me.id, new Date(Date.UTC(2026, 11, 2)));
+    expect(a.applySubscription("cus_1", "active", Date.UTC(2026, 11, 1) / 1000)).toMatchObject({ used: 1 });
     a.applySubscription("cus_1", "past_due");
     expect(a.allowance(a.get(me.id)!).blocked).toMatch(/payment did not go through/);
     a.applySubscription("cus_1", "canceled");
@@ -96,7 +103,9 @@ describe("web API with sign-in and payments", () => {
 
   beforeAll(async () => {
     server = await startServer({ repoRoot: repo, llm: () => never, accessCode: "invite-1", auth, billing, accounts, fetch: fakeFetch, runsPerHour: 100, log: () => {}, admins: ["Octo"] }, 0);
-  });
+    // The first config waits for every framework's adapter to say what it writes: slow on a busy machine.
+    await fetch(`${server.url}/api/config`);
+  }, 120_000);
   afterAll(() => server.close());
 
   const post = (path: string, body: unknown = {}, headers: Record<string, string> = {}) =>
@@ -153,6 +162,10 @@ describe("web API with sign-in and payments", () => {
     expect(me).toMatchObject({ allowance: { plan: "pro", remaining: 5 }, canManageBilling: true });
     expect((await job()).status).toBe(202);
     expect((await (await post("/api/billing/portal")).json()).url).toMatch(/billing\.stripe\.com/);
+    // Already paying: a checkout click goes to Billing, never to a second subscription.
+    const sessions = stripeCalls.filter((c) => c.includes("/checkout/sessions")).length;
+    expect((await (await post("/api/billing/checkout")).json()).url).toMatch(/billing\.stripe\.com/);
+    expect(stripeCalls.filter((c) => c.includes("/checkout/sessions")).length).toBe(sessions);
   });
 
   it("shows the owner's dashboard to admins only, counting only Tulpar's revenue", async () => {

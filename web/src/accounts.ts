@@ -176,7 +176,8 @@ export class Accounts {
     const before = this.allowance(account, now);
     if (before.blocked) return { ...before, consumed: false };
     if (account.plan === "pro" && this.#monthStarted(account, now)) {
-      this.#db.prepare("UPDATE accounts SET used = 1, period_start = ? WHERE id = ?").run(now.toISOString(), id);
+      // The new month starts on the billing date, not on the day of first use: periods never drift.
+      this.#db.prepare("UPDATE accounts SET used = 1, period_start = ? WHERE id = ?").run(currentPeriod(account.periodStart!, now), id);
     } else {
       this.#db.prepare("UPDATE accounts SET used = used + 1 WHERE id = ?").run(id);
     }
@@ -198,9 +199,12 @@ export class Accounts {
     const active = ACTIVE.has(status);
     const start = periodStart ? new Date(periodStart * 1000).toISOString() : new Date().toISOString();
     const becomingPro = active && !(account.plan === "pro" && ACTIVE.has(account.subscriptionStatus ?? ""));
+    // A renewal (Stripe starts a new billing period) gives the month's generations back, on the billing date.
+    const renewed = active && !becomingPro && !!periodStart && (!account.periodStart || start > account.periodStart);
+    const fresh = becomingPro || renewed;
     this.#db
       .prepare("UPDATE accounts SET plan = ?, subscription_status = ?, used = CASE WHEN ? THEN 0 ELSE used END, period_start = CASE WHEN ? THEN ? ELSE period_start END WHERE id = ?")
-      .run(active || status === "past_due" || status === "unpaid" ? "pro" : status === "canceled" ? "trial" : account.plan, status, becomingPro ? 1 : 0, becomingPro ? 1 : 0, start, account.id);
+      .run(active || status === "past_due" || status === "unpaid" ? "pro" : status === "canceled" ? "trial" : account.plan, status, fresh ? 1 : 0, fresh ? 1 : 0, start, account.id);
     if (status === "canceled") this.#db.prepare("UPDATE accounts SET used = ? WHERE id = ?").run(this.#limits.trial, account.id); // back on a used-up trial
     return this.get(account.id);
   }
@@ -299,4 +303,17 @@ function row(r: unknown): Account | undefined {
 
 function tokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+/** The start of the billing month that contains `now`, counted in whole months from the first period's start. */
+function currentPeriod(first: string, now: Date): string {
+  const start = new Date(first);
+  let months = (now.getUTCFullYear() - start.getUTCFullYear()) * 12 + now.getUTCMonth() - start.getUTCMonth();
+  const at = (m: number) => {
+    const d = new Date(start);
+    d.setUTCMonth(start.getUTCMonth() + m);
+    return d;
+  };
+  if (at(months) > now) months--;
+  return at(months).toISOString();
 }

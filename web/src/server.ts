@@ -281,7 +281,9 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           const id = sessionAccount(req, auth);
           const account = id === undefined ? undefined : accounts.get(id);
           if (!account) return json(res, 401, { error: "Sign in first.", signIn: true });
-          const go = path.endsWith("checkout") ? checkoutUrl : portalUrl;
+          // Someone who already pays is sent to Billing, never to a second checkout (and a second charge).
+          const subscribed = account.plan === "pro" && !!account.stripeCustomer && !["canceled", "incomplete_expired"].includes(account.subscriptionStatus ?? "canceled");
+          const go = path.endsWith("checkout") && !subscribed ? checkoutUrl : portalUrl;
           return json(res, 200, { url: await go(account, accounts, billing, options.fetch) });
         }
       }
