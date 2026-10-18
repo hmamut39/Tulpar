@@ -8,6 +8,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   FigmaClient,
+  flatten,
   createMatcher,
   matchLibrary,
   rerank,
@@ -152,7 +153,7 @@ export async function loadScreenshotContext(host: AdapterHost, project: Project,
     ...(library && { library }),
     ...(tokens && { tokens }),
     source: "screenshot",
-    ...(input.image.mime === "image/png" && { baseline: { png: input.image.base64, source: "screenshot" as const } }),
+    ...(input.image.mime === "image/png" && { baseline: { png: flatten(input.image.base64), source: "screenshot" as const } }),
     tolerance: { box: 16, text: 16 },
     notes: [`The design was read from a screenshot at ${scale}× by a vision model: element boxes are estimates, so layout is checked within ±16 pt, and the pixel comparison is the stronger evidence.`, ...reading.notes],
   };
@@ -173,7 +174,7 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
   const client = new FigmaClient({ token: input.figmaToken ?? "", cacheDir });
   client.offline = !input.figmaToken;
   const png = fileKey ? await client.frameImage(fileKey, input.frame).catch(() => undefined) : undefined;
-  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), ...(png && { baseline: { png, source: "figma" as const } }), source: "figma", notes };
+  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), ...(png && { baseline: { png: flatten(png), source: "figma" as const } }), source: "figma", notes };
 }
 
 /**

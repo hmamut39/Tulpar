@@ -46,6 +46,8 @@ export interface Brief {
   conventions: Conventions;
   /** The team's own uses of the components this design needs, to follow its conventions. */
   examples: { component: string; file: string; code: string }[];
+  /** Sections already written as components, to import and place instead of rebuilding. */
+  built: { figmaId: string; name: string; importPath: string }[];
 }
 
 export interface BriefInput {
@@ -59,6 +61,8 @@ export interface BriefInput {
   mode?: string;
   /** How the team's own code already uses design-system components: component name → snippets from its repository. */
   examples?: Record<string, { file: string; code: string }[]>;
+  /** Parts of the design already written as components (a page's sections): Figma id → the component and how to import it. */
+  built?: Record<string, { name: string; importPath: string }>;
 }
 
 export function buildBrief(input: BriefInput): Brief {
@@ -79,6 +83,12 @@ export function buildBrief(input: BriefInput): Brief {
     if (!n.visible) return;
     const pad = "  ".repeat(depth);
     const box = n.box ? `(${r(n.box.x)},${r(n.box.y)} ${r(n.box.width)}×${r(n.box.height)})` : "";
+    // A section already written as its own component: one line, not its layers.
+    const done = n.id !== design.root.id ? input.built?.[n.id] : undefined;
+    if (done) {
+      lines.push(`${pad}- BUILT id=${n.id} "${n.name}" → ${done.name} (already written and verified: import it from '${done.importPath}' and place it; do not rebuild it) ${box}`);
+      return;
+    }
     if (n.kind === "instance" && !insideInstance) {
       const component = mapping.get(n.id) ?? mapping.get(n.component.id) ?? (n.component.set && mapping.get(n.component.set.id));
       const def = defs.get(n.component.id) ?? (n.component.set && defs.get(n.component.set.id));
@@ -123,6 +133,7 @@ export function buildBrief(input: BriefInput): Brief {
     outline: [`ROOT maps to: ${rootComponent ?? "no design-system component (compose it)"}`, ...lines].join("\n"),
     instances,
     components,
+    built: Object.entries(input.built ?? {}).map(([figmaId, b]) => ({ figmaId, ...b })),
     examples: [...new Set(used)].flatMap((name) => (input.examples?.[name] ?? []).map((e) => ({ component: name, ...e }))),
     tokens: input.tokens ? tokenHints(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : [],
     ...(accent && { accent }),

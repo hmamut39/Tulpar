@@ -158,6 +158,7 @@ function instructions(b: Brief): string {
     `- Never re-create a design-system component with plain elements, and never copy its CSS class names.`,
     `- Set component props exactly as the mapping gives them. Do not invent props for Figma properties listed as unmapped.`,
     `- Use only tokens listed in this brief. A token name that is not listed does not exist; inventing one is a failure the verifier catches.`,
+    `- Each TEXT in the outline gives its size/line-height and weight (e.g. 20/28 w400): set all three, through the design system's type styles or tokens for that size (its heading or body styles), so a 20/28 title is 28 tall. The layout check measures each text's box, so a missing line-height fails it.`,
     `- Colours, typography and spacing come only from design tokens, written as their code reference (e.g. var(--prefix-token, fallback)). No hex, rgb or px literals except 0, and no arithmetic on tokens (calc(var(--x) * 4) is a hard-coded value in disguise). The one exception is a scale-unit token, made to be multiplied (a name ending in -spacing or -unit with no step, e.g. --mui-spacing): whole multiples like calc(var(--mui-spacing) * 3) are how that design system spaces things.`,
     `- Do not set the component's own width or height from the frame's size: it fills its container, and the host decides the size. Size inner parts with layout (flex, grid, percentages, auto), not fixed numbers.`,
     `- Lay out with natural flow and spacing tokens (gap, padding), the way a developer would. Never copy the design's measurements into ratios (grid tracks like 25fr 310fr 25fr, odd percentages): that is a hard-coded layout in disguise, and the verifier reports it as one.`,
@@ -187,6 +188,9 @@ function briefText(b: Brief): string {
     ``,
     `DESIGN OUTLINE (boxes are x,y width×height in points, relative to the root)`,
     b.outline,
+    ...(b.built.length
+      ? [``, `SECTIONS ALREADY BUILT (each is its own verified component next to this file: import each and place it where the outline shows it; lay out only what is between them; do not copy or rewrite them, and do not write their files)`, ...b.built.map((s) => `- ${s.figmaId} → ${s.name}, imported from '${s.importPath}'`)]
+      : []),
     ``,
     `INSTANCES AND THEIR CODE`,
     ...b.instances.map((i) => `- ${i.figmaId} "${i.figmaName}" → ${i.component ?? "no mapped component: compose it from primitives and tokens"}${Object.keys(i.props).length ? ` props ${JSON.stringify(i.props)}` : ""}${i.text ? ` text ${JSON.stringify(i.text)}` : ""}${i.unmapped.length ? ` (unmapped: ${i.unmapped.join(", ")})` : ""}`),

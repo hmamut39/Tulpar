@@ -33,6 +33,10 @@ export interface GenerateCommandOptions {
   attempts?: number;
   /** Independent first drafts to verify before repairing the best (each is a model call). */
   candidates?: number;
+  /** A page's sections already written: Figma id → component and import path, for the brief. */
+  built?: Record<string, { name: string; importPath: string }>;
+  /** Files written next to the generated ones for every build (a page's section components). */
+  extraFiles?: GeneratedFile[];
   theme?: string;
   /** A model to use instead of OpenAI (tests, offline development). */
   llm?: Llm;
@@ -132,6 +136,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       index: ctx.index,
       conventions,
       ...(Object.keys(examples).length && { examples }),
+      ...(options.built && { built: options.built }),
       renderOf: (report) => (pngs.has(report) ? { mime: "image/png", base64: pngs.get(report)! } : undefined),
       ...(tokens && { tokens }),
       ...(ctx.library && { library: ctx.library }),
@@ -151,7 +156,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
         return host.manifest?.capabilities.format ? (await host.call("format", { ...project.params, files: pretty })).files : pretty;
       },
       verify: async (files) => {
-        await writeFiles(project, workDir, files);
+        await writeFiles(project, workDir, [...(options.extraFiles ?? []), ...files]);
         const entry = join(workDir, conventions.entry.replace(NAME_PLACEHOLDERS, (p) => fillName(p, options.name))).replace(/\\/g, "/");
         const testSpec = conventions.files.find((f) => f.role === "test");
         const testFile = testSpec && join(workDir, testSpec.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, options.name))).replace(/\\/g, "/");

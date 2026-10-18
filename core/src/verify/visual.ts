@@ -163,3 +163,27 @@ function regions(diff: PNG, width: number, height: number): Box[] {
   }
   return boxes.sort((a, b) => b.cells - a.cells).slice(0, 5).map(({ cells: _c, ...b }) => b);
 }
+
+/**
+ * A PNG (base64) laid onto an opaque background, white by default. Figma's pictures are transparent
+ * where a frame has no fill of its own; compared as they are, those pixels read as black, so a section
+ * without a background "differed" everywhere. What a person sees in Figma, and the render's page, is
+ * white behind it.
+ */
+export function flatten(pngBase64: string, background: [number, number, number] = [255, 255, 255]): string {
+  const img = PNG.sync.read(Buffer.from(pngBase64, "base64"));
+  let transparent = false;
+  for (let i = 3; i < img.data.length; i += 4) {
+    if (img.data[i]! < 255) {
+      transparent = true;
+      break;
+    }
+  }
+  if (!transparent) return pngBase64;
+  for (let i = 0; i < img.data.length; i += 4) {
+    const a = img.data[i + 3]! / 255;
+    for (let c = 0; c < 3; c++) img.data[i + c] = Math.round(img.data[i + c]! * a + background[c]! * (1 - a));
+    img.data[i + 3] = 255;
+  }
+  return PNG.sync.write(img).toString("base64");
+}
