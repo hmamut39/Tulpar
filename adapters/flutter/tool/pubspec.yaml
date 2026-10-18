@@ -1,0 +1,7 @@
+name: tulpar_flutter_tool
+description: Reads a Flutter design system's widgets with the Dart analyzer, for Tulpar's Flutter adapter.
+publish_to: none
+environment:
+  sdk: ^3.9.0
+dependencies:
+  analyzer: any
