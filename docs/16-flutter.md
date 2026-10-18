@@ -38,8 +38,13 @@ five web frameworks.
 - ✅ **Tokens.** 31 colour roles and the type scale from a probe run in the sandboxed browser; the spacing scale from the analyzer.
 - ✅ **Static scan.** Hard-coded colours (`Color(0x…)`, `Colors.*`), type, padding, gaps and radii, with lines; theme and spacing tokens recognised.
 - ✅ **Adapter.** `tulpar verify` on the Material reference: built, rendered, layout 3/3, text exact, no hard-coded values, pixels within the limit (the Carbon frame's blue has no Material token: reported for the designer). About 1.5 min with warm caches.
-- ⏳ **Widget tests in Chrome.** `flutter test --platform chrome` starts headless Chromium on Windows but the page never connects back to the runner ("Connection closed before test suite loaded"); to try next on Linux, where the image runs.
-- ⏳ Generation (conventions are written; a paid run to try), `dart format`, the image and CI, the web page, an eval case, and a Material 3 Figma frame in place of the Carbon one.
+- ✅ **Widget tests in Chromium.** `flutter test --platform chrome` with Playwright's Chromium; on Linux (CI, the image) a passing and a failing test are reported correctly. On Windows the page does not connect back to the runner, so the adapter declares tests unsupported there.
+- ✅ **Generation.** From the sign-in screenshot: 4/4 Material widgets, no hard-coded values, layout 10/10, pixels within the limit. A field's hint (drawn on the canvas, absent from the page) is read from the code for the text check.
+- ✅ **`dart format`** through an optional adapter method, `format`.
+- ✅ **Fast builds.** Skipping the default WebAssembly dry run (and source maps, icon tree-shaking, full optimisation) made a build take 6 s instead of 50.
+- ✅ **Linux CI job** (`.github/workflows/flutter.yml`) with the real SDK, checksum verified.
+- 🔄 **The image** carries the SDK; the smoke test runs a Flutter widget test inside it; the page offers Flutter where the server can build it.
+- ⏳ An eval run of `flutter-material-shot`, and a Material 3 Figma frame in place of the Carbon one.
 
 ## Order
 

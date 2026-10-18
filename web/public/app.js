@@ -138,9 +138,10 @@ function fillProjects() {
   $("addDs").hidden = true;
   fillOutputs();
 }
-// The last option in the list: add any design system from npm.
+// The last option in the list: add any design system from npm (web frameworks: Flutter's packages live on pub.dev).
 const ADD = "__add__";
 function fillAddOption() {
+  if ($("framework").value === "flutter") return;
   $("project").insertAdjacentHTML("beforeend", `<option value="${ADD}">+ Add from npm…</option>`);
 }
 $("project").addEventListener("change", () => {
