@@ -23,21 +23,23 @@ const OUTPUT_HINTS = {
   "web-components": "Web Components are one HTML file: markup, a CSS style block and JavaScript modules.",
 };
 // Why there is no Python or C# here: a UI framework decides the language its components are written in.
-const LANGUAGES_LATER = "C#, Dart, Swift and Kotlin arrive with Blazor, Flutter, SwiftUI and Compose.";
+const LANGUAGES_LATER = "C#, Dart, Swift and Kotlin arrive with their frameworks.";
 const option = (value, label) => `<option value="${value}">${label}</option>`;
+// Shown so people see what is coming, never selectable: each language arrives with its UI framework.
+const LANGUAGES_SOON = `<optgroup label="Coming with their frameworks">${["C# · Blazor", "Dart · Flutter", "Swift · SwiftUI", "Kotlin · Jetpack Compose"].map((l) => `<option disabled>${l}</option>`).join("")}</optgroup>`;
 function fillOutputs() {
   const adapter = $("framework").value;
   const list = OUTPUTS[adapter] ?? [];
   $("outputHint").textContent = `${OUTPUT_HINTS[adapter] ?? "Tulpar writes the files the way your codebase does."} ${LANGUAGES_LATER}`;
   // Never disabled: a greyed-out field reads as broken (on a phone, tapping it does nothing). One option says there is one way.
   if (!list.length) {
-    $("language").innerHTML = option("", adapter === "web-components" ? "HTML · JavaScript" : "The framework's default");
+    $("language").innerHTML = option("", adapter === "web-components" ? "HTML · JavaScript" : "The framework's default") + LANGUAGES_SOON;
     $("styling").innerHTML = option("", "CSS");
     return;
   }
   const [savedLanguage, savedStyling] = (storage.get(OUTPUT_KEY + adapter) ?? "").split(":");
   const languages = [...new Set(list.map((o) => o.language))];
-  $("language").innerHTML = languages.map((l) => option(l, LANGUAGE_LABELS[l] ?? l)).join("");
+  $("language").innerHTML = languages.map((l) => option(l, LANGUAGE_LABELS[l] ?? l)).join("") + LANGUAGES_SOON;
   if (languages.includes(savedLanguage)) $("language").value = savedLanguage;
   fillStyling(savedStyling);
 }

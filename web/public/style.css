@@ -24,8 +24,9 @@
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
 }
+/* Dark: the device's setting (auto), unless the visitor chose light; or chosen with the toggle. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: var(--ink);
     --surface: color-mix(in srgb, var(--ink) 88%, var(--cloud));
     --text: var(--cloud);
@@ -40,6 +41,21 @@
     --shadow: 0 0 0 1px var(--line);
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+    --bg: var(--ink);
+    --surface: color-mix(in srgb, var(--ink) 88%, var(--cloud));
+    --text: var(--cloud);
+    --muted: color-mix(in srgb, var(--slate) 70%, var(--cloud));
+    --line: color-mix(in srgb, var(--cloud) 12%, transparent);
+    --field: color-mix(in srgb, var(--ink) 75%, var(--cloud) 6%);
+    /* Light enough to read on the dark, indigo-tinted surfaces (WCAG AA). */
+    --accent: color-mix(in srgb, var(--indigo) 50%, var(--cloud));
+    --accent-soft: color-mix(in srgb, var(--indigo) 22%, transparent);
+    --danger-soft: color-mix(in srgb, var(--rose) 18%, transparent);
+    --code-bg: color-mix(in srgb, var(--ink) 70%, black);
+    --shadow: 0 0 0 1px var(--line);
+    color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -368,7 +384,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .dash-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .tooltip { position: absolute; z-index: 10; padding: 6px 10px; border-radius: 8px; background: var(--ink); color: #ffffff; font-size: 12px; pointer-events: none; white-space: nowrap; }
 .tooltip[hidden] { display: none !important; }
-@media (prefers-color-scheme: dark) { .bar { background: #8b85f0; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bar { background: #8b85f0; } }
+:root[data-theme="dark"] .bar { background: #8b85f0; }
 @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dash-grid { grid-template-columns: 1fr; } }
 @media (max-width: 420px) { .tiles { grid-template-columns: 1fr; } }
 
@@ -380,3 +397,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 /* On phones the sticky bar would hide a field scrolled into view for typing or choosing. */
 input, select, textarea { scroll-margin-top: 88px; }
+
+/* Theme toggle in the top bar. */
+.theme-toggle { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); cursor: pointer; }
+.theme-toggle:hover, .theme-toggle:focus-visible { color: var(--accent); border-color: var(--accent); }
+.theme-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

@@ -28,9 +28,12 @@ describe("accessibility of the web pages", { timeout: 120_000 }, () => {
     // Closing Chromium can be slow while the rest of the suite runs in parallel.
   }, 60_000);
 
-  for (const scheme of ["light", "dark"] as const) {
-    it(`has no WCAG A or AA violations in ${scheme} mode`, async () => {
-      const page = await (await browser.newContext({ colorScheme: scheme })).newPage();
+  // The device's setting, and dark chosen with the toggle on a light device.
+  for (const [scheme, chosen] of [["light", undefined], ["dark", undefined], ["light", "dark"]] as const) {
+    it(`has no WCAG A or AA violations in ${chosen ? `${chosen} mode chosen on a ${scheme} device` : `${scheme} mode`}`, async () => {
+      const context = await browser.newContext({ colorScheme: scheme });
+      if (chosen) await context.addInitScript((t) => localStorage.setItem("tulpar.theme", t), chosen);
+      const page = await context.newPage();
       const found: string[] = [];
       for (const path of PAGES) {
         await page.goto(server.url + path, { waitUntil: "networkidle" });
@@ -41,4 +44,21 @@ describe("accessibility of the web pages", { timeout: 120_000 }, () => {
       expect(found).toEqual([]);
     });
   }
+
+  it("switches between auto, light and dark with the toggle, and remembers the choice", async () => {
+    const page = await (await browser.newContext({ colorScheme: "light" })).newPage();
+    await page.goto(server.url + "/", { waitUntil: "networkidle" });
+    const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const lightBg = await bg();
+    const toggle = page.locator(".theme-toggle");
+    await expect(toggle.getAttribute("aria-label")).resolves.toMatch(/auto/);
+    await toggle.click(); // light
+    await toggle.click(); // dark
+    await expect(toggle.getAttribute("aria-label")).resolves.toBe("Theme: dark");
+    expect(await bg()).not.toBe(lightBg);
+    await page.goto(server.url + "/pricing", { waitUntil: "networkidle" });
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+    await page.locator(".theme-toggle").click(); // back to auto: the device's light
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBeUndefined();
+  });
 });
