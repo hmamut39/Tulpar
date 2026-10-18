@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Tulpar adapter for React. Speaks the adapter protocol on stdio.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
@@ -41,6 +41,10 @@ function index(params: ProjectParams): ComponentIndex {
   cachedIndex = { key, index: result };
   return result;
 }
+
+const TEST_LIBRARIES = ["@testing-library/react", "@testing-library/user-event", "@testing-library/jest-dom"];
+/** A package the project has installed (its folder under node_modules). */
+const installed = (root: string, module: string) => existsSync(join(root, "node_modules", ...module.split("/").slice(0, module.startsWith("@") ? 2 : 1)));
 
 serve({
   initialize: () => ({
@@ -93,7 +97,18 @@ serve({
 
   analyze: (params) => analyzeReact(params.root, params.entry, prefix(params)),
 
-  test: (params) => runVitestBrowser({ root: params.root, testFile: params.entry, fallbackModules: ["styled-components", "@emotion/react", "@emotion/styled"] }),
+  // React, the design system and the testing libraries are pre-bundled before the run: one found
+  // mid-run makes Vite optimize again and load a second React (hooks then fail with "useId" of null).
+  test: (params) =>
+    runVitestBrowser({
+      root: params.root,
+      testFile: params.entry,
+      fallbackModules: ["styled-components", "@emotion/react", "@emotion/styled"],
+      optimize: [
+        ...["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", ...TEST_LIBRARIES].filter((m) => installed(params.root, m)),
+        ...(config(params).packages ?? []).map((p) => p.replace(/\\/g, "/").split("node_modules/").pop()!).filter((m) => installed(params.root, m)),
+      ],
+    }),
 
   conventions: (params) => {
     const pkg = index(params).package?.name ?? "the design system";
@@ -128,7 +143,7 @@ serve({
         styleRule,
         `Design-system components pass unknown props such as data-figma-id through to their root element; put data-figma-id directly on them.`,
         `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
-        `In {name}.test.${ext} import { render, screen } from "@testing-library/react", { describe, it, expect } from "vitest", and the component from "./{name}".`,
+        `In {name}.test.${ext} import { render, screen } from "@testing-library/react", { describe, it, expect } from "vitest", and the component from "./{name}". The test libraries installed are: ${TEST_LIBRARIES.filter((m) => installed(params.root, m)).join(", ") || "none besides Vitest"}; import no other${installed(params.root, "@testing-library/user-event") ? "" : " (use fireEvent from @testing-library/react for input, not @testing-library/user-event)"}.`,
       ],
       importExample: `import { Button } from "${pkg}";`,
     };

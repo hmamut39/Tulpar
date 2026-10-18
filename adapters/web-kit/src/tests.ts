@@ -129,9 +129,16 @@ interface JestLikeReport {
 }
 
 /** The error lines Vitest printed while importing the file (e.g. a module that does not resolve). */
-function importError(output: string): string {
+export function importError(output: string): string {
   const lines = output.replace(/\x1b\[[0-9;]*m/g, "").split("\n").map((l) => l.trim());
-  return lines.filter((l) => /(Error|error):|Cannot find|Failed to resolve|does not provide/.test(l) && !/Failed to import test file/.test(l)).slice(0, 3).join(" ").slice(0, 500);
+  // A parse error: "[PARSE_ERROR] Expected `}` but found `EOF`", its place framed below ("╭─[ file.ts:93:7 ]").
+  const parse = lines.find((l) => /^\[[A-Z_]+\] /.test(l));
+  if (parse) {
+    const where = lines.map((l) => /─\[ (.+?:\d+:\d+) \]/.exec(l)?.[1]).find(Boolean);
+    return `${parse}${where ? ` at ${where}` : ""}`.slice(0, 500);
+  }
+  // Otherwise the error lines; esbuild's come in capitals ("file.ts:94:0: ERROR: Unexpected end of file").
+  return lines.filter((l) => /error:|Cannot find|Failed to resolve|does not provide/i.test(l) && !/Failed to import test file|Failed to run dependency scan/.test(l)).slice(0, 3).join(" ").slice(0, 500);
 }
 
 /** First line of an assertion error, without the dev-server stack. */
