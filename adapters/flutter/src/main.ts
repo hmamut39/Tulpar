@@ -36,7 +36,8 @@ serve({
       // Flutter paints a canvas: styles come from the analyzer reading the code, not from the render.
       runtimeStyleProvenance: false,
       staticProvenance: true,
-      tests: sdkFound,
+      // flutter test --platform chrome does not connect back to its runner on Windows.
+      tests: sdkFound && process.platform !== "win32",
       forceStates: [],
       themes: false,
       format: sdkFound,
@@ -76,6 +77,7 @@ serve({
         spacing
           ? `Spacing and sizes come from the app's scale: ${spacing.class}.<step> (import '${spacing.import}'), in EdgeInsets, SizedBox gaps and BorderRadius. Never a bare number other than 0.`
           : "Spacing: prefer the layout widgets' own spacing (Row/Column spacing, ListTile) over bare numbers.",
+        "A text field's placeholder is decoration: InputDecoration(hintText: '…'); a label drawn above it is its own Text (or InputDecoration(labelText:) when the design floats it inside the border); a value shown in it goes in a TextEditingController(text: '…').",
         "Do not give the widget a fixed width or height from the frame: fill the space the parent gives (Expanded, Flexible, mainAxisSize).",
         "Import package:flutter/material.dart and the project's own files by package: URI; no other packages.",
         "Write const constructors and const widgets wherever possible, as dart analyze would ask.",

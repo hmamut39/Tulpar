@@ -4,6 +4,8 @@
 //
 // Prints JSON:
 //   written   Figma id → the widget class each Semantics(identifier: '<id>') wraps
+//   drawn     Figma id → text a wrapped text field draws inside itself (its hintText), which the
+//             page's semantics do not carry
 //   widgets   every widget class the file creates
 //   literals  hard-coded colours, type and spacing ({ property, written, at })
 //   tokens    values taken from the theme or the spacing constants ({ property, written, token, at })
@@ -28,7 +30,9 @@ Future<void> main(List<String> args) async {
   final project = normal(args[0]);
   final file = normal(args[1]);
   final spacingClass = args.length > 2 ? args[2] : null;
-  final collection = AnalysisContextCollection(includedPaths: [project]);
+  // The file itself is the included path: generated files live in a hidden folder (.tulpar), which a
+  // project-wide context skips. Its packages still resolve from the project's package_config.
+  final collection = AnalysisContextCollection(includedPaths: [file]);
   final unit = await collection.contextFor(file).currentSession.getResolvedUnit(file);
   if (unit is! ResolvedUnitResult) {
     stderr.writeln('cannot resolve $file ($unit)');
@@ -38,6 +42,7 @@ Future<void> main(List<String> args) async {
   unit.unit.accept(scan);
   stdout.write(jsonEncode({
     'written': scan.written,
+    'drawn': scan.drawn,
     'widgets': scan.widgets.toList()..sort(),
     'literals': scan.literals,
     'tokens': scan.tokens,
@@ -55,6 +60,7 @@ class Scan extends RecursiveAstVisitor<void> {
   final String name;
   final String? spacingClass;
   final written = <String, String>{};
+  final drawn = <String, String>{};
   final widgets = <String>{};
   final literals = <Map<String, String>>[];
   final tokens = <Map<String, String>>[];
@@ -82,6 +88,8 @@ class Scan extends RecursiveAstVisitor<void> {
       if (id is SimpleStringLiteral && child != null) {
         final wrapped = child.staticType is InterfaceType ? (child.staticType as InterfaceType).element.name : null;
         if (wrapped != null) written[id.value] = wrapped;
+        final hint = hintOf(child);
+        if (hint != null) drawn[id.value] = hint;
       }
     }
     if (className == 'Color' && fromLibrary(cls, 'dart:ui')) literal(colorRole(node), node);
@@ -171,3 +179,27 @@ bool fromLibrary(Element? e, String uri) => e?.library?.uri.toString() == uri;
 bool isConstant(Expression e) => e is IntegerLiteral || e is DoubleLiteral || e is SimpleStringLiteral || (e is PrefixedIdentifier && e.prefix.name == 'FontWeight');
 
 bool isNonZeroNumber(AstNode e) => (e is IntegerLiteral && e.value != 0) || (e is DoubleLiteral && e.value != 0);
+
+/// The hintText a text field shows while empty, however the decoration is written:
+/// InputDecoration(hintText: '…'), or a shared decoration's .copyWith(hintText: '…').
+String? hintOf(Expression child) {
+  if (child is! InstanceCreationExpression) return null;
+  for (final a in child.argumentList.arguments) {
+    if (a is! NamedArgument || a.name.lexeme != 'decoration') continue;
+    final finder = _HintFinder();
+    a.argumentExpression.accept(finder);
+    if (finder.hint != null) return finder.hint;
+  }
+  return null;
+}
+
+class _HintFinder extends RecursiveAstVisitor<void> {
+  String? hint;
+
+  @override
+  void visitNamedArgument(NamedArgument node) {
+    final value = node.argumentExpression;
+    if (node.name.lexeme == 'hintText' && value is SimpleStringLiteral) hint ??= value.value;
+    super.visitNamedArgument(node);
+  }
+}

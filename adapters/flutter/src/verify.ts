@@ -13,6 +13,12 @@ import { dartTool, flutterVersion, sdk } from "./sdk.ts";
 import type { ThemeConfig } from "./tokens.ts";
 import { withBuild } from "./web.ts";
 
+/**
+ * A web build for checking, not shipping: the engine bundled (the render has no network), and none of the
+ * release extras. The WebAssembly dry run Flutter does by default made a build take 50 s instead of 6.
+ */
+export const WEB_BUILD = ["--release", "--no-web-resources-cdn", "--no-wasm-dry-run", "-O1", "--no-source-maps", "--no-tree-shake-icons"];
+
 /** checkout_card.dart → CheckoutCard: the class the conventions ask the file to declare. */
 export function widgetClass(entry: string): string {
   return basename(entry, ".dart").split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
@@ -43,7 +49,7 @@ void main() {
 `,
   );
   const out = `.tulpar/flutter/build/${name}`;
-  const run = await sdk("flutter", ["build", "web", "--release", "--no-web-resources-cdn", "-t", `.tulpar/flutter/harness_${name}.dart`, "-o", out], root);
+  const run = await sdk("flutter", ["build", "web", ...WEB_BUILD, "-t", `.tulpar/flutter/harness_${name}.dart`, "-o", out], root);
   if (run.code !== 0) {
     const lines = (run.stdout + "\n" + run.stderr).split("\n").filter((l) => /error/i.test(l) && !/^\s*#\d/.test(l) && !/Failed to compile application|Compilation failed|ProcessException/.test(l));
     return { ok: false, log: lines.slice(0, 12).join("\n") || run.stderr.slice(-1500) || `flutter build web failed (exit ${run.code})` };
@@ -53,6 +59,7 @@ void main() {
 
 interface Described {
   written: Record<string, string>;
+  drawn: Record<string, string>;
   widgets: string[];
   literals: { property: string; written: string; at: string }[];
   tokens: { property: string; written: string; token: string; at: string }[];
@@ -76,7 +83,9 @@ export async function render(params: RenderParams, spacingClass?: string): Promi
       const nodes = await page.$$eval("[flt-semantics-identifier]", (els) =>
         els.map((e) => {
           const r = e.getBoundingClientRect();
-          return { id: e.getAttribute("flt-semantics-identifier") ?? "", x: r.x, y: r.y, width: r.width, height: r.height, text: (e.getAttribute("aria-label") ?? e.textContent ?? "").replace(/\s+/g, " ").trim() };
+          // A text field's node holds an <input> whose aria-label is its label, not what it draws.
+          const field = e.querySelector(":scope > input, :scope > textarea");
+          return { id: e.getAttribute("flt-semantics-identifier") ?? "", x: r.x, y: r.y, width: r.width, height: r.height, text: field ? ((field as HTMLInputElement).value ?? "") : (e.getAttribute("aria-label") ?? e.textContent ?? "").replace(/\s+/g, " ").trim() };
         }),
       );
       const png = (await page.screenshot({ type: "png" })).toString("base64");
@@ -88,7 +97,8 @@ export async function render(params: RenderParams, spacingClass?: string): Promi
       component: described.written[n.id] ?? "unknown",
       defined: true,
       box: { x: n.x, y: n.y, width: n.width, height: n.height },
-      text: n.text,
+      // An empty text field draws its hint on the canvas; the page carries only its label.
+      text: n.text || (described.drawn?.[n.id] ?? ""),
       fonts: [],
       visible: n.width > 0 && n.height > 0,
       styles: [],

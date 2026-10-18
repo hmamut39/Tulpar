@@ -145,7 +145,11 @@ export async function generateCommand(projectDir: string, options: GenerateComma
         if (e.type === "generated") log(`  wrote ${e.files.join(", ") || "no files"}`);
         if (e.type === "verified") log(`  verification: ${e.report.verdict}${e.report.checks.filter((c) => c.status === "fail").map((c) => `; ✗ ${c.summary}`).join("")}`);
       },
-      format: (files) => formatFiles(join(project.root, workDir), files),
+      // Prettier for the web languages, then the adapter's own formatter (dart format) where it has one.
+      format: async (files) => {
+        const pretty = await formatFiles(join(project.root, workDir), files);
+        return host.manifest?.capabilities.format ? (await host.call("format", { ...project.params, files: pretty })).files : pretty;
+      },
       verify: async (files) => {
         await writeFiles(project, workDir, files);
         const entry = join(workDir, conventions.entry.replace(NAME_PLACEHOLDERS, (p) => fillName(p, options.name))).replace(/\\/g, "/");

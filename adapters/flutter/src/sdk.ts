@@ -72,14 +72,16 @@ const TOOL = join(import.meta.dirname, "..", "tool");
  * cached under the project's .tulpar/cache, keyed by `key` (what the answer depends on).
  */
 export async function dartTool<T>(name: string, args: string[], root: string, key?: string): Promise<T> {
-  const cacheFile = key && join(root, ".tulpar", "cache", `flutter-${name}-${createHash("sha256").update(key).digest("hex").slice(0, 16)}.json`);
+  // The program's own source is part of the key: a changed tool never answers from an old cache.
+  const cacheFile = key && join(root, ".tulpar", "cache", `flutter-${name}-${createHash("sha256").update(key).update(readFileSync(join(TOOL, "bin", `${name}.dart`))).digest("hex").slice(0, 16)}.json`);
   if (cacheFile && existsSync(cacheFile)) return JSON.parse(readFileSync(cacheFile, "utf8")) as T;
   if (!existsSync(join(TOOL, ".dart_tool", "package_config.json"))) {
     const got = await sdk("dart", ["pub", "get"], TOOL);
     if (got.code !== 0) throw new Error(`dart pub get failed for Tulpar's Flutter tool: ${got.stderr.slice(-400)}`);
   }
   const run = await sdk("dart", ["run", `bin/${name}.dart`, ...args], TOOL);
-  if (run.code !== 0) throw new Error(`${name}: ${run.stderr.trim().split("\n").slice(-3).join(" ") || `exit ${run.code}`}`);
+  // The message, not the stack trace under it.
+  if (run.code !== 0) throw new Error(`${name}: ${run.stderr.split("\n").filter((l) => l.trim() && !/^#\d+\s/.test(l.trim())).slice(0, 3).join(" ") || `exit ${run.code}`}`);
   const json = JSON.parse(run.stdout) as T;
   if (cacheFile) {
     mkdirSync(join(root, ".tulpar", "cache"), { recursive: true });

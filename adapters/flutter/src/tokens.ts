@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Color, DesignToken, TokenSet } from "@tulpar/core";
 import { dartTool, fingerprint, sdk } from "./sdk.ts";
+import { WEB_BUILD } from "./verify.ts";
 import { withBuild } from "./web.ts";
 
 export interface ThemeConfig {
@@ -81,7 +82,7 @@ async function probeTheme(root: string, theme: ThemeConfig): Promise<Probed> {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "probe.dart"), source);
   const out = join(dir, "probe-build");
-  const built = await sdk("flutter", ["build", "web", "--release", "--no-web-resources-cdn", "-t", ".tulpar/flutter/probe.dart", "-o", ".tulpar/flutter/probe-build"], root);
+  const built = await sdk("flutter", ["build", "web", ...WEB_BUILD, "-t", ".tulpar/flutter/probe.dart", "-o", ".tulpar/flutter/probe-build"], root);
   if (built.code !== 0) throw new Error(`the probe did not build: ${(built.stdout + built.stderr).split("\n").filter((l) => /error/i.test(l)).slice(0, 3).join(" ")}`);
   const json = await withBuild(out, { width: 200, height: 200 }, async (page) => {
     await page.waitForFunction(() => (window as unknown as { tulparTokens?: string }).tulparTokens, null, { timeout: 30_000 });

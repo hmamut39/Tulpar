@@ -21,6 +21,7 @@ interface Event {
 }
 
 export async function runWidgetTests(root: string, testFile: string, timeoutMs = 300_000): Promise<TestRunResult> {
+  if (process.platform === "win32") return { status: "unsupported", reason: "flutter test --platform chrome does not run on Windows here; it runs on Linux" };
   const from = dirname(join(root, testFile));
   const run = join(root, "test", "tulpar_run");
   rmSync(run, { recursive: true, force: true });

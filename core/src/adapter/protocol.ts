@@ -28,6 +28,8 @@ export interface AdapterManifest {
     tests?: boolean;
     forceStates: ("hover" | "focus" | "pressed" | "disabled")[];
     themes: boolean;
+    /** Formats generated files with the language's own formatter (dart format). Optional: absent means Prettier only. */
+    format?: boolean;
     /** The language and styling combinations the adapter writes, its default first. Absent or empty: no choice. */
     outputs?: OutputChoice[];
   };
@@ -78,6 +80,8 @@ export interface Methods {
   test: { params: TestParams; result: TestRunResult };
   /** How to write code for this framework: files, entry, rules. */
   conventions: { params: ProjectParams & { output?: OutputChoice }; result: Conventions };
+  /** Formats generated files the way the language does (e.g. dart format); files it does not know come back unchanged. */
+  format: { params: ProjectParams & { files: { path: string; content: string }[] }; result: { files: { path: string; content: string }[] } };
   shutdown: { params: Record<string, never>; result: null };
 }
 
