@@ -63,6 +63,8 @@ COPY --chown=node:node . .
 
 # What each framework's adapter writes, read now so a cold start does not have to start them all.
 RUN node deploy/manifests.ts
+# Flutter's widget index and theme, read now: an idle machine restarts and would lose them.
+RUN node deploy/warm-flutter.ts
 
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
 # deploy/start.sh prepares the volume as root, then runs the server as the "node" user.
