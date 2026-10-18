@@ -2,6 +2,8 @@
 // in Material 3. Hand-written, so the verifier has a known-good baseline.
 import 'package:flutter/material.dart';
 
+import '../spacing.dart';
+
 class ModalActions extends StatelessWidget {
   const ModalActions({super.key});
 
@@ -17,7 +19,7 @@ class ModalActions extends StatelessWidget {
             identifier: '4122:87677',
             child: OutlinedButton(onPressed: () {}, child: const Text('Cancel')),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.sm),
           Semantics(
             identifier: '4122:86445',
             child: FilledButton(onPressed: () {}, child: const Text('Save')),
