@@ -43,8 +43,11 @@ five web frameworks.
 - ✅ **`dart format`** through an optional adapter method, `format`.
 - ✅ **Fast builds.** Skipping the default WebAssembly dry run (and source maps, icon tree-shaking, full optimisation) made a build take 6 s instead of 50.
 - ✅ **Linux CI job** (`.github/workflows/flutter.yml`) with the real SDK, checksum verified.
-- 🔄 **The image** carries the SDK; the smoke test runs a Flutter widget test inside it; the page offers Flutter where the server can build it.
-- ⏳ An eval run of `flutter-material-shot`, and a Material 3 Figma frame in place of the Carbon one.
+- ✅ **Live on tulparsi.com.** The image carries the SDK and, warmed at build time, Material's index and theme; the smoke test runs a Flutter widget test inside it; the page offers Flutter · Material 3.
+- ✅ **On the production machine** (2 GB, shared CPUs): a verification passes every check that runs in 72 s (285 s before the warm caches), with at least 371 MB of memory left; no font or other request is blocked.
+- ✅ **Interaction states.** The real mouse hovers and presses, Tab focuses each control as keyboard users reach it; the colours a state adds are read from pixels, compared with a finer threshold that sees Material's 8–12% state layers.
+- ⏳ A Material 3 Figma frame in place of the Carbon one (the Carbon kit has no Material mapping; the Material 3 Design Kit must be duplicated into the Figma account first).
+- ⏳ Typeface: Flutter does not tell the page which font drew its text, so the check stays "not checked" rather than guess.
 
 ## Order
 
