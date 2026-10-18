@@ -86,14 +86,17 @@ export function listProjects(repoRoot: string): ProjectInfo[] {
 
 function projectsIn(base: string): ProjectInfo[] {
   if (!existsSync(base)) return [];
-  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte" };
+  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte", flutter: "Flutter" };
   return readdirSync(base, { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(join(base, d.name, "tulpar.json")))
     .map((d) => {
       const cfg = JSON.parse(readFileSync(join(base, d.name, "tulpar.json"), "utf8"));
       const pkgs = (cfg[cfg.adapter]?.packages as string[] | undefined) ?? [];
       const pkg = pkgs[0] && existsSync(join(base, d.name, pkgs[0], "package.json")) ? JSON.parse(readFileSync(join(base, d.name, pkgs[0], "package.json"), "utf8")) : undefined;
-      return { id: d.name, dir: join(base, d.name), adapter: cfg.adapter, label: `${labels[cfg.adapter] ?? cfg.adapter}${pkg ? ` · ${pkg.name}@${pkg.version}` : ""}` };
+      // Flutter's design system is a Dart library, not an npm package: Material, unless configured otherwise.
+      const library = cfg.adapter === "flutter" ? (cfg.flutter?.library as string | undefined) ?? "package:flutter/material.dart" : undefined;
+      const product = library ? (library === "package:flutter/material.dart" ? "Material 3" : library) : undefined;
+      return { id: d.name, dir: join(base, d.name), adapter: cfg.adapter, label: `${labels[cfg.adapter] ?? cfg.adapter}${pkg ? ` · ${pkg.name}@${pkg.version}` : product ? ` · ${product}` : ""}` };
     });
 }
 

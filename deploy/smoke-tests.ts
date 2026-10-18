@@ -50,6 +50,33 @@ const cases: { project: string; files: Record<string, string>; spec: string }[] 
     },
     spec: "smoke.component.spec.ts",
   },
+  {
+    project: "examples/flutter-material",
+    files: {
+      "smoke.dart": `import 'package:flutter/material.dart';
+
+class Smoke extends StatelessWidget {
+  const Smoke({super.key});
+
+  @override
+  Widget build(BuildContext context) => FilledButton(onPressed: () {}, child: const Text('Save'));
+}
+`,
+      "smoke_test.dart": `import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'smoke.dart';
+
+void main() {
+  testWidgets('shows the button', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: Smoke())));
+    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
+  });
+}
+`,
+    },
+    spec: "smoke_test.dart",
+  },
 ];
 
 let failed = 0;
