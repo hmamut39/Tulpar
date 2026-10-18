@@ -1,0 +1,10 @@
+{
+  "adapter": "flutter",
+  "figma": {
+    "fileKey": "b8xYgmx2Js30XaldxPkOs9"
+  },
+  "flutter": {
+    "library": "package:flutter/material.dart",
+    "spacing": { "file": "lib/spacing.dart", "class": "Space", "import": "package:tulpar_flutter_material/spacing.dart" }
+  }
+}

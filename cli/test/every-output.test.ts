@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fillName, outputName, type AdapterHost, type Conventions, type OutputChoice } from "@tulpar/core";
+import { NAME_PLACEHOLDERS, fillName, outputName, type AdapterHost, type Conventions, type OutputChoice } from "@tulpar/core";
 import { loadProject, startAdapter } from "../src/project.ts";
 
 const repo = resolve(import.meta.dirname, "../..");
@@ -94,7 +94,7 @@ for (const dir of projects) {
         for (const output of outputs.length ? outputs : [undefined]) {
           const params = { ...project.params, ...(output && { output }) };
           const c: Conventions = await host.call("conventions", params);
-          const fill = (p: string) => p.replace(/\{(name|kebab)\}/g, (m) => fillName(m, NAME));
+          const fill = (p: string) => p.replace(NAME_PLACEHOLDERS, (m) => fillName(m, NAME));
           const path = (role: string) => {
             const f = c.files.find((x) => x.role === role);
             return f && fill(f.path);

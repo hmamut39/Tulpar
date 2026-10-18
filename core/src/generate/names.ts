@@ -2,12 +2,15 @@
 // given (PascalCase, e.g. ModalActions); {kebab} is its kebab-case form (modal-actions),
 // which frameworks such as Angular use for file names and selectors.
 
-export const NAME_PLACEHOLDERS = /{(name|kebab)}/g;
+export const NAME_PLACEHOLDERS = /{(name|kebab|snake)}/g;
 
 export function kebab(name: string): string {
   return name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2").toLowerCase();
 }
 
 export function fillName(placeholder: string, name: string): string {
-  return placeholder === "{kebab}" ? kebab(name) : name;
+  if (placeholder === "{kebab}") return kebab(name);
+  // Dart file names: checkout_card.dart.
+  if (placeholder === "{snake}") return kebab(name).replace(/-/g, "_");
+  return name;
 }

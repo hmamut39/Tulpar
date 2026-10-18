@@ -447,7 +447,7 @@ function visualCheck(
       component && wanted && drawn && wanted.distance <= OFF_SYSTEM && wanted.hex !== drawn.hex
         ? byName
           ? ` → set ${byName.prop}="${byName.value}" on <${component.name}> ${over!.figmaId} (the design system's name for this colour)`
-          : ` → give <${component.name}> ${over!.figmaId} var(--${wanted.name}, ${wanted.hex}) through a colour prop that takes it${component.cssProperties?.length ? `, or its theming CSS variables (${component.cssProperties.slice(0, 4).map((p) => p.name).join(", ")}, and their hover and active counterparts)` : ""}`
+          : ` → give <${component.name}> ${over!.figmaId} ${wanted.codeRef && !wanted.codeRef.startsWith("var(") ? `${wanted.codeRef} (${wanted.hex})` : `var(--${wanted.name}, ${wanted.hex})`} through a colour prop that takes it${component.cssProperties?.length ? `, or its theming CSS variables (${component.cssProperties.slice(0, 4).map((p) => p.name).join(", ")}, and their hover and active counterparts)` : ""}`
         : "";
     return `${mismatch > limit ? "✗" : "–"} ${where}${colors}${fix}`;
   });

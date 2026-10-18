@@ -39,7 +39,7 @@ Future<void> main(List<String> args) async {
     final constructor = constructors.firstWhere((c) => c.name == null || c.name == 'new', orElse: () => constructors.first);
     widgets.add({
       'name': name,
-      if (constructor.name != null && constructor.name != 'new') 'constructor': constructor.name,
+      if (constructor.name != null && constructor.name != 'new') 'constructorName': constructor.name,
       'doc': summary(element.documentationComment),
       if (element.metadata.hasDeprecated) 'deprecated': true,
       'params': [

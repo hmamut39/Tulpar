@@ -54,6 +54,10 @@ describe("web API", () => {
     expect(config.outputs.react).toContainEqual({ language: "javascript", styling: "emotion" });
     expect(config.outputs.angular.map((o: { language: string }) => o.language)).not.toContain("javascript");
     expect(config.outputs["web-components"]).toEqual([]);
+    // A framework this machine cannot build is not offered: without the Flutter SDK, no Flutter project.
+    if (!process.env.TULPAR_FLUTTER_SDK && !process.env.FLUTTER_ROOT && !(process.env.PATH ?? "").toLowerCase().includes("flutter")) {
+      expect(config.projects.map((p: { adapter: string }) => p.adapter)).not.toContain("flutter");
+    }
   });
 
   it("refuses without the access code, and explains bad input", async () => {

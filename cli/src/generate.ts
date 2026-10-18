@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { OpenAiLlm, fillName, generate, generationCost, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
+import { NAME_PLACEHOLDERS, OpenAiLlm, fillName, generate, generationCost, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
 import { formatFiles } from "./format.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
@@ -148,9 +148,9 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       format: (files) => formatFiles(join(project.root, workDir), files),
       verify: async (files) => {
         await writeFiles(project, workDir, files);
-        const entry = join(workDir, conventions.entry.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");
+        const entry = join(workDir, conventions.entry.replace(NAME_PLACEHOLDERS, (p) => fillName(p, options.name))).replace(/\\/g, "/");
         const testSpec = conventions.files.find((f) => f.role === "test");
-        const testFile = testSpec && join(workDir, testSpec.path.replace(/\{(name|kebab)\}/g, (p) => fillName(p, options.name))).replace(/\\/g, "/");
+        const testFile = testSpec && join(workDir, testSpec.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, options.name))).replace(/\\/g, "/");
         const verified = await verifyEntry(host, project, ctx, entry, options.theme, testFile && files.some((f) => testFile.endsWith(f.path)) ? testFile : undefined);
         if (verified.png) pngs.set(verified.report, verified.png);
         debug.attempts.push(verified.elements ?? null);

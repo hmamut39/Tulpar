@@ -121,6 +121,11 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       }),
     );
   let manifestsRead = readManifests();
+  // Offered only where this machine can build and render the framework (Flutter needs its SDK).
+  const usable = (p: { adapter: string }) => {
+    const m = manifests.get(p.adapter);
+    return !m || (m.capabilities.build && m.capabilities.render.supported);
+  };
   const customRoot = join(options.repoRoot, "out", "projects");
   const addJobs = new Map<string, AddJob>();
   const addedToday = new Map<string, number[]>(); // who → when they added a design system
@@ -210,7 +215,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         await manifestsRead;
         const model = llm();
         return json(res, 200, {
-          projects: projects.map(({ id, adapter, label }) => ({ id, adapter, label })),
+          projects: projects.filter(usable).map(({ id, adapter, label }) => ({ id, adapter, label })),
           // Framework → the language and styling combinations it writes, its default first.
           outputs: Object.fromEntries([...manifests].map(([adapter, m]) => [adapter, m.capabilities.outputs ?? []])),
           accessCodeRequired: codes.length > 0 && !auth,
@@ -359,7 +364,8 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         if (today.length >= runsPerDay) return json(res, 429, { error: "Tulpar has reached today's generation limit. Try again tomorrow." });
         if (queue.pending >= maxQueue) return json(res, 503, { error: "Tulpar is busy. Try again in a few minutes." });
 
-        const project = projects.find((p) => p.id === body.project);
+        await manifestsRead;
+        const project = projects.find((p) => p.id === body.project && usable(p));
         if (!project) return json(res, 400, { error: "Pick a project." });
         const hasUrl = typeof body.figmaUrl === "string" && body.figmaUrl.trim() !== "";
         const ref = hasUrl ? parseFigmaUrl(body.figmaUrl as string) : undefined;
