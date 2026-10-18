@@ -25,13 +25,17 @@ export interface VisualComparison {
  * Compare a render (PNG) with a baseline (PNG). The baseline is scaled to the render's size
  * first; `scale` is the render's pixels per design point, for reporting regions in points.
  */
-export function compareImages(renderPng: Buffer, baselinePng: Buffer, scale = 1): VisualComparison {
+/**
+ * `threshold` is pixelmatch's colour sensitivity: 0.1 for a render against a design; lower to see subtle
+ * changes of one render against itself (Material's 8% state layers).
+ */
+export function compareImages(renderPng: Buffer, baselinePng: Buffer, scale = 1, threshold = 0.1): VisualComparison {
   const render = PNG.sync.read(renderPng);
   let baseline: PNG = PNG.sync.read(baselinePng);
   if (baseline.width !== render.width || baseline.height !== render.height) baseline = resize(baseline, render.width, render.height);
   const { width, height } = render;
   const diff = new PNG({ width, height });
-  const count = pixelmatch(render.data, baseline.data, diff.data, width, height, { threshold: 0.1, includeAA: false, alpha: 0.2 });
+  const count = pixelmatch(render.data, baseline.data, diff.data, width, height, { threshold, includeAA: false, alpha: 0.2 });
   return {
     mismatch: count / (width * height),
     width,

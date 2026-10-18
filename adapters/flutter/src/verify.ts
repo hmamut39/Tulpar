@@ -11,6 +11,7 @@ import { basename, join, relative } from "node:path";
 import type { AnalyzeResult, BuildParams, BuildResult, RenderParams, RenderResult, RenderedElement, StyleFact } from "@tulpar/core";
 import { dartTool, flutterVersion, sdk } from "./sdk.ts";
 import type { ThemeConfig } from "./tokens.ts";
+import { measureFlutterStates } from "./states.ts";
 import { withBuild } from "./web.ts";
 
 /**
@@ -94,7 +95,9 @@ export async function render(params: RenderParams, spacingClass?: string): Promi
         }),
       );
       const png = (await page.screenshot({ type: "png" })).toString("base64");
-      return { nodes, png, blocked: [...blocked] };
+      // After the screenshot: states move the mouse and focus, which must not show in it.
+      const states = await measureFlutterStates(page).catch(() => undefined);
+      return { nodes, png, states, blocked: [...blocked] };
     });
     if (!measured.nodes.length) return { status: "failed", reason: "the widget drew no Semantics(identifier:) nodes: it threw on start-up, or tags nothing" };
     const elements: RenderedElement[] = measured.nodes.map((n) => ({
@@ -112,6 +115,7 @@ export async function render(params: RenderParams, spacingClass?: string): Promi
       status: "ok",
       png: measured.png,
       elements,
+      ...(measured.states && { states: measured.states }),
       renderer: { name: "flutter-web+chromium", version: flutterVersion() ?? "unknown", os: process.platform },
       warnings: [
         "Flutter draws on a canvas: layout and text are read from its semantics tree; colours, type and spacing are checked in the code.",

@@ -38,7 +38,7 @@ serve({
       staticProvenance: true,
       // flutter test --platform chrome does not connect back to its runner on Windows.
       tests: sdkFound && process.platform !== "win32",
-      forceStates: [],
+      forceStates: sdkFound ? ["hover", "pressed", "focus"] : [],
       themes: false,
       format: sdkFound,
     },
