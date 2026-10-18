@@ -5,6 +5,8 @@ import { PROTOCOL_VERSION, serve, type ProjectParams } from "@tulpar/core";
 import { indexWidgets } from "./components.ts";
 import { flutterBin } from "./sdk.ts";
 import { readTokens, type SpacingConfig, type ThemeConfig } from "./tokens.ts";
+import { formatDart } from "./format.ts";
+import { runWidgetTests } from "./tests.ts";
 import { analyze, build, render } from "./verify.ts";
 import { closeBrowser } from "./web.ts";
 
@@ -34,9 +36,10 @@ serve({
       // Flutter paints a canvas: styles come from the analyzer reading the code, not from the render.
       runtimeStyleProvenance: false,
       staticProvenance: true,
-      tests: false,
+      tests: sdkFound,
       forceStates: [],
       themes: false,
+      format: sdkFound,
     },
   }),
 
@@ -50,13 +53,20 @@ serve({
 
   analyze: (params) => analyze(params.root, params.entry, config(params).spacing?.class),
 
+  test: (params) => runWidgetTests(params.root, params.entry),
+
+  format: async (params) => ({ files: await formatDart(params.root, params.files) }),
+
   conventions: (params) => {
     const lib = library(params);
     const spacing = config(params).spacing;
     return {
       language: "Dart",
       framework: `Flutter with ${lib === "package:flutter/material.dart" ? "Material 3" : lib}`,
-      files: [{ path: "{snake}.dart", role: "component", description: "The widget: a StatelessWidget (a StatefulWidget only for local UI state) named {name}, with const constructor `const {name}({super.key})` and no required parameters; it renders the whole design." }],
+      files: [
+        { path: "{snake}.dart", role: "component", description: "The widget: a StatelessWidget (a StatefulWidget only for local UI state) named {name}, with const constructor `const {name}({super.key})` and no required parameters; it renders the whole design." },
+        { path: "{snake}_test.dart", role: "test", description: "Widget tests (flutter_test): it builds inside MaterialApp, shows the design's text, and uses the design-system widgets." },
+      ],
       entry: "{snake}.dart",
       rules: [
         `Use the design system's widgets from ${lib} for every mapped instance (FilledButton, OutlinedButton, TextField, Checkbox, Card…), with the parameters the mapping gives. Never rebuild one from Container, DecoratedBox or GestureDetector.`,
@@ -69,6 +79,7 @@ serve({
         "Do not give the widget a fixed width or height from the frame: fill the space the parent gives (Expanded, Flexible, mainAxisSize).",
         "Import package:flutter/material.dart and the project's own files by package: URI; no other packages.",
         "Write const constructors and const widgets wherever possible, as dart analyze would ask.",
+        "In {snake}_test.dart import package:flutter/material.dart, package:flutter_test/flutter_test.dart and the widget by a relative import ('{snake}.dart'); pump it inside MaterialApp(home: Scaffold(body: {name}())) and query with find.byType, find.text and find.bySemanticsIdentifier. The tests run in a browser: no dart:io.",
       ],
       importExample: "import 'package:flutter/material.dart';",
     };

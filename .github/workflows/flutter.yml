@@ -1,0 +1,72 @@
+# Flutter: the adapter's integration tests on Linux with the real SDK (build, render, tokens, the
+# static scan, and widget tests in headless Chromium). Separate from CI while Flutter is being built,
+# so it never holds up a deploy; it joins CI once the image carries the SDK.
+name: Flutter
+
+on:
+  push:
+    branches: [main]
+    paths: ["adapters/flutter/**", "examples/flutter-material/**", "core/**", ".github/workflows/flutter.yml"]
+  pull_request:
+    paths: ["adapters/flutter/**", "examples/flutter-material/**", "core/**", ".github/workflows/flutter.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.7
+  # Google's release archive and its published SHA-256 (releases_linux.json).
+  FLUTTER_SHA256: af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - id: playwright
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - uses: actions/cache@v6
+        id: sdk
+        with:
+          path: ~/flutter
+          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}
+      - name: Install the Flutter SDK (checksum verified)
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o flutter.tar.xz "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+          echo "${FLUTTER_SHA256}  flutter.tar.xz" | sha256sum -c -
+          tar -xJf flutter.tar.xz -C ~
+          rm flutter.tar.xz
+      - name: Prepare the SDK and the example
+        run: |
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/flutter/bin:$PATH"
+          git config --global --add safe.directory "$HOME/flutter"
+          flutter --disable-analytics
+          flutter --version
+          (cd examples/flutter-material && flutter pub get)
+          (cd adapters/flutter/tool && dart pub get)
+      - name: Flutter adapter tests
+        env:
+          TULPAR_FLUTTER_SDK: /home/runner/flutter
+        run: npx vitest run adapters/flutter

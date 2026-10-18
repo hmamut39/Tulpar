@@ -26,14 +26,14 @@ export interface Run {
 }
 
 /** Runs `flutter` or `dart` from the SDK. On Windows they are .bat files, which need a shell: arguments are quoted. */
-export function sdk(tool: "flutter" | "dart", args: string[], cwd: string, timeoutMs = 600_000): Promise<Run> {
+export function sdk(tool: "flutter" | "dart", args: string[], cwd: string, timeoutMs = 600_000, env: Record<string, string> = {}): Promise<Run> {
   const bin = flutterBin();
   if (!bin) return Promise.resolve({ code: null, stdout: "", stderr: "The Flutter SDK was not found (set TULPAR_FLUTTER_SDK, or put flutter on the PATH)." });
   const command = join(bin, windows ? `${tool}.bat` : tool);
   return new Promise((resolve) => {
     const child = windows
-      ? spawn(`"${command}" ${args.map(quote).join(" ")}`, { cwd, shell: true, env: { ...process.env, CI: "true" } })
-      : spawn(command, args, { cwd, env: { ...process.env, CI: "true" } });
+      ? spawn(`"${command}" ${args.map(quote).join(" ")}`, { cwd, shell: true, env: { ...process.env, CI: "true", ...env } })
+      : spawn(command, args, { cwd, env: { ...process.env, CI: "true", ...env } });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (d) => (stdout += d));

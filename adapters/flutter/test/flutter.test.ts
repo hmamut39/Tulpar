@@ -1,11 +1,12 @@
 // The Flutter adapter: widgets read with the Dart analyzer, the render measured through semantics,
 // and every value in the code checked. The end-to-end parts need the Flutter SDK and skip without it.
 
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AdapterHost } from "@tulpar/core";
 import { toComponent } from "../src/components.ts";
+import { parse } from "../src/tests.ts";
 import { flutterBin } from "../src/sdk.ts";
 import { widgetClass } from "../src/verify.ts";
 
@@ -32,6 +33,21 @@ describe("the Flutter component model", () => {
     expect(c.props).toMatchObject([{ name: "autofocus", type: { kind: "boolean" }, defaultText: "false", required: false }]);
     expect(c.slots.map((s) => s.name)).toEqual(["", "icon"]);
     expect(c.events.map((e) => e.name)).toEqual(["onPressed"]);
+  });
+
+  it("reads flutter test's JSON report: passes, failures with their reason, and a file that did not load", () => {
+    const events = [
+      { type: "testStart", test: { id: 1, name: "loading test/tulpar_run/a_test.dart", url: null } },
+      { type: "testDone", testID: 1, result: "success", hidden: true },
+      { type: "testStart", test: { id: 2, name: "shows the actions", url: "file:///a_test.dart" } },
+      { type: "testDone", testID: 2, result: "success", hidden: false },
+      { type: "testStart", test: { id: 3, name: "fails honestly", url: "file:///a_test.dart" } },
+      { type: "error", testID: 3, error: "Expected: exactly one matching candidate\n  Actual: _TextWidgetFinder:<Found 0 widgets>" },
+      { type: "testDone", testID: 3, result: "failure", hidden: false },
+    ].map((e) => JSON.stringify(e)).join("\n");
+    expect(parse(events, 1)).toEqual({ status: "ran", runner: "flutter test in Chromium", tests: [{ name: "shows the actions", status: "passed" }, { name: "fails honestly", status: "failed", error: "Expected: exactly one matching candidate   Actual: _TextWidgetFinder:<Found 0 widgets>" }] });
+    const broken = [{ type: "testStart", test: { id: 1, name: "loading test/tulpar_run/a_test.dart", url: null } }, { type: "error", testID: 1, error: "a_test.dart:3:8: Error: Not found: 'x.dart'" }, { type: "testDone", testID: 1, result: "error", hidden: true }].map((e) => JSON.stringify(e)).join("\n");
+    expect(parse(broken, 1)).toMatchObject({ status: "ran", tests: [], fileError: "a_test.dart:3:8: Error: Not found: 'x.dart'" });
   });
 
   it("names the class a Dart file declares", () => {
@@ -61,6 +77,42 @@ describe.skipIf(!sdk || !existsSync(join(example, "pubspec.yaml")))("Flutter ada
       const tokens = await host.call("tokens", params);
       expect(tokens.tokens.find((t) => t.name === "colorScheme.primary")).toMatchObject({ codeRef: "Theme.of(context).colorScheme.primary", type: "color" });
       expect(tokens.tokens.find((t) => t.name === "Space.sm")).toMatchObject({ values: { default: { kind: "dimension", points: 8 } } });
+    } finally {
+      await host.stop();
+    }
+  });
+
+  // flutter test --platform chrome does not connect back to its runner on Windows; it runs on Linux (CI, the image).
+  it.skipIf(process.platform === "win32")("runs widget tests in headless Chromium, failures included", async () => {
+    const dir = join(example, ".tulpar", "test-widget");
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir, { recursive: true });
+    copyFileSync(join(example, "lib/impl/modal_actions.dart"), join(dir, "modal_actions.dart"));
+    copyFileSync(resolve(import.meta.dirname, "fixtures/modal_actions_test.dart"), join(dir, "modal_actions_test.dart"));
+    const host = await AdapterHost.start(process.execPath, [main]);
+    try {
+      const r = await host.call("test", { root: example, config: {}, entry: ".tulpar/test-widget/modal_actions_test.dart" });
+      expect(r.status).toBe("ran");
+      if (r.status !== "ran") return;
+      expect(r.tests.map((t) => `${t.name} ${t.status}`)).toEqual(["shows both actions as Material buttons passed", "fails honestly failed"]);
+      expect(existsSync(join(example, "test", "tulpar_run"))).toBe(false);
+    } finally {
+      await host.stop();
+    }
+  });
+});
+
+describe.skipIf(!sdk || !existsSync(join(example, "pubspec.yaml")))("dart format", { timeout: 300_000 }, () => {
+  it("formats generated Dart and leaves other files and unparsable code alone", async () => {
+    const host = await AdapterHost.start(process.execPath, [main]);
+    try {
+      const messy = "import 'package:flutter/material.dart';\nclass A extends StatelessWidget{const A({super.key});@override Widget build(BuildContext context){return const Text('a');}}\n";
+      const broken = "class B { void f( { }\n";
+      const r = await host.call("format", { root: example, config: {}, files: [{ path: "a.dart", content: messy }, { path: "notes.md", content: "x" }] });
+      expect(r.files[0]!.content).toContain("class A extends StatelessWidget {\n  const A({super.key});");
+      expect(r.files[1]!.content).toBe("x");
+      const b = await host.call("format", { root: example, config: {}, files: [{ path: "b.dart", content: broken }] });
+      expect(b.files[0]!.content).toBe(broken);
     } finally {
       await host.stop();
     }
