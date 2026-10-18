@@ -27,7 +27,8 @@ describe("web-components adapter on a fixture package", () => {
     const config = (await import("./fixtures/tulpar.json", { with: { type: "json" } })).default["web-components"];
     ({ index, tokens } = await run(fixtureRoot, config));
     chip = index.components[0]!;
-  });
+    // Starts an adapter process: slow while the rest of the suite runs in parallel.
+  }, 60_000);
 
   it("declares its capabilities honestly", async () => {
     const host = await AdapterHost.start(process.execPath, [main]);

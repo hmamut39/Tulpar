@@ -27,6 +27,7 @@ async function load(days) {
     ["Monthly recurring revenue", rev ? money(r.mrr, r.currency) : "–", rev ? `${money(r.collected, r.currency)} collected in 30 days` : (r?.error ?? "payments not set up")],
     ["Generations", num(g.total), `${pct(g.passed, g.total)} passed · ${num(g.failed)} failed · ${num(g.errors)} errors`],
     ["AI tokens", num(g.inputTokens + g.outputTokens), `${num(g.inputTokens)} in · ${num(g.outputTokens)} out`],
+    ["Result ratings", `${num(data.feedback.up)} up · ${num(data.feedback.down)} down`, data.feedback.up + data.feedback.down ? `${pct(data.feedback.up, data.feedback.up + data.feedback.down)} found results useful` : "no ratings yet"],
     ["OpenAI cost", data.cost === null ? "–" : money(data.cost), data.cost === null ? "set TULPAR_OPENAI_INPUT_PER_M and _OUTPUT_PER_M" : `about ${money(g.total ? data.cost / g.total : 0)} per generation`],
   ];
   $("tiles").innerHTML = tiles.map(([label, value, sub]) => `<div class="tile"><p class="tile-label">${esc(label)}</p><p class="tile-value">${esc(value)}</p><p class="tile-sub">${esc(sub)}</p></div>`).join("");
@@ -46,6 +47,9 @@ async function load(days) {
         .map((a) => `<tr><td>${esc(a.login)}</td><td>${a.plan === "pro" ? `Pro${a.status && a.status !== "active" ? ` (${esc(a.status)})` : ""}` : "Trial"}</td><td class="num">${num(a.used)}</td><td>${esc(a.createdAt.slice(0, 10))}</td></tr>`)
         .join("")
     : `<tr><td colspan="4" class="hint">No accounts yet.</td></tr>`;
+  $("comments").innerHTML = data.feedback.comments.length
+    ? data.feedback.comments.map((c) => `<tr><td>${c.rating === "up" ? "Useful" : "Not useful"}</td><td>${esc(c.project)}</td><td>${esc(c.comment)}</td></tr>`).join("")
+    : `<tr><td colspan="3" class="hint">No comments yet.</td></tr>`;
   $("tables").hidden = false;
 }
 

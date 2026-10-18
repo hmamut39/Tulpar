@@ -107,6 +107,14 @@ describe("web API", () => {
     expect(Object.keys(zip).sort()).toEqual(["ModalActions/ModalActions.css", "ModalActions/ModalActions.test.tsx", "ModalActions/ModalActions.tsx", "ModalActions/tulpar-report.json"]);
     expect(strFromU8(zip["ModalActions/ModalActions.tsx"]!)).toBe(tsx);
     expect(job.result.report.checks.find((c: { id: string }) => c.id === "tests").summary).toMatch(/^1 of 1 generated tests pass/);
+
+    // "Was this result useful?": once per result; the log notes the rating, never the comment's text.
+    const rate = (body: Record<string, unknown>) => fetch(`${server.url}/api/jobs/${id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    expect((await rate({ rating: "sideways" })).status).toBe(400);
+    expect((await rate({ rating: "down", comment: "the spacing was off" })).status).toBe(200);
+    expect(JSON.parse(logged.at(-1)!)).toMatchObject({ event: "feedback", project: "carbon-react", rating: "down", comment: true });
+    expect(logged.at(-1)).not.toContain("the spacing was off");
+    expect((await fetch(`${server.url}/api/jobs/00000000-0000-0000-0000-000000000000/feedback`, { method: "POST", body: "{}" })).status).toBe(404);
   }, 180_000);
 
   it("limits generations per visitor per hour", async () => {

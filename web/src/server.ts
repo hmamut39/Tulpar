@@ -421,6 +421,21 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         return json(res, 202, { id });
       }
 
+      // What the person thought of a result: once per job, with an optional comment. No design or code is kept.
+      const feedbackMatch = /^\/api\/jobs\/([a-f0-9-]{36})\/feedback$/.exec(path);
+      if (req.method === "POST" && feedbackMatch) {
+        const job = queue.get(feedbackMatch[1]!);
+        if (!job || job.state !== "done") return json(res, 404, { error: "No finished job to rate." });
+        const body = await readJson(req);
+        const rating = body.rating === "up" || body.rating === "down" ? body.rating : undefined;
+        if (!rating) return json(res, 400, { error: "Rate it up or down." });
+        const comment = typeof body.comment === "string" && body.comment.trim() ? body.comment.trim().slice(0, 500) : undefined;
+        const record = { job: job.id, project: basename(job.input.projectDir), source: job.source, status: job.result?.status ?? null, rating, ...(comment && { comment }) } as const;
+        const fresh = accounts ? accounts.recordFeedback(record) : true;
+        if (fresh) log(JSON.stringify({ event: "feedback", at: new Date().toISOString(), ...record, comment: comment ? true : undefined }));
+        return json(res, fresh ? 200 : 409, fresh ? { ok: true } : { error: "Already rated, thank you." });
+      }
+
       const jobMatch = /^\/api\/jobs\/([a-f0-9-]{36})(\/render\.png|\/download\.zip)?$/.exec(path);
       if (req.method === "GET" && jobMatch) {
         const job = queue.get(jobMatch[1]!);

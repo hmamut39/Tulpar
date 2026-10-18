@@ -406,3 +406,15 @@ input, select, textarea { scroll-margin-top: 88px; }
 .theme-switch[aria-checked="true"] .theme-knob { transform: translateX(26px); }
 .theme-switch[aria-checked="false"] .theme-sun, .theme-switch[aria-checked="true"] .theme-moon { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .theme-knob { transition: none; } }
+
+/* "Was this result useful?" under a result. */
+.feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.feedback-buttons { display: inline-flex; gap: 6px; }
+.vote { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); cursor: pointer; }
+.vote svg { width: 18px; height: 18px; fill: currentColor; }
+.vote:hover:not(:disabled), .vote:focus-visible { color: var(--accent); border-color: var(--accent); }
+.vote[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.vote:disabled { cursor: default; }
+.feedback-more { display: flex; gap: 8px; flex: 1 1 260px; }
+.feedback-more input { flex: 1; min-width: 0; height: 36px; }
+.feedback-thanks { color: var(--text); font-weight: 500; }

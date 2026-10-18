@@ -67,6 +67,16 @@ describe("generations cut short", () => {
   });
 });
 
+describe("ratings of results", () => {
+  it("are kept once per result and counted on the dashboard with their comments", () => {
+    const a = new Accounts(":memory:", { trial: 5, pro: 300 });
+    expect(a.recordFeedback({ job: "j1", project: "carbon-react", source: "figma", status: "verified", rating: "up" })).toBe(true);
+    expect(a.recordFeedback({ job: "j1", project: "carbon-react", source: "figma", status: "verified", rating: "down" })).toBe(false);
+    a.recordFeedback({ job: "j2", project: "radix", source: "screenshot", status: "failed", rating: "down", comment: "wrong colours" });
+    expect(a.stats().feedback).toMatchObject({ up: 1, down: 1, comments: [{ project: "radix", rating: "down", comment: "wrong colours" }] });
+  });
+});
+
 describe("Stripe webhook", () => {
   const secret = "whsec_test";
   const signed = (body: string, t = Math.floor(Date.now() / 1000)) => `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`;

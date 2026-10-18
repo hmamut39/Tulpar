@@ -61,6 +61,8 @@ export interface DashboardStats {
   generations: { total: number; passed: number; failed: number; errors: number; invite: number; inputTokens: number; outputTokens: number; avgSeconds: number };
   series: { day: string; generations: number; signUps: number }[];
   topProjects: { project: string; generations: number }[];
+  /** People's ratings of results, and their latest comments. */
+  feedback: { up: number; down: number; comments: { at: string; project: string; status: string | null; rating: string; comment: string }[] };
   recentAccounts: { login: string; plan: string; status: string | null; used: number; createdAt: string }[];
 }
 
@@ -101,6 +103,8 @@ export class Accounts {
       CREATE TABLE IF NOT EXISTS stripe_events (id TEXT PRIMARY KEY, received_at TEXT NOT NULL);
       -- A charged generation until it finishes. Rows left when the server starts are runs a stop or a
       -- deploy cut short: they are refunded.
+      -- What people thought of a result: the rating and an optional comment they typed. No design or code.
+      CREATE TABLE IF NOT EXISTS feedback (job TEXT PRIMARY KEY, at TEXT NOT NULL, project TEXT NOT NULL, source TEXT NOT NULL, status TEXT, rating TEXT NOT NULL, comment TEXT);
       CREATE TABLE IF NOT EXISTS open_runs (job TEXT PRIMARY KEY, account INTEGER NOT NULL, started_at TEXT NOT NULL);
       -- One row per finished generation, for the owner's dashboard: no design, code or token.
       CREATE TABLE IF NOT EXISTS generations (
@@ -192,6 +196,14 @@ export class Accounts {
     this.#db.prepare("UPDATE accounts SET used = MAX(0, used - 1) WHERE id = ?").run(id);
   }
 
+  /** A person's rating of one result, once per job. False when that job was already rated. */
+  recordFeedback(f: { job: string; project: string; source: string; status: string | null; rating: "up" | "down"; comment?: string }): boolean {
+    const r = this.#db
+      .prepare("INSERT OR IGNORE INTO feedback (job, at, project, source, status, rating, comment) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(f.job, new Date().toISOString(), f.project, f.source, f.status, f.rating, f.comment ?? null);
+    return r.changes > 0;
+  }
+
   /** Notes a charged generation as running. */
   openRun(job: string, account: number): void {
     this.#db.prepare("INSERT OR REPLACE INTO open_runs (job, account, started_at) VALUES (?, ?, ?)").run(job, account, new Date().toISOString());
@@ -267,6 +279,11 @@ export class Accounts {
       generations: { total: Number(gen.total ?? 0), passed: Number(gen.passed ?? 0), failed: Number(gen.failed ?? 0), errors: Number(gen.errors ?? 0), invite: Number(gen.invite ?? 0), inputTokens: Number(gen.input ?? 0), outputTokens: Number(gen.output ?? 0), avgSeconds: Math.round(Number(gen.avgMs ?? 0) / 1000) },
       series,
       topProjects: all(`SELECT project, COUNT(*) AS n FROM generations WHERE at >= ? GROUP BY project ORDER BY n DESC LIMIT 8`, since).map((x) => ({ project: String(x.project), generations: Number(x.n) })),
+      feedback: (() => {
+        const f = one(`SELECT SUM(rating = 'up') AS up, SUM(rating = 'down') AS down FROM feedback WHERE at >= ?`, since);
+        const comments = all(`SELECT at, project, status, rating, comment FROM feedback WHERE at >= ? AND comment IS NOT NULL ORDER BY at DESC LIMIT 10`, since).map((x) => ({ at: String(x.at), project: String(x.project), status: (x.status as string | null) ?? null, rating: String(x.rating), comment: String(x.comment) }));
+        return { up: Number(f.up ?? 0), down: Number(f.down ?? 0), comments };
+      })(),
       recentAccounts: all(`SELECT login, plan, subscription_status AS status, used, created_at AS createdAt FROM accounts ORDER BY created_at DESC LIMIT 15`).map((x) => ({ login: String(x.login), plan: String(x.plan), status: (x.status as string | null) ?? null, used: Number(x.used), createdAt: String(x.createdAt) })),
     };
   }

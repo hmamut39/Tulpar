@@ -307,6 +307,7 @@ function showResult(job) {
   showFile(0);
   $("download").href = `/api/jobs/${job.id}/download.zip`;
   $("download").hidden = !files.length;
+  resetFeedback(job.id);
   selectTab("report");
   show("result");
   if (window.innerWidth <= 900) $("result").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -380,3 +381,46 @@ function readAsDataUrl(file) {
 }
 
 init().catch((err) => showError(`Could not reach the server: ${err.message}`));
+
+// "Was this result useful?": one rating per result; a thumbs down may say what was wrong.
+let feedbackJob = null;
+function resetFeedback(jobId) {
+  feedbackJob = jobId;
+  for (const b of document.querySelectorAll("#feedback .vote")) {
+    b.disabled = false;
+    b.setAttribute("aria-pressed", "false");
+  }
+  $("feedbackMore").hidden = true;
+  $("feedbackText").value = "";
+  $("feedbackThanks").hidden = true;
+}
+async function sendFeedback(rating, comment) {
+  if (!feedbackJob) return;
+  try {
+    await fetch(`/api/jobs/${feedbackJob}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rating, ...(comment && { comment }) }) });
+  } catch {
+    // feedback is best effort
+  }
+}
+for (const b of document.querySelectorAll("#feedback .vote")) {
+  b.addEventListener("click", () => {
+    const rating = b.dataset.rating;
+    for (const o of document.querySelectorAll("#feedback .vote")) {
+      o.disabled = true;
+      o.setAttribute("aria-pressed", String(o === b));
+    }
+    if (rating === "up") {
+      void sendFeedback("up");
+      $("feedbackThanks").hidden = false;
+    } else {
+      $("feedbackMore").hidden = false;
+      $("feedbackText").focus();
+    }
+  });
+}
+$("feedbackMore").addEventListener("submit", (e) => {
+  e.preventDefault();
+  void sendFeedback("down", $("feedbackText").value.trim());
+  $("feedbackMore").hidden = true;
+  $("feedbackThanks").hidden = false;
+});
