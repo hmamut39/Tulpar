@@ -47,7 +47,7 @@ jobs:
           path: examples/*/node_modules
           key: examples-${{ runner.os }}-${{ hashFiles('examples/*/package-lock.json') }}
       - if: steps.examples.outputs.cache-hit != 'true'
-        run: for d in examples/*/; do (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done
+        run: for d in examples/*/; do [ -f "$d/package-lock.json" ] || continue; (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done
       - run: npm run typecheck
       # Tests that need the Figma cache (not in the repository) skip themselves here.
       - run: npm test

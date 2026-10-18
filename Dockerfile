@@ -37,7 +37,7 @@ USER node
 # The example projects (design systems the page offers), pinned by their lockfiles; only the manifests,
 # so editing an example's config reuses its installed packages. --include=dev: the test tools.
 COPY --chown=node:node --parents examples/*/package.json examples/*/package-lock.json ./
-RUN for d in examples/*/; do (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done
+RUN for d in examples/*/; do [ -f "$d/package-lock.json" ] || continue; (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done
 
 # Carbon's Code Connect files: the explicit Figma ↔ code links (public repository).
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-design-system/carbon.git .cache/repos/carbon \
