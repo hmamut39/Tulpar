@@ -45,20 +45,24 @@ describe("accessibility of the web pages", { timeout: 120_000 }, () => {
     });
   }
 
-  it("switches between auto, light and dark with the toggle, and remembers the choice", async () => {
+  it("flips light and dark with one tap of the switch, starting from the device's setting, and remembers it", async () => {
     const page = await (await browser.newContext({ colorScheme: "light" })).newPage();
     await page.goto(server.url + "/", { waitUntil: "networkidle" });
     const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     const lightBg = await bg();
-    const toggle = page.locator(".theme-toggle");
-    await expect(toggle.getAttribute("aria-label")).resolves.toMatch(/auto/);
-    await toggle.click(); // light
-    await toggle.click(); // dark
-    await expect(toggle.getAttribute("aria-label")).resolves.toBe("Theme: dark");
+    const toggle = page.getByRole("switch", { name: "Dark mode" });
+    await expect(toggle.getAttribute("aria-checked")).resolves.toBe("false");
+    await toggle.click(); // one tap: dark
+    await expect(toggle.getAttribute("aria-checked")).resolves.toBe("true");
     expect(await bg()).not.toBe(lightBg);
     await page.goto(server.url + "/pricing", { waitUntil: "networkidle" });
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
-    await page.locator(".theme-toggle").click(); // back to auto: the device's light
-    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBeUndefined();
+    await page.getByRole("switch", { name: "Dark mode" }).click(); // one tap: light
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe("light");
+    expect(await bg()).toBe(lightBg);
+    // A dark device starts dark, with the switch on.
+    const dark = await (await browser.newContext({ colorScheme: "dark" })).newPage();
+    await dark.goto(server.url + "/", { waitUntil: "networkidle" });
+    await expect(dark.getByRole("switch", { name: "Dark mode" }).getAttribute("aria-checked")).resolves.toBe("true");
   });
 });

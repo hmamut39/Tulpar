@@ -398,7 +398,11 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* On phones the sticky bar would hide a field scrolled into view for typing or choosing. */
 input, select, textarea { scroll-margin-top: 88px; }
 
-/* Theme toggle in the top bar. */
-.theme-toggle { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); cursor: pointer; }
-.theme-toggle:hover, .theme-toggle:focus-visible { color: var(--accent); border-color: var(--accent); }
-.theme-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* Theme switch in the top bar: slide for dark. */
+.theme-switch { position: relative; display: inline-flex; align-items: center; justify-content: space-between; width: 56px; height: 30px; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--field); color: var(--muted); cursor: pointer; flex: none; }
+.theme-switch:hover, .theme-switch:focus-visible { border-color: var(--accent); }
+.theme-switch svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; position: relative; z-index: 1; }
+.theme-knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 25%, transparent); transition: transform .2s ease; }
+.theme-switch[aria-checked="true"] .theme-knob { transform: translateX(26px); }
+.theme-switch[aria-checked="false"] .theme-sun, .theme-switch[aria-checked="true"] .theme-moon { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .theme-knob { transition: none; } }
