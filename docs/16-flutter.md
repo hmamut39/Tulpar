@@ -30,6 +30,17 @@ installed from Google's signed release archive with its SHA-256 checked, and onl
 precached. The smoke test in CI builds and tests one widget inside the image, as it does for the
 five web frameworks.
 
+## Progress (2026-10-18)
+
+- ✅ **SDK and example.** Flutter 3.47.7; `examples/flutter-material` (Material 3, a `Space` spacing scale).
+- ✅ **Render through semantics.** Each `Semantics(identifier:)` is a positioned element in headless Chromium, network blocked (about 1.5 s).
+- ✅ **Index.** 483 Material widgets from the analyzer, cached per lockfile.
+- ✅ **Tokens.** 31 colour roles and the type scale from a probe run in the sandboxed browser; the spacing scale from the analyzer.
+- ✅ **Static scan.** Hard-coded colours (`Color(0x…)`, `Colors.*`), type, padding, gaps and radii, with lines; theme and spacing tokens recognised.
+- ✅ **Adapter.** `tulpar verify` on the Material reference: built, rendered, layout 3/3, text exact, no hard-coded values, pixels within the limit (the Carbon frame's blue has no Material token: reported for the designer). About 1.5 min with warm caches.
+- ⏳ **Widget tests in Chrome.** `flutter test --platform chrome` starts headless Chromium on Windows but the page never connects back to the runner ("Connection closed before test suite loaded"); to try next on Linux, where the image runs.
+- ⏳ Generation (conventions are written; a paid run to try), `dart format`, the image and CI, the web page, an eval case, and a Material 3 Figma frame in place of the Carbon one.
+
 ## Order
 
 1. SDK and an example project (Material 3); build and render a hand-written widget; measure it through semantics identifiers.
