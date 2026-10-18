@@ -84,8 +84,13 @@ export async function render(params: RenderParams, spacingClass?: string): Promi
         els.map((e) => {
           const r = e.getBoundingClientRect();
           // A text field's node holds an <input> whose aria-label is its label, not what it draws.
-          const field = e.querySelector(":scope > input, :scope > textarea");
-          return { id: e.getAttribute("flt-semantics-identifier") ?? "", x: r.x, y: r.y, width: r.width, height: r.height, text: field ? ((field as HTMLInputElement).value ?? "") : (e.getAttribute("aria-label") ?? e.textContent ?? "").replace(/\s+/g, " ").trim() };
+          // A text field's node holds an <input>. What it draws is its value, or while empty its hint:
+          // Flutter writes the hint as the last line of the input's aria-label ("Email\nname@company.com").
+          // A one-line aria-label may be the label alone, so it is not taken for a hint.
+          const field = e.querySelector(":scope > input, :scope > textarea") as HTMLInputElement | null;
+          const lines = (field?.getAttribute("aria-label") ?? "").split("\n").filter((l) => l.trim());
+          const drawn = field ? field.value || (lines.length > 1 ? lines[lines.length - 1]!.trim() : "") : (e.getAttribute("aria-label") ?? e.textContent ?? "").replace(/\s+/g, " ").trim();
+          return { id: e.getAttribute("flt-semantics-identifier") ?? "", x: r.x, y: r.y, width: r.width, height: r.height, text: drawn };
         }),
       );
       const png = (await page.screenshot({ type: "png" })).toString("base64");
