@@ -44,10 +44,30 @@
 </header>
 
 <section class="hero">
-  <p class="eyebrow">Figma → code, verified</p>
-  <h1>Turn a design into a production component.</h1>
-  <p class="lede">Paste a Figma frame or drop a screenshot. Tulpar writes the component with <strong>your</strong> design system's components and tokens, then builds, renders, tests and checks it against the design before you ever see it.</p>
-  <ul class="stacks" id="stacks" aria-label="Supported frameworks"></ul>
+  <div class="hero-copy">
+    <p class="eyebrow">Figma → code, verified</p>
+    <h1>Design in.<br><span class="accent-text">Verified code out.</span></h1>
+    <p class="lede">A Figma frame or a screenshot becomes a component built from <strong>your</strong> design system, then built, rendered, tested and compared with the design before you see it.</p>
+    <ul class="stacks" id="stacks" aria-label="Supported frameworks"></ul>
+    <dl class="facts">
+      <div><dt id="factFrameworks">5</dt><dd>frameworks</dd></div>
+      <div><dt id="factOutputs">30+</dt><dd>language &amp; styling choices</dd></div>
+      <div><dt>12</dt><dd>checks on every run</dd></div>
+    </dl>
+  </div>
+  <figure class="run" aria-label="An example run: every check Tulpar does before you see the code">
+    <div class="run-bar"><span></span><span></span><span></span><figcaption>Example run</figcaption></div>
+    <pre class="run-body"><code><span class="run-cmd">$ tulpar generate --figma &lt;link&gt; --name CheckoutCard</span>
+<span class="run-ok">✓</span> build        <span class="run-dim">0 errors</span>
+<span class="run-ok">✓</span> render       <span class="run-dim">headless Chromium</span>
+<span class="run-ok">✓</span> components   <span class="run-dim">7 of 7 from your library</span>
+<span class="run-ok">✓</span> tokens       <span class="run-dim">0 hard-coded values</span>
+<span class="run-ok">✓</span> layout       <span class="run-dim">matches the frame</span>
+<span class="run-ok">✓</span> states       <span class="run-dim">hover, pressed, focus</span>
+<span class="run-ok">✓</span> tests        <span class="run-dim">3 of 3 pass · Vitest</span>
+<span class="run-ok">✓</span> pixels       <span class="run-dim">compared with the design</span>
+<span class="run-done">Verified</span> <span class="run-dim">CheckoutCard.tsx · .less · .test.tsx</span></code></pre>
+  </figure>
 </section>
 
 <div class="notice" id="notice" hidden><span id="noticeText"></span><button type="button" class="link-btn" id="noticeAction" hidden></button></div>
@@ -66,8 +86,16 @@
         </div>
       </div>
       <div class="field">
-        <label for="output" class="label"><span class="step">3</span>Language &amp; styling</label>
-        <div class="select-wrap"><select id="output"></select></div>
+        <div class="field-row">
+          <div class="field">
+            <label for="language" class="label"><span class="step">3</span>Language</label>
+            <div class="select-wrap"><select id="language"></select></div>
+          </div>
+          <div class="field">
+            <label for="styling" class="label"><span class="step">4</span>Styling</label>
+            <div class="select-wrap"><select id="styling"></select></div>
+          </div>
+        </div>
         <p class="hint" id="outputHint">Tulpar writes the files the way your codebase does.</p>
       </div>
       <div class="add-ds" id="addDs" hidden>
@@ -81,7 +109,7 @@
       </div>
 
       <div class="field">
-        <span class="label"><span class="step">4</span>Design</span>
+        <span class="label"><span class="step">5</span>Design</span>
         <div class="segmented" role="radiogroup" aria-label="Design source">
           <label><input type="radio" name="mode" value="figma" checked><span>Figma link</span></label>
           <label><input type="radio" name="mode" value="image"><span>Screenshot</span></label>
@@ -118,7 +146,7 @@
       </div>
 
       <div class="field">
-        <label for="name" class="label"><span class="step">5</span>Component name</label>
+        <label for="name" class="label"><span class="step">6</span>Component name</label>
         <input id="name" type="text" placeholder="CheckoutCard" autocomplete="off" spellcheck="false">
         <p class="hint">PascalCase. Used for file names and the class.</p>
       </div>

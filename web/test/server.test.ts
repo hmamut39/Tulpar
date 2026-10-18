@@ -66,7 +66,7 @@ describe("web API", () => {
     expect(await bad({ image: "data:text/html;base64,PGgxPg==" })).toMatch(/PNG, JPEG or WebP/);
     expect(await bad({ figmaUrl: "" })).toBe("Paste a Figma frame link, upload a screenshot, or both.");
     expect(await bad({ scale: 7 })).toMatch(/Scale must be/);
-    expect(await bad({ language: "typescript", styling: "less" })).toMatch(/does not write that language and styling/);
+    expect(await bad({ project: "carbon-svelte", styling: "css-modules" })).toMatch(/does not write that language and styling/);
     expect(await bad({ project: "carbon", styling: "tailwind" })).toMatch(/does not write that language and styling/);
   });
 

@@ -61,12 +61,37 @@ a { color: inherit; }
 .nav-links a:hover { color: var(--text); }
 
 /* Hero */
-.hero { max-width: 760px; margin: 0 auto; padding: 56px 20px 28px; text-align: center; }
-.eyebrow { display: inline-block; margin: 0 0 14px; font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 5px 12px; border-radius: 999px; }
-.hero h1 { margin: 0; font-size: clamp(30px, 5vw, 46px); line-height: 1.1; letter-spacing: -0.03em; font-weight: 700; }
-.lede { margin: 16px auto 0; max-width: 620px; color: var(--muted); font-size: 17px; }
+.hero { max-width: 1160px; margin: 0 auto; padding: 56px 20px 36px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: 48px; align-items: center; }
+.hero-copy { min-width: 0; }
+.eyebrow { display: inline-block; margin: 0 0 16px; font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 5px 12px; border-radius: 999px; }
+.hero h1 { margin: 0; font-size: clamp(34px, 5.4vw, 58px); line-height: 1.04; letter-spacing: -0.035em; font-weight: 700; }
+.accent-text { color: var(--accent); }
+.lede { margin: 18px 0 0; max-width: 520px; color: var(--muted); font-size: 17px; }
 .lede strong { color: var(--text); }
-.stacks { list-style: none; margin: 22px 0 0; padding: 0; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.stacks { list-style: none; margin: 24px 0 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.facts { display: grid; grid-template-columns: repeat(3, max-content); align-items: start; gap: 12px 36px; margin: 28px 0 0; padding: 20px 0 0; border-top: 1px solid var(--line); }
+.facts div { display: grid; gap: 2px; }
+.facts dt { line-height: 1.15; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.facts dd { margin: 0; font-size: 13px; color: var(--muted); }
+/* The example run: a terminal, in the code panel's colours in both themes. */
+.run { margin: 0; min-width: 0; background: var(--code-bg); border-radius: var(--radius); box-shadow: 0 24px 48px -24px color-mix(in srgb, var(--ink) 55%, transparent), 0 0 0 1px color-mix(in srgb, var(--cloud) 8%, transparent); overflow: hidden; }
+.run-bar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; border-bottom: 1px solid color-mix(in srgb, var(--cloud) 10%, transparent); }
+.run-bar span { width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, var(--cloud) 22%, transparent); }
+.run-bar figcaption { margin-left: auto; font-size: 12px; color: color-mix(in srgb, var(--cloud) 60%, transparent); }
+.run-body { margin: 0; padding: 18px 20px 20px; overflow-x: auto; font: 13px/1.75 "JetBrains Mono", ui-monospace, monospace; color: var(--cloud); }
+.run-cmd { color: color-mix(in srgb, var(--cloud) 72%, transparent); }
+.run-ok { color: color-mix(in srgb, var(--indigo) 55%, var(--cloud)); font-weight: 700; }
+.run-dim { color: color-mix(in srgb, var(--cloud) 62%, transparent); }
+.run-done { display: inline-block; margin-top: 8px; padding: 1px 8px; border-radius: 6px; font-weight: 600; color: var(--ink); background: color-mix(in srgb, var(--indigo) 35%, var(--cloud)); }
+@media (max-width: 900px) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 40px; }
+}
+@media (max-width: 520px) {
+  .run-body { font-size: 10.5px; padding: 14px; }
+  .facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .facts dt { font-size: 22px; }
+  .facts dd { font-size: 12px; }
+}
 .stacks button { font: inherit; font-size: 13px; font-weight: 500; color: var(--text); padding: 6px 12px; min-height: 32px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer; }
 .stacks button:hover, .stacks button:focus-visible { border-color: var(--accent); color: var(--accent); }
 

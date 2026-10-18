@@ -6,42 +6,56 @@ const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
 const FRAMEWORK_KEY = "tulpar.framework";
 const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", "web-components": "Web Components" };
-// Framework → [value, label] for each language and styling it writes, its default first: from the
-// adapters themselves (/api/config), so the list is never more or less than what they write.
+// Framework → the {language, styling} combinations it writes, its default first: from the adapters
+// themselves (/api/config), so the lists are never more or less than what they write.
 let OUTPUTS = {};
 const LANGUAGE_LABELS = { typescript: "TypeScript", javascript: "JavaScript" };
 const STYLING_LABELS = { css: "CSS", "css-modules": "CSS Modules", scss: "SCSS", less: "LESS", tailwind: "Tailwind CSS", "styled-components": "styled-components", emotion: "Emotion" };
 // Vue and Svelte scope a plain style block to the component.
 const SCOPED = new Set(["vue", "svelte"]);
-function outputOptions(outputs) {
-  const all = {};
-  for (const [adapter, list] of Object.entries(outputs ?? {})) {
-    if (!list.length) continue;
-    all[adapter] = list.map((o) => [`${o.language ?? ""}:${o.styling ?? ""}`, [LANGUAGE_LABELS[o.language], o.styling === "css" && SCOPED.has(adapter) ? "scoped CSS" : STYLING_LABELS[o.styling]].filter(Boolean).join(" · ")]);
-  }
-  all["web-components"] ??= [["", "HTML · CSS · JavaScript"]];
-  return all;
-}
 const OUTPUT_KEY = "tulpar.output.";
-// Why the list is what it is: the languages a framework's components are written in.
+// What the choice is, per framework.
 const OUTPUT_HINTS = {
-  react: "React components are written in TypeScript or JavaScript. Pick the styling your team uses.",
-  vue: "Vue single-file components, in TypeScript or JavaScript, with the style block your team uses.",
-  angular: "Angular is written in TypeScript. Pick the stylesheet language your team uses.",
-  svelte: "Svelte 5 components, in TypeScript or JavaScript, with scoped styles or Tailwind.",
-  "web-components": "Web Components are written in HTML, CSS and JavaScript only.",
+  react: "The language and styling your team writes React in.",
+  vue: "Vue single-file components: the script language and the style block your team uses.",
+  angular: "Angular is written in TypeScript; pick the stylesheet language your team uses.",
+  svelte: "Svelte 5 components: the script language and the style block your team uses.",
+  "web-components": "Web Components are one HTML file: markup, a CSS style block and JavaScript modules.",
 };
-const LANGUAGES_LATER = "Other languages arrive with their frameworks: Flutter (Dart), SwiftUI (Swift) and Jetpack Compose (Kotlin) are coming.";
+// Why there is no Python or C# here: a UI framework decides the language its components are written in.
+const LANGUAGES_LATER = "C#, Dart, Swift and Kotlin arrive with Blazor, Flutter, SwiftUI and Compose.";
+const option = (value, label) => `<option value="${value}">${label}</option>`;
 function fillOutputs() {
   const adapter = $("framework").value;
-  const options = OUTPUTS[adapter] ?? [["", "The framework's default"]];
-  $("output").innerHTML = options.map(([v, label]) => `<option value="${v}">${label}</option>`).join("");
-  // Never disabled: a greyed-out field reads as broken (on a phone, tapping it does nothing). The hint says why there is one choice.
+  const list = OUTPUTS[adapter] ?? [];
   $("outputHint").textContent = `${OUTPUT_HINTS[adapter] ?? "Tulpar writes the files the way your codebase does."} ${LANGUAGES_LATER}`;
-  const saved = storage.get(OUTPUT_KEY + adapter);
-  if (saved && options.some(([v]) => v === saved)) $("output").value = saved;
+  // Never disabled: a greyed-out field reads as broken (on a phone, tapping it does nothing). One option says there is one way.
+  if (!list.length) {
+    $("language").innerHTML = option("", adapter === "web-components" ? "HTML · JavaScript" : "The framework's default");
+    $("styling").innerHTML = option("", "CSS");
+    return;
+  }
+  const [savedLanguage, savedStyling] = (storage.get(OUTPUT_KEY + adapter) ?? "").split(":");
+  const languages = [...new Set(list.map((o) => o.language))];
+  $("language").innerHTML = languages.map((l) => option(l, LANGUAGE_LABELS[l] ?? l)).join("");
+  if (languages.includes(savedLanguage)) $("language").value = savedLanguage;
+  fillStyling(savedStyling);
 }
-$("output").addEventListener("change", () => storage.set(OUTPUT_KEY + $("framework").value, $("output").value));
+// The stylings the chosen language is written with in this framework.
+function fillStyling(preferred) {
+  const adapter = $("framework").value;
+  const stylings = (OUTPUTS[adapter] ?? []).filter((o) => o.language === $("language").value).map((o) => o.styling);
+  if (!stylings.length) return;
+  const keep = preferred ?? $("styling").value;
+  $("styling").innerHTML = stylings.map((s) => option(s, s === "css" && SCOPED.has(adapter) ? "Scoped CSS" : STYLING_LABELS[s] ?? s)).join("");
+  if (stylings.includes(keep)) $("styling").value = keep;
+}
+const saveOutput = () => storage.set(OUTPUT_KEY + $("framework").value, `${$("language").value}:${$("styling").value}`);
+$("language").addEventListener("change", () => {
+  fillStyling();
+  saveOutput();
+});
+$("styling").addEventListener("change", saveOutput);
 
 // Shown so people know what is coming, but never selectable before an adapter exists for it.
 const COMING_SOON = ["Flutter (Dart)", "SwiftUI (Swift)", "Jetpack Compose (Kotlin)"];
@@ -66,7 +80,11 @@ const storage = {
 async function init() {
   const config = await (await fetch("/api/config")).json();
   projects = config.projects;
-  OUTPUTS = outputOptions(config.outputs);
+  OUTPUTS = config.outputs ?? {};
+  // The hero's facts, from what this server really offers.
+  const offered = [...new Set(projects.map((p) => p.adapter))];
+  $("factFrameworks").textContent = String(offered.length);
+  $("factOutputs").textContent = String(offered.reduce((n, a) => n + Math.max(1, (OUTPUTS[a] ?? []).length), 0));
   const rank = (a) => (FRAMEWORK_ORDER.includes(a) ? FRAMEWORK_ORDER.indexOf(a) : FRAMEWORK_ORDER.length);
   const adapters = [...new Set(projects.map((p) => p.adapter))].sort((a, b) => rank(a) - rank(b));
   $("framework").innerHTML =
@@ -210,10 +228,8 @@ $("form").addEventListener("submit", async (e) => {
     figmaUrl,
     name: $("name").value.trim(),
     scale: useImage ? $("scale").value : "auto",
-    ...(() => {
-      const [language, styling] = $("output").value.split(":");
-      return { ...(language && { language }), ...(styling && { styling }) };
-    })(),
+    ...($("language").value && { language: $("language").value }),
+    ...($("styling").value && { styling: $("styling").value }),
     ...(figmaToken && { figmaToken }),
     ...($("accessCode").value && { accessCode: $("accessCode").value }),
     ...(useImage && { image: await readAsDataUrl(screenshot) }),
