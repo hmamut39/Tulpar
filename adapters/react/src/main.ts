@@ -60,7 +60,7 @@ serve({
       forceStates: ["hover", "pressed", "focus"],
       themes: true,
       // What it writes, its default first.
-      outputs: (["typescript", "javascript"] as const).flatMap((language) => (["css", "css-modules", "scss", "tailwind", "styled-components", "emotion"] as const).map((styling) => ({ language, styling }))),
+      outputs: (["typescript", "javascript"] as const).flatMap((language) => (["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"] as const).map((styling) => ({ language, styling }))),
     },
   }),
 
@@ -97,16 +97,16 @@ serve({
 
   conventions: (params) => {
     const pkg = index(params).package?.name ?? "the design system";
-    // The team's language and styling: TypeScript or JavaScript; plain CSS, CSS Modules, SCSS, Tailwind, styled-components or Emotion.
+    // The team's language and styling: TypeScript or JavaScript; plain CSS, CSS Modules, SCSS, LESS, Tailwind, styled-components or Emotion.
     const js = params.output?.language === "javascript";
     const chosen = params.output?.styling;
-    const styling = chosen === "css-modules" || chosen === "scss" || chosen === "tailwind" || chosen === "styled-components" || chosen === "emotion" ? chosen : "css";
+    const styling = chosen === "css-modules" || chosen === "scss" || chosen === "less" || chosen === "tailwind" || chosen === "styled-components" || chosen === "emotion" ? chosen : "css";
     const cssInJs = styling === "styled-components" || styling === "emotion";
     const library = styling === "emotion" ? "@emotion/styled" : "styled-components";
     const p = prefix(params);
     const tokenExample = p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)";
     const ext = js ? "jsx" : "tsx";
-    const styleFile = cssInJs ? `{name}.styles.${js ? "js" : "ts"}` : styling === "css-modules" ? "{name}.module.css" : styling === "scss" ? "{name}.scss" : "{name}.css";
+    const styleFile = cssInJs ? `{name}.styles.${js ? "js" : "ts"}` : styling === "css-modules" ? "{name}.module.css" : styling === "scss" ? "{name}.scss" : styling === "less" ? "{name}.less" : "{name}.css";
     const styleRule = cssInJs
       ? `Style with ${styling === "emotion" ? "Emotion" : "styled-components"}: in {name}.styles.${js ? "js" : "ts"}, import styled from "${library}" and export the styled elements (export const Root = styled.div\`…\`), and use them in {name}.${ext}. Use template literals with tokens and their fallbacks, e.g. gap: ${tokenExample}; no hard-coded values, in interpolations either. A design-system component may be wrapped (styled(Button)) for its layout around it (margins, alignment) or its theming CSS variables only. Props that only drive styles start with $ (transient props), so they never reach the DOM.`
       : styling === "tailwind"
@@ -115,11 +115,11 @@ serve({
         ? `Import the styles as a CSS Module: import styles from "./{name}.module.css", and use className={styles.root} and so on; class names in the file are local.`
         : `Import "./${styleFile}" from {name}.${ext}.`;
     return {
-      language: `${js ? "JavaScript (JSX)" : "TypeScript (TSX)"}, ${styling === "styled-components" ? "styled-components" : styling === "emotion" ? "Emotion (@emotion/styled)" : styling === "tailwind" ? "Tailwind CSS" : styling === "css-modules" ? "CSS Modules" : styling === "scss" ? "SCSS" : "CSS"}`,
+      language: `${js ? "JavaScript (JSX)" : "TypeScript (TSX)"}, ${styling === "styled-components" ? "styled-components" : styling === "emotion" ? "Emotion (@emotion/styled)" : styling === "tailwind" ? "Tailwind CSS" : styling === "css-modules" ? "CSS Modules" : styling === "scss" ? "SCSS" : styling === "less" ? "LESS" : "CSS"}`,
       framework: `React 19 with ${pkg}`,
       files: [
         { path: `{name}.${ext}`, role: "component", description: `The component, default-exported, with no required props; renders the whole design.${js ? " Plain JavaScript: no type annotations." : ""}` },
-        ...(styling === "tailwind" ? [] : [{ path: styleFile, role: "styles" as const, description: `${cssInJs ? `The styled elements, written with ${library}, for` : "Styles for"} the component's own layout (design-system components style themselves; only their theming CSS variables may be set, to match the design), imported by {name}.${ext}.${styling === "scss" ? " SCSS: nesting is fine; no hard-coded values in variables either." : ""}` }]),
+        ...(styling === "tailwind" ? [] : [{ path: styleFile, role: "styles" as const, description: `${cssInJs ? `The styled elements, written with ${library}, for` : "Styles for"} the component's own layout (design-system components style themselves; only their theming CSS variables may be set, to match the design), imported by {name}.${ext}.${styling === "scss" || styling === "less" ? ` ${styling === "scss" ? "SCSS" : "LESS"}: nesting is fine; no hard-coded values in variables either.` : ""}` }]),
         { path: `{name}.test.${ext}`, role: "test", description: "Vitest + @testing-library/react tests: it renders, shows the design's text, and uses the design-system components." },
       ],
       entry: `{name}.${ext}`,

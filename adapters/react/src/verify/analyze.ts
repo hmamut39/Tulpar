@@ -36,11 +36,11 @@ export function analyzeReact(root: string, entry: string, prefix: string): Analy
         }
       }
     }
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && /\.(css|scss)$/.test(node.moduleSpecifier.text) && node.moduleSpecifier.text.startsWith(".")) {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && /\.(css|scss|less)$/.test(node.moduleSpecifier.text) && node.moduleSpecifier.text.startsWith(".")) {
       const cssPath = join(dirname(file), node.moduleSpecifier.text);
       if (existsSync(cssPath)) {
         const rel = relative(root, cssPath).replace(/\\/g, "/");
-        // SCSS is read compiled (line numbers then refer to the compiled CSS); CSS Modules are plain CSS.
+        // SCSS and LESS are read compiled (line numbers then refer to the compiled CSS); CSS Modules are plain CSS.
         let css = "";
         try {
           css = readStylesheet(cssPath);
@@ -54,7 +54,7 @@ export function analyzeReact(root: string, entry: string, prefix: string): Analy
       }
     }
     // The component's own script modules (Card.styles.ts with its styled components) are scanned for CSS-in-JS.
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text.startsWith(".") && !/\.(css|scss)$/.test(node.moduleSpecifier.text)) {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text.startsWith(".") && !/\.(css|scss|less)$/.test(node.moduleSpecifier.text)) {
       const base = join(dirname(file), node.moduleSpecifier.text);
       const local = [base, ...[".ts", ".tsx", ".js", ".jsx"].map((ext) => base + ext)].find((p) => existsSync(p) && /\.(tsx?|jsx?)$/.test(p));
       if (local) scripts.add(local);

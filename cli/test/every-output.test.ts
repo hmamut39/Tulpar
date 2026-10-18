@@ -33,7 +33,7 @@ const writers: Record<string, (c: Conventions, o: OutputChoice, path: (role: str
         ? `import styled from "${styling === "emotion" ? "@emotion/styled" : "styled-components"}";\n\nexport const Root = styled.div\`\n  display: flex;\n  gap: var(--cds-spacing-05, 16px);\n\`;\n`
         : styling === "css-modules"
           ? `.root {\n  display: flex;\n  gap: var(--cds-spacing-05, 16px);\n}\n`
-          : styling === "scss"
+          : styling === "scss" || styling === "less"
             ? `.matrix-root {\n  display: flex;\n  & > * {\n    gap: var(--cds-spacing-05, 16px);\n  }\n}\n`
             : `.matrix-root {\n  display: flex;\n  gap: var(--cds-spacing-05, 16px);\n}\n`;
     }
@@ -60,7 +60,7 @@ const writers: Record<string, (c: Conventions, o: OutputChoice, path: (role: str
     const ts = o.language !== "javascript";
     const tailwind = o.styling === "tailwind";
     return {
-      [path("component")!]: `<script${ts ? ' lang="ts"' : ""}>\n  import { Button } from "carbon-components-svelte";\n</script>\n\n<div data-figma-id="root" class="${tailwind ? "flex gap-[var(--cds-spacing-05,16px)]" : "matrix-root"}">\n  <Button kind="primary">Save</Button>\n</div>\n${tailwind ? "" : `\n<style>\n  .matrix-root {\n    display: flex;\n  }\n</style>\n`}`,
+      [path("component")!]: `<script${ts ? ' lang="ts"' : ""}>\n  import { Button } from "carbon-components-svelte";\n</script>\n\n<div data-figma-id="root" class="${tailwind ? "flex gap-[var(--cds-spacing-05,16px)]" : "matrix-root"}">\n  <Button kind="primary">Save</Button>\n</div>\n${tailwind ? "" : o.styling === "scss" || o.styling === "less" ? `\n<style lang="${o.styling}">\n  .matrix-root {\n    display: flex;\n    & > :global(*) {\n      margin: 0;\n    }\n  }\n</style>\n` : `\n<style>\n  .matrix-root {\n    display: flex;\n  }\n</style>\n`}`,
       [path("test")!]: `import { mount, flushSync } from "svelte";\nimport { describe, it, expect } from "vitest";\nimport ${NAME} from "./${NAME}.svelte";\n\ndescribe("${NAME}", () => {\n  it("renders the action", () => {\n    const el = document.createElement("div");\n    document.body.appendChild(el);\n    mount(${NAME}, { target: el });\n    flushSync();\n    expect(el.querySelector("button")${ts ? "!" : ""}.textContent).toContain("Save");\n  });\n});\n`,
     };
   },

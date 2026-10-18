@@ -8,6 +8,6 @@ export { readCssTokens, parseCssValue, cssColor, type CssTokenConfig } from "./c
 export { typeShape } from "./typeshape.ts";
 export { runVitestBrowser, testEnv, type VitestOptions } from "./tests.ts";
 export { probeTokens, closeProbeBrowser, type RuntimeTokenConfig } from "./runtime-tokens.ts";
-export { readStylesheet } from "./stylesheet.ts";
+export { compileLess, readStylesheet } from "./stylesheet.ts";
 export { classCandidates, offScaleMessage, tailwindCss, type TailwindResult } from "./tailwind.ts";
 export { themingProperties } from "./theming.ts";

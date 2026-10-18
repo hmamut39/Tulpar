@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import * as esbuild from "esbuild";
 import * as sass from "sass";
+import { compileLess } from "./stylesheet.ts";
 
 /** Where Tulpar's own packages are installed (styled-components, Emotion), for projects without them. */
 const OWN_MODULES = dirname(dirname(createRequire(import.meta.url).resolve("styled-components/package.json")));
@@ -80,6 +81,19 @@ export async function bundle(input: BundleInput): Promise<BundleResult> {
       });
     },
   };
+  // LESS the implementation imports, the same way (a .module.less stays a CSS Module).
+  const lessPlugin: esbuild.Plugin = {
+    name: "less",
+    setup(build) {
+      build.onLoad({ filter: /\.less$/ }, async (args) => {
+        try {
+          return { contents: compileLess(await readFile(args.path, "utf8"), args.path), loader: /\.module\.less$/.test(args.path) ? "local-css" : "css" };
+        } catch (err) {
+          return { errors: [{ text: (err as Error).message.split("\n")[0]! }] };
+        }
+      });
+    },
+  };
   const scss: esbuild.Plugin = {
     name: "scss",
     setup(build) {
@@ -105,7 +119,7 @@ export async function bundle(input: BundleInput): Promise<BundleResult> {
       outfile: join(input.outDir, "bundle.js"),
       logLevel: "silent",
       write: true,
-      plugins: [oneReact, stylingLibraries, separatePackageCss, scss, ...(input.plugins ?? [])],
+      plugins: [oneReact, stylingLibraries, separatePackageCss, scss, lessPlugin, ...(input.plugins ?? [])],
     });
     const cssFile = join(input.outDir, "bundle.css");
     return { ok: true, log: result.warnings.map((w) => `warning: ${w.text}`), css: existsSync(cssFile) ? await readFile(cssFile, "utf8") : "", packageCss };

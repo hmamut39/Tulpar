@@ -7,6 +7,8 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type * as esbuild from "esbuild";
+import * as sass from "sass";
+import { compileLess } from "@tulpar/web-kit";
 
 type SvelteCompiler = {
   compile(source: string, options: Record<string, unknown>): { js: { code: string }; css: { code: string } | null; warnings: { message: string }[] };
@@ -33,6 +35,17 @@ export function compilerFor(root: string): Promise<SvelteCompiler> {
   return found;
 }
 
+/**
+ * A component whose <style lang="scss"> or <style lang="less"> block is compiled to CSS first, so the
+ * project needs no svelte-preprocess: what Svelte compiles, and the checks read, is the CSS it means.
+ */
+export function preprocessStyles(source: string, filename: string): string {
+  return source.replace(/<style\b([^>]*?)\slang=["'](scss|less)["']([^>]*)>([\s\S]*?)<\/style>/g, (_m, before: string, lang: string, after: string, css: string) => {
+    const compiled = lang === "scss" ? sass.compileString(css, { style: "expanded", loadPaths: [dirname(filename)] }).css : compileLess(css, filename);
+    return `<style${before}${after}>\n${compiled}\n</style>`;
+  });
+}
+
 /** esbuild plugin: .svelte files compiled; each component's CSS a virtual stylesheet it imports. */
 export function sveltePlugin(root: string): esbuild.Plugin {
   const styles = new Map<string, string>();
@@ -43,7 +56,7 @@ export function sveltePlugin(root: string): esbuild.Plugin {
         const svelte = await compilerFor(root);
         const source = await import("node:fs/promises").then((fs) => fs.readFile(args.path, "utf8"));
         try {
-          const out = svelte.compile(source, { filename: args.path, generate: "client", css: "external", dev: true });
+          const out = svelte.compile(preprocessStyles(source, args.path), { filename: args.path, generate: "client", css: "external", dev: true });
           let code = out.js.code;
           if (out.css?.code) {
             styles.set(`${args.path}?svelte-style`, out.css.code);

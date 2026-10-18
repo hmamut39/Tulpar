@@ -1,6 +1,6 @@
 // A Vite plugin for running Svelte specs in Vitest browser mode: .svelte files compiled by the same
 // compiler the render uses (the project's own), so the project needs no @sveltejs/vite-plugin-svelte.
-import { compilerFor } from "../compile.ts";
+import { compilerFor, preprocessStyles } from "../compile.ts";
 
 export function tulparSvelte(root) {
   return {
@@ -18,7 +18,7 @@ export function tulparSvelte(root) {
       const file = id.split("?")[0];
       if (!file.endsWith(".svelte")) return null;
       const svelte = await compilerFor(root);
-      const out = svelte.compile(code, { filename: file, generate: "client", css: "injected", dev: true });
+      const out = svelte.compile(preprocessStyles(code, file), { filename: file, generate: "client", css: "injected", dev: true });
       return { code: out.js.code, map: null };
     },
   };

@@ -514,7 +514,7 @@ export function codebaseStyle(root: string, adapter: string, deps: string[]): { 
     if (language) evidence.push(language === "typescript" ? "tsconfig.json or typescript" : "JavaScript sources, no TypeScript");
   }
   const offered: Record<string, string[]> = {
-    react: ["tailwind", "styled-components", "emotion", "scss", "css-modules", "css"],
+    react: ["tailwind", "styled-components", "emotion", "scss", "less", "css-modules", "css"],
     vue: ["tailwind", "scss", "less", "css"],
     svelte: ["tailwind", "css"],
     angular: ["scss", "less", "css"],

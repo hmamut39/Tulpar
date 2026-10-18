@@ -69,7 +69,7 @@ serve({
       forceStates: ["hover", "pressed", "focus"],
       themes: true,
       // What it writes, its default first.
-      outputs: (["typescript", "javascript"] as const).flatMap((language) => (["css", "tailwind"] as const).map((styling) => ({ language, styling }))),
+      outputs: (["typescript", "javascript"] as const).flatMap((language) => (["css", "scss", "less", "tailwind"] as const).map((styling) => ({ language, styling }))),
     },
   }),
 
@@ -107,17 +107,20 @@ serve({
     const first = index(params).components[0]?.name ?? "Button";
     const js = params.output?.language === "javascript";
     const tailwind = params.output?.styling === "tailwind";
+    // SCSS or LESS in the style block: Tulpar compiles it (lang="scss" / lang="less"), as svelte-preprocess would.
+    const sheet = params.output?.styling === "scss" || params.output?.styling === "less" ? params.output.styling : undefined;
+    const styleTag = sheet ? `<style lang="${sheet}">` : "<style>";
     const ext = js ? "js" : "ts";
     const p = prefix(params);
     const tokenExample = p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)";
     return {
-      language: `Svelte 5 component, ${js ? "JavaScript" : "TypeScript"}, ${tailwind ? "Tailwind CSS" : "scoped CSS"}`,
+      language: `Svelte 5 component, ${js ? "JavaScript" : "TypeScript"}, ${tailwind ? "Tailwind CSS" : sheet ? `scoped ${sheet.toUpperCase()}` : "scoped CSS"}`,
       framework: `Svelte 5 with ${pkg}`,
       files: [
         {
           path: "{name}.svelte",
           role: "component",
-          description: `The component: <script${js ? "" : ' lang="ts"'}> and markup${tailwind ? " styled with Tailwind classes (no <style> block)" : ", and a <style> block (scoped to the component) for its own layout (design-system components style themselves; only their theming CSS variables may be set, to match the design)"}. No required props; renders the whole design.`,
+          description: `The component: <script${js ? "" : ' lang="ts"'}> and markup${tailwind ? " styled with Tailwind classes (no <style> block)" : `, and a ${styleTag} block (scoped to the component) for its own layout (design-system components style themselves; only their theming CSS variables may be set, to match the design)`}. No required props; renders the whole design.`,
         },
         { path: `{name}.test.${ext}`, role: "test", description: "Vitest tests: it mounts, shows the design's text, and uses the design-system components." },
       ],
@@ -126,7 +129,7 @@ serve({
         `Use Svelte 5 runes ($state, $props, $derived) in <script${js ? "" : ' lang="ts"'}>, and import every design-system component from "${pkg}".`,
         tailwind
           ? `Style with Tailwind utility classes in class attributes; no <style> block. Tailwind's own scale is switched off: use layout utilities as they are (flex, grid, flex-col, items-center, w-full, md:…), and write every spacing, colour, size, radius and type value as an arbitrary value with a design-system token, e.g. gap-[${tokenExample.replace(/ /g, "")}]. No inline style.`
-          : `Style the component's own layout in its <style> block; Svelte scopes it to this component.`,
+          : `Style the component's own layout in its ${styleTag} block; Svelte scopes it to this component.${sheet ? " Nesting is fine; no hard-coded values in variables either." : ""}`,
         `Put data-figma-id directly on design-system components: they pass unknown attributes through to their element.`,
         `Fill a component's named slots or snippets the way its API declares them (children for the default content).`,
         `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,

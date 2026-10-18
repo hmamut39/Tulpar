@@ -82,9 +82,9 @@ describe.skipIf(!ready)("tulpar generate on Carbon React", () => {
 
   it("refuses a language or styling the framework does not write, before calling the model", async () => {
     const llm = new ScriptedLlm([]);
-    const { code, error } = await generateCommand(project, { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, quiet: true, noRerank: true, output: { styling: "less" } });
+    const { code, error } = await generateCommand(join(repo, "examples/carbon-svelte"), { frame: "3906:50588", name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: join(repo, ".cache/figma"), llm, quiet: true, noRerank: true, output: { styling: "css-modules" } });
     expect(code).toBe(2);
-    expect(error).toMatch(/^react does not write LESS\. It writes: TypeScript · CSS, .*JavaScript · Emotion\.$/);
+    expect(error).toMatch(/^svelte does not write CSS Modules\. It writes: TypeScript · CSS, .*JavaScript · Tailwind CSS\.$/);
     expect(llm.requests).toHaveLength(0);
   }, 60_000);
 

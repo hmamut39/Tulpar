@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AnalyzeResult, StyleFact } from "@tulpar/core";
 import { classify, declarations } from "@tulpar/web-kit";
-import { compilerFor } from "../compile.ts";
+import { compilerFor, preprocessStyles } from "../compile.ts";
 
 interface Node {
   type: string;
@@ -45,7 +45,13 @@ export async function componentsWrittenOn(root: string, entry: string): Promise<
 }
 
 export async function analyzeSvelte(root: string, entry: string, prefix: string): Promise<AnalyzeResult> {
-  const text = readFileSync(join(root, entry), "utf8");
+  // SCSS and LESS are read compiled, so a value hidden in a variable is still seen as hard-coded.
+  let text = readFileSync(join(root, entry), "utf8");
+  try {
+    text = preprocessStyles(text, join(root, entry));
+  } catch {
+    // a stylesheet that does not compile fails the build, which says why
+  }
   const svelte = await compilerFor(root);
   const used = new Set<string>();
   const literals: StyleFact[] = [];

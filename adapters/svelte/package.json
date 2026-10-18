@@ -7,6 +7,7 @@
   "dependencies": {
     "@tulpar/core": "0.0.0",
     "@tulpar/web-kit": "0.0.0",
+    "sass": "^1.93.2",
     "esbuild": "0.28.2",
     "svelte": "5.57.2",
     "typescript": "~6.0.0"

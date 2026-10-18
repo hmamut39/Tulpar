@@ -99,7 +99,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
         attempts: z.number().int().min(1).max(5).optional().describe("Generate-verify-repair attempts (default 3)"),
         candidates: z.number().int().min(1).max(4).optional().describe("Independent first drafts, each verified, before repairing the best (default 1; each is a model call)"),
         language: z.enum(["typescript", "javascript"]).optional().describe("React, Vue and Svelte: write TypeScript (default) or JavaScript, to match the codebase"),
-        styling: z.enum(["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"]).optional().describe("React: css (default), css-modules, scss, tailwind, styled-components or emotion. Vue: css (scoped, default), scss, less, css-modules or tailwind. Svelte: css (scoped, default) or tailwind. Angular: less (default), scss or css"),
+        styling: z.enum(["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"]).optional().describe("React: css (default), css-modules, scss, less, tailwind, styled-components or emotion. Vue: css (scoped, default), scss, less, css-modules or tailwind. Svelte: css (scoped, default) or tailwind. Angular: less (default), scss or css"),
         writeTo: z.string().optional().describe("Directory to write the files into, e.g. inside the user's workspace"),
         overwrite: z.boolean().optional().describe("Allow replacing existing files in writeTo (default false)"),
       }),
