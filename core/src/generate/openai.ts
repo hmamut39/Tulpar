@@ -42,6 +42,14 @@ export class OpenAiLlm implements Llm {
     });
   }
 
+  /** The cheaper model for first drafts, when TULPAR_OPENAI_DRAFT_MODEL names one (model routing). */
+  static draftFromEnv(): OpenAiLlm | undefined {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const model = process.env.TULPAR_OPENAI_DRAFT_MODEL;
+    if (!apiKey || !model) return undefined;
+    return new OpenAiLlm({ apiKey, model, ...(process.env.OPENAI_BASE_URL && { baseUrl: process.env.OPENAI_BASE_URL.replace(/\/+$/, "") }) });
+  }
+
   async complete(request: LlmRequest): Promise<LlmResponse> {
     const body = {
       model: this.#model,

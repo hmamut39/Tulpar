@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { OpenAiLlm, fillName, generate, outputName, supportsOutput, tokenCost, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
+import { OpenAiLlm, fillName, generate, generationCost, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
 import { formatFiles } from "./format.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
@@ -36,6 +36,8 @@ export interface GenerateCommandOptions {
   theme?: string;
   /** A model to use instead of OpenAI (tests, offline development). */
   llm?: Llm;
+  /** A cheaper model for first drafts; by default TULPAR_OPENAI_DRAFT_MODEL's, unless `llm` is given. */
+  draftLlm?: Llm;
   quiet?: boolean;
   /** The language and styling to write in (e.g. JavaScript, CSS Modules), where the framework allows. */
   output?: OutputChoice;
@@ -61,6 +63,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   };
   if (!/^[A-Z][A-Za-z0-9]*$/.test(options.name)) return fail(`The component name must be PascalCase, e.g. CheckoutCard (got "${options.name}").`);
   const llm = options.llm ?? OpenAiLlm.fromEnv();
+  const draftLlm = options.draftLlm ?? (options.llm ? undefined : OpenAiLlm.draftFromEnv());
   if (!llm) return fail("No model: set OPENAI_API_KEY in .env (copy .env.example) or in your system environment.");
   if (!options.frame && !options.image) return fail("Give a Figma frame link, a screenshot, or both.");
   let image: LlmImage | undefined;
@@ -133,11 +136,12 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       ...(tokens && { tokens }),
       ...(ctx.library && { library: ctx.library }),
       maxAttempts: options.attempts ?? 3,
+      ...(draftLlm && { draftLlm }),
       ...(options.candidates && { candidates: options.candidates }),
       ...(image && { image }),
       onEvent: (e) => {
         options.onEvent?.(e);
-        if (e.type === "generating") log(`Attempt ${(attempt = e.attempt)}${e.repair ? "" : e.attempt > 1 ? " (another draft)" : ""}: asking ${llm.name}…`);
+        if (e.type === "generating") log(`Attempt ${(attempt = e.attempt)}${e.repair ? "" : e.attempt > 1 ? " (another draft)" : ""}: asking ${!e.repair && draftLlm ? draftLlm.name : llm.name}…`);
         if (e.type === "generated") log(`  wrote ${e.files.join(", ") || "no files"}`);
         if (e.type === "verified") log(`  verification: ${e.report.verdict}${e.report.checks.filter((c) => c.status === "fail").map((c) => `; ✗ ${c.summary}`).join("")}`);
       },
@@ -180,7 +184,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     console.log("");
     if (result.report) printReport(result.report);
     const label = { verified: "VERIFIED", "unchecked-remain": "NO FAILURES (some checks could not run)", failed: "FAILED" }[result.status];
-    console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}${(() => { const cost = tokenCost(result.usage); return cost === undefined ? "" : ` (≈ $${cost.toFixed(3)})`; })()}`);
+    console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}${(() => { const cost = generationCost(result.attempts); return cost === undefined ? "" : ` (≈ $${cost.toFixed(3)})`; })()}`);
     console.log(`Files: ${outDir}`);
   }
   return { code: result.status === "failed" ? 1 : 0, result, outDir, ...(png && { png }) };

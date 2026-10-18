@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { tokenCost, type OutputChoice } from "@tulpar/core";
+import { generationCost, tokenCost, type OutputChoice } from "@tulpar/core";
 import { generateCommand } from "./generate.ts";
 
 interface EvalCase {
@@ -27,6 +27,8 @@ export interface CaseResult {
   inputTokens: number;
   outputTokens: number;
   seconds: number;
+  /** Each attempt at its own model's prices, when they are set. */
+  cost?: number;
   /** Check id → passed (true), failed (false); not-checked checks are left out. */
   checks: Record<string, boolean>;
   error?: string;
@@ -76,6 +78,7 @@ export async function evalCommand(options: { casesFile?: string; only?: string[]
         inputTokens: r?.usage.inputTokens ?? 0,
         outputTokens: r?.usage.outputTokens ?? 0,
         seconds: Math.round((Date.now() - started) / 1000),
+        ...(r && generationCost(r.attempts) !== undefined && { cost: generationCost(r.attempts) }),
         checks,
         ...(outcome.error && { error: outcome.error }),
       });
@@ -103,7 +106,8 @@ export function summary(run: EvalRun, previous?: EvalRun): string {
   const tokens = run.results.reduce((n, r) => n + r.inputTokens + r.outputTokens, 0);
   const prevRate = previous ? rate(previous.results.filter((p) => run.results.some((r) => r.id === p.id)), (r) => r.status === "verified" || r.status === "unchecked-remain") : undefined;
   lines.push(`Eval ${run.at}${run.model ? ` · ${run.model}` : ""}`);
-  const cost = tokenCost({ inputTokens: run.results.reduce((n, r) => n + r.inputTokens, 0), outputTokens: run.results.reduce((n, r) => n + r.outputTokens, 0) });
+  // Per case, at each attempt's own model's prices; runs saved before costs were recorded fall back to the main prices.
+  const cost = run.results.every((r) => r.cost !== undefined || r.status === "error") ? run.results.reduce((n, r) => n + (r.cost ?? 0), 0) : tokenCost({ inputTokens: run.results.reduce((n, r) => n + r.inputTokens, 0), outputTokens: run.results.reduce((n, r) => n + r.outputTokens, 0) });
   lines.push(`  ${passed}/${run.results.length} cases with no failing check${delta(passed / run.results.length, prevRate)} · ${tokens.toLocaleString("en-US")} tokens${cost === undefined ? "" : ` (≈ $${cost.toFixed(2)})`} · ${run.results.reduce((n, r) => n + r.attempts, 0)} attempts`);
   for (const r of run.results) {
     const failing = Object.entries(r.checks).filter(([, ok]) => !ok).map(([id]) => id);

@@ -18,6 +18,9 @@ export interface Attempt {
   /** Problems with the answer itself (e.g. an unexpected file), before verification. */
   rejected: string[];
   usage?: { inputTokens: number; outputTokens: number };
+  /** The model that wrote it, and whether it was the cheaper draft model (model routing). */
+  model?: string;
+  draft?: boolean;
 }
 
 export interface GenerationResult {
@@ -39,6 +42,8 @@ export type GenerationEvent =
 
 export interface GenerateOptions extends BriefInput {
   llm: Llm;
+  /** A cheaper model for the first drafts (model routing); repairs use `llm`. */
+  draftLlm?: Llm;
   /** Build, render and verify a set of files; supplied by the caller (it knows the adapter). */
   verify: (files: GeneratedFile[]) => Promise<VerifyReport>;
   /** Formats accepted files the way the project does, before they are verified and delivered. */
@@ -95,14 +100,15 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     // After visual failures, the model looks at its own render next to the design, as a developer would.
     const looked = previous?.report && previous.report.checks.some((c) => c.status === "fail" && VISUAL.has(c.id)) ? options.renderOf?.(previous.report) : undefined;
     const images = [...(options.image ? [options.image] : []), ...(looked ? [looked] : [])];
-    const response = await options.llm.complete({
+    const drafting = n <= candidates && !!options.draftLlm;
+    const response = await (drafting ? options.draftLlm! : options.llm).complete({
       instructions: instructions(brief),
       text: previous ? repairText(brief, previous, looked ? (options.image ? "The second image is your previous attempt as it rendered; the first is the design. Compare them." : "The image is your previous attempt as it rendered.") : undefined) : briefText(brief),
       ...(images.length && { images }),
       schema: FILES_SCHEMA,
       maxOutputTokens: 16000,
     });
-    model = response.model;
+    if (!drafting) model = response.model;
     if (response.usage) {
       usage.inputTokens += response.usage.inputTokens;
       usage.outputTokens += response.usage.outputTokens;
@@ -119,7 +125,7 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     if (options.format && files.length) files.splice(0, files.length, ...(await options.format(files)));
     options.onEvent?.({ type: "generated", attempt: n, files: files.map((f) => f.path) });
 
-    const attempt: Attempt = { files, rejected, ...(response.usage && { usage: response.usage }) };
+    const attempt: Attempt = { files, rejected, ...(response.usage && { usage: response.usage }), model: response.model, ...(drafting && { draft: true }) };
     attempts.push(attempt);
     if (!files.some((f) => f.path === brief.conventions.entry.replace(NAME_PLACEHOLDERS, (p) => fillName(p, brief.name)))) continue;
 
@@ -136,7 +142,8 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     files: last.files,
     ...(last.report && { report: last.report }),
     attempts,
-    model,
+    // The model that wrote what is delivered (a draft that passed came from the draft model).
+    model: last.model ?? model,
     usage,
   };
 }

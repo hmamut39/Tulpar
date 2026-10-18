@@ -1,7 +1,7 @@
 // The brief: what the model is told. Here, the team's own examples, for the components the design uses only.
 
 import { describe, expect, it } from "vitest";
-import { ScriptedLlm, buildBrief, generate, type ComponentIndex, type DesignNode, type DesignTree, type VerifyReport } from "../src/index.ts";
+import { ScriptedLlm, buildBrief, generate, generationCost, type ComponentIndex, type DesignNode, type DesignTree, type VerifyReport } from "../src/index.ts";
 
 const base = { visible: true, opacity: 1, fills: [], effects: [], clips: false, tokens: {} };
 const button: DesignNode = { ...base, id: "2:1", name: "Button", kind: "instance", box: { x: 0, y: 0, width: 100, height: 40 }, component: { id: "Bv", set: { id: "B", name: "Button" } }, props: [], children: [] } as DesignNode;
@@ -83,5 +83,40 @@ describe("several first drafts", () => {
     // It stops once an attempt passes: 2 drafts + 1 repair, not 2 + 2.
     expect(result.attempts).toHaveLength(3);
     expect(result.files[0]!.content).toBe("// repair");
+  });
+});
+
+describe("model routing", () => {
+  const files = (body: string) => ({ files: [{ path: "Footer.tsx", content: body }], notes: "" });
+  const check = (id: string) => ({ id, title: id, status: "fail", summary: `${id} failed`, details: [] });
+  const report = (...failing: string[]) => ({ frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: "fail", headline: "", checks: failing.map(check), warnings: [] }) as unknown as VerifyReport;
+  // A model that answers in order and reports a million input tokens per call.
+  const model = (name: string, answers: unknown[]) => {
+    const requests: string[] = [];
+    return { requests, llm: { name, complete: async (r: { text: string }) => (requests.push(r.text), { json: answers.shift(), model: name, usage: { inputTokens: 1_000_000, outputTokens: 0 } }) } };
+  };
+
+  it("writes first drafts with the cheaper model and repairs with the main one, priced each at its own rate", async () => {
+    const cheap = model("cheap", [files("// draft")]);
+    const main = model("main", [files("// repair")]);
+    const reports = [report("layout"), report()];
+    let n = 0;
+    const result = await generate({ llm: main.llm as never, draftLlm: cheap.llm as never, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions, maxAttempts: 3, verify: async () => reports[n++]! });
+    expect(cheap.requests).toHaveLength(1);
+    expect(main.requests).toHaveLength(1);
+    expect(main.requests[0]).toContain("// draft");
+    expect(result.attempts.map((a) => [a.model, !!a.draft])).toEqual([["cheap", true], ["main", false]]);
+    expect(result.model).toBe("main");
+    expect(generationCost(result.attempts, { TULPAR_OPENAI_INPUT_PER_M: "10", TULPAR_OPENAI_DRAFT_INPUT_PER_M: "1" })).toBe(11);
+    // No draft price: no cost, rather than the main price for the draft's tokens.
+    expect(generationCost(result.attempts, { TULPAR_OPENAI_INPUT_PER_M: "10" })).toBeUndefined();
+  });
+
+  it("names the draft model when a draft passes on its own", async () => {
+    const cheap = model("cheap", [files("// draft")]);
+    const main = model("main", []);
+    const result = await generate({ llm: main.llm as never, draftLlm: cheap.llm as never, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions, verify: async () => report() });
+    expect(result.model).toBe("cheap");
+    expect(main.requests).toHaveLength(0);
   });
 });

@@ -42,6 +42,23 @@ export class LlmError extends Error {
  * What tokens cost, from the price per million input and output tokens the owner sets
  * (TULPAR_OPENAI_INPUT_PER_M, TULPAR_OPENAI_OUTPUT_PER_M); undefined when no price is set.
  */
+/**
+ * What a generation cost: each attempt at its own model's prices, the draft model's
+ * (TULPAR_OPENAI_DRAFT_INPUT_PER_M / _OUTPUT_PER_M) for drafts. Undefined when a price is missing:
+ * no cost is better than a wrong one.
+ */
+export function generationCost(attempts: { usage?: { inputTokens: number; outputTokens: number }; draft?: boolean }[], env: Record<string, string | undefined> = process.env): number | undefined {
+  const draftPrices = { TULPAR_OPENAI_INPUT_PER_M: env.TULPAR_OPENAI_DRAFT_INPUT_PER_M, TULPAR_OPENAI_OUTPUT_PER_M: env.TULPAR_OPENAI_DRAFT_OUTPUT_PER_M };
+  let total = 0;
+  for (const a of attempts) {
+    if (!a.usage) continue;
+    const cost = tokenCost(a.usage, a.draft ? draftPrices : env);
+    if (cost === undefined) return undefined;
+    total += cost;
+  }
+  return Math.round(total * 10000) / 10000;
+}
+
 export function tokenCost(usage: { inputTokens: number; outputTokens: number }, env: Record<string, string | undefined> = process.env): number | undefined {
   const input = Number(env.TULPAR_OPENAI_INPUT_PER_M || 0);
   const output = Number(env.TULPAR_OPENAI_OUTPUT_PER_M || 0);
