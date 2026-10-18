@@ -51,6 +51,22 @@ describe("accounts", () => {
   });
 });
 
+describe("generations cut short", () => {
+  it("are given back when the server starts again; finished ones are not", () => {
+    const a = new Accounts(":memory:", { trial: 5, pro: 300 });
+    const me = a.signIn({ githubId: 9, login: "cut" });
+    a.consume(me.id);
+    a.openRun("job-finished", me.id);
+    a.closeRun("job-finished");
+    a.consume(me.id);
+    a.openRun("job-lost", me.id); // the machine stopped during this one
+    expect(a.get(me.id)!.used).toBe(2);
+    expect(a.refundLostRuns()).toBe(1);
+    expect(a.get(me.id)!.used).toBe(1);
+    expect(a.refundLostRuns()).toBe(0);
+  });
+});
+
 describe("Stripe webhook", () => {
   const secret = "whsec_test";
   const signed = (body: string, t = Math.floor(Date.now() / 1000)) => `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`;

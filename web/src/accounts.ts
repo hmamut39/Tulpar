@@ -99,6 +99,9 @@ export class Accounts {
         period_start TEXT
       );
       CREATE TABLE IF NOT EXISTS stripe_events (id TEXT PRIMARY KEY, received_at TEXT NOT NULL);
+      -- A charged generation until it finishes. Rows left when the server starts are runs a stop or a
+      -- deploy cut short: they are refunded.
+      CREATE TABLE IF NOT EXISTS open_runs (job TEXT PRIMARY KEY, account INTEGER NOT NULL, started_at TEXT NOT NULL);
       -- One row per finished generation, for the owner's dashboard: no design, code or token.
       CREATE TABLE IF NOT EXISTS generations (
         id INTEGER PRIMARY KEY,
@@ -187,6 +190,26 @@ export class Accounts {
   /** Gives a generation back (it failed before reaching the model). */
   refund(id: number): void {
     this.#db.prepare("UPDATE accounts SET used = MAX(0, used - 1) WHERE id = ?").run(id);
+  }
+
+  /** Notes a charged generation as running. */
+  openRun(job: string, account: number): void {
+    this.#db.prepare("INSERT OR REPLACE INTO open_runs (job, account, started_at) VALUES (?, ?, ?)").run(job, account, new Date().toISOString());
+  }
+
+  /** The generation finished (whatever its outcome): it is no longer open. */
+  closeRun(job: string): void {
+    this.#db.prepare("DELETE FROM open_runs WHERE job = ?").run(job);
+  }
+
+  /** At start-up: generations still open were cut short by a stop or a deploy, so each is given back. Returns how many. */
+  refundLostRuns(): number {
+    const lost = this.#db.prepare("SELECT job, account FROM open_runs").all() as { job: string; account: number }[];
+    for (const run of lost) {
+      this.refund(run.account);
+      this.closeRun(run.job);
+    }
+    return lost.length;
   }
 
   /**

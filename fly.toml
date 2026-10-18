@@ -7,7 +7,8 @@
 app = "tulpar"
 primary_region = "iad"
 kill_signal = "SIGTERM"
-kill_timeout = "120s"
+# A Flutter generation can run for minutes: a stop or a deploy waits for it (lost runs are refunded anyway).
+kill_timeout = "300s"
 
 [build]
   dockerfile = "Dockerfile"

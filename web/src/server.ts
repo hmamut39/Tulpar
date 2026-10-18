@@ -146,6 +146,9 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const auth = options.auth === undefined ? authFromEnv() : (options.auth ?? undefined);
   const billing = options.billing === undefined ? billingFromEnv() : (options.billing ?? undefined);
   const accounts = auth ? (options.accounts ?? new Accounts(join(options.repoRoot, "out", "accounts.db"))) : undefined;
+  // Generations a stop or a deploy cut short were charged and never delivered: they are given back.
+  const lostRuns = accounts?.refundLostRuns() ?? 0;
+  if (lostRuns) log(JSON.stringify({ event: "lost-runs-refunded", at: new Date().toISOString(), count: lostRuns }));
   const jobAccounts = new Map<string, { id: number; login: string }>(); // job id → the account it counts against
   const proPrice = options.proPriceLabel ?? process.env.TULPAR_PRO_PRICE_LABEL ?? "$29";
   const admins = new Set((options.admins ?? (process.env.TULPAR_ADMINS ?? "").split(",")).map((a) => a.trim().toLowerCase()).filter(Boolean));
@@ -187,6 +190,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       // Failed before the model ran (e.g. the Figma frame could not be read): the generation is given back.
       const owner = jobAccounts.get(job.id);
       if (owner && job.state === "error" && !r) accounts?.refund(owner.id);
+      accounts?.closeRun(job.id);
       invites.delete(job.id);
       jobAccounts.delete(job.id);
     },
@@ -410,7 +414,10 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         }
         const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro") });
         if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
-        if (account) jobAccounts.set(id, { id: account.id, login: account.login });
+        if (account) {
+          jobAccounts.set(id, { id: account.id, login: account.login });
+          accounts!.openRun(id, account.id);
+        }
         return json(res, 202, { id });
       }
 
