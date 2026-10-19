@@ -191,7 +191,7 @@ function briefText(b: Brief): string {
     `DESIGN OUTLINE (boxes are x,y width×height in points, relative to the root)`,
     b.outline,
     ...(b.built.length
-      ? [``, `SECTIONS ALREADY BUILT (each is its own verified component next to this file: import each and place it where the outline shows it; lay out only what is between them; do not copy or rewrite them, and do not write their files)`, ...b.built.map((s) => `- ${s.figmaId} → ${s.name}, imported from '${s.importPath}'`)]
+      ? [``, `SECTIONS ALREADY BUILT (each is its own verified component next to this file: import each and place it where the outline shows it; lay out only what is between them; do not copy or rewrite them, and do not write their files. The page sets no font, line-height, colour or typography on its container: sections inherit it, and would no longer render as they were verified)`, ...b.built.map((s) => `- ${s.figmaId} → ${s.name}, imported from '${s.importPath}'`)]
       : []),
     ``,
     `INSTANCES AND THEIR CODE`,

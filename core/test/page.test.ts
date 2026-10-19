@@ -104,3 +104,14 @@ describe("a design kit's placeholders", () => {
     expect([...out.data]).toEqual([10, 20, 30, 255, 255, 255, 255, 255]);
   });
 });
+
+describe("icons in the brief", () => {
+  it("names a small square unmapped instance an icon, sized through the icon's own size prop", () => {
+    const close = { ...base, id: "8:1", name: "Close", kind: "instance", box: { x: 635, y: 16, width: 20, height: 20 }, component: { id: "Cv", name: "Close" }, props: [], children: [] } as unknown as DesignNode;
+    const wide = { ...base, id: "8:2", name: "Banner", kind: "instance", box: { x: 0, y: 40, width: 300, height: 20 }, component: { id: "Bv", name: "Banner" }, props: [], children: [] } as unknown as DesignNode;
+    const design: DesignTree = { schemaVersion: "0.1", source: { fileKey: "F", fileVersion: "1", nodeId: "1:1" }, origin: { x: 0, y: 0 }, root: frame("1:1", "Header", { x: 0, y: 0, width: 671, height: 116 }, [close, wide]) };
+    const brief = buildBrief({ name: "Header", design, mapping: new Map(), index: { adapter: "t", gaps: [], components: [] }, conventions: { language: "TS", framework: "React", files: [], entry: "{name}.tsx", rules: [], importExample: "" } });
+    expect(brief.outline).toContain(`"Close" → an ICON of 20×20: draw it with the design system's icon set at exactly this size, through the icon's own size prop (e.g. size={20}), not a spacing token`);
+    expect(brief.outline).toContain(`"Banner" → NO MAPPED COMPONENT`);
+  });
+});

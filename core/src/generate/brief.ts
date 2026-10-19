@@ -112,7 +112,11 @@ export function buildBrief(input: BriefInput): Brief {
       }
       instances.push(hint);
       const props = Object.entries(hint.props).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ");
-      lines.push(`${pad}- INSTANCE id=${n.id} "${n.component.set?.name ?? n.component.name ?? n.name}" → ${component ?? "NO MAPPED COMPONENT"} ${props} ${box}${hint.text ? ` text=${JSON.stringify(hint.text)}` : ""}`);
+      // A small square instance with no component is an icon: its size is the icon's own (Carbon draws 16/20/24/32),
+      // set through the icon set's size prop, never a spacing token (Carbon has none for 20, so 24 came out).
+      const icon = !component && n.box && n.box.width <= 32 && n.box.height <= 32 && Math.abs(n.box.width - n.box.height) <= 2;
+      const target = component ?? (icon ? `an ICON of ${r(n.box!.width)}×${r(n.box!.height)}: draw it with the design system's icon set at exactly this size, through the icon's own size prop (e.g. size={${r(n.box!.width)}}), not a spacing token` : "NO MAPPED COMPONENT");
+      lines.push(`${pad}- INSTANCE id=${n.id} "${n.component.set?.name ?? n.component.name ?? n.name}" → ${target} ${props} ${box}${hint.text ? ` text=${JSON.stringify(hint.text)}` : ""}`);
       // Its own layers are the component's business; content placed into it goes inside it in code.
       if (n.content?.length) {
         lines.push(`${pad}  content (place inside ${component ?? "it"}):`);
