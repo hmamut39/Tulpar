@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-19T17:26:05.998Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "react-shadcn-shot",
+      "status": "verified",
+      "attempts": 3,
+      "inputTokens": 11547,
+      "outputTokens": 6023,
+      "seconds": 153,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}
