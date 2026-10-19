@@ -51,12 +51,17 @@ export function isPlaceholder(n: DesignNode): boolean {
   return names.some((x) => !!x && /^\s*(slot|placeholder|swap( me| slot)?|content slot)\s*$/i.test(x));
 }
 
-/** The boxes of every placeholder in the tree (relative to the root), for masking a picture of it. */
+/**
+ * The boxes the code cannot draw as the design does, relative to the root, for masking pictures of both:
+ * a kit's placeholders, and photos (an image fill is the team's asset, served from their app; the sandbox
+ * that renders the code has no network, so it shows nothing there).
+ */
 export function placeholderBoxes(root: DesignNode): { x: number; y: number; width: number; height: number }[] {
   const out: { x: number; y: number; width: number; height: number }[] = [];
   const visit = (n: DesignNode) => {
     if (!n.visible) return;
-    if (n !== root && isPlaceholder(n) && n.box) {
+    const photo = "fills" in n && (n.fills ?? []).some((f) => f.kind === "image" && f.opacity > 0);
+    if (n !== root && (isPlaceholder(n) || photo) && n.box) {
       out.push(n.box);
       return;
     }

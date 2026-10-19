@@ -85,6 +85,8 @@ export interface RenderParams extends ProjectParams {
   height: number;
   scale: number;
   theme?: string;
+  /** @font-face rules for the design's typefaces (files inlined): the sandbox cannot download them itself. */
+  fontFaces?: string;
 }
 
 /** One interactive element in one state, compared with itself at rest. */

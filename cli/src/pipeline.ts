@@ -31,6 +31,7 @@ import {
   type Figma,
   type NormalizeContext,
 } from "@tulpar/core";
+import { designFontFaces } from "./fonts.ts";
 import type { Project } from "./project.ts";
 
 /** Which Figma frame to use, and how it may be fetched. */
@@ -229,13 +230,18 @@ export async function rerankUnlinked(ctx: Context, llm: Llm, options: { max?: nu
 }
 
 /** Build, render and verify one implementation entry (relative to the project root). */
+// The design's typefaces, fetched once per design (every attempt renders with them).
+const FONT_FACES = new WeakMap<DesignTree, Promise<string>>();
+
 export async function verifyEntry(host: AdapterHost, project: Project, ctx: Context, entry: string, theme?: string, testFile?: string): Promise<{ report: VerifyReport; png?: string; elements?: RenderedElement[] }> {
   const caps = host.manifest!.capabilities;
   const frame = { width: ctx.design.root.box!.width, height: ctx.design.root.box!.height };
+  if (!FONT_FACES.has(ctx.design)) FONT_FACES.set(ctx.design, designFontFaces(ctx.design.root));
+  const fontFaces = await FONT_FACES.get(ctx.design)!;
   const build = caps.build ? await host.call("build", { ...project.params, entry, frame }) : undefined;
   const render =
     caps.render.supported && build?.ok && build.artifact
-      ? await host.call("render", { ...project.params, artifact: build.artifact, entry, ...frame, scale: 1, ...(theme && { theme }) })
+      ? await host.call("render", { ...project.params, artifact: build.artifact, entry, ...frame, scale: 1, ...(theme && { theme }), ...(fontFaces && { fontFaces }) })
       : undefined;
   // The static scan needs no build, so it runs even when the build fails.
   const analysis = caps.staticProvenance ? await host.call("analyze", { ...project.params, entry }).catch(() => undefined) : undefined;
@@ -251,7 +257,8 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
     ...(ctx.baseline && { baseline: ctx.baseline }),
     ...(ctx.tolerance && { tolerance: ctx.tolerance }),
     ...(build && { build }),
-    ...(render && { render }),
+    // The render compared with the design's picture masked the same way: its placeholders and photos left out of both.
+    ...(render && { render: ctx.baseline?.source === "figma" && render.status === "ok" && render.png ? { ...render, png: maskBoxes(render.png, placeholderBoxes(ctx.design.root)) } : render }),
     ...(analysis && { analysis }),
   });
   report.warnings.push(...ctx.notes);

@@ -54,6 +54,8 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     await cdp.send("CSS.enable");
 
     await page.goto(pathToFileURL(params.artifact).href, { waitUntil: "load" });
+    // The design's typefaces, fetched by Tulpar: the code may load them from the web, which is blocked here.
+    if (params.fontFaces) await page.addStyleTag({ content: params.fontFaces });
     // An app always renders inside a theme; without one, theme variables are undefined.
     // Use the requested theme, else the first configured one.
     const themeName = params.theme ?? Object.keys(config.themes ?? {})[0];

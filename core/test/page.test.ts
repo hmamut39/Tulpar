@@ -103,6 +103,13 @@ describe("a design kit's placeholders", () => {
     const out = PNG.sync.read(Buffer.from(maskBoxes(PNG.sync.write(img).toString("base64"), placeholderBoxes(tree)), "base64"));
     expect([...out.data]).toEqual([10, 20, 30, 255, 255, 255, 255, 255]);
   });
+
+  it("include photos: an image fill is the team's asset, which the sandbox cannot show", async () => {
+    const { placeholderBoxes } = await import("../src/index.ts");
+    const photo = { ...frame("9:3", "k8-0_fkPHulv-M-unsplash 1", { x: 0, y: 0, width: 1, height: 1 }), fills: [{ kind: "image", ref: "abc", scaleMode: "FILL", opacity: 1 }] } as unknown as DesignNode;
+    const tree = frame("9:0", "Card", { x: 0, y: 0, width: 2, height: 1 }, [photo, frame("9:4", "Name", { x: 1, y: 0, width: 1, height: 1 })]);
+    expect(placeholderBoxes(tree)).toEqual([{ x: 0, y: 0, width: 1, height: 1 }]);
+  });
 });
 
 describe("icons in the brief", () => {
