@@ -1,6 +1,7 @@
 // Accounts, sign-in and payments: the trial, Pro, Stripe's webhook, and what each costs.
 
 import { createHmac } from "node:crypto";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ScriptedLlm } from "@tulpar/core";
@@ -273,7 +274,8 @@ describe("web API with sign-in and payments", () => {
     expect((await asApp(second)).status).toBe(401);
   });
 
-  it("charges a whole page one generation per section and one for the page, all or nothing", async () => {
+  // Needs Carbon's Form page in the Figma cache (on a developer's machine; CI has no Figma token).
+  it.skipIf(!existsSync(resolve(repo, ".cache/figma/b8xYgmx2Js30XaldxPkOs9/nodes/474-15004.json")))("charges a whole page one generation per section and one for the page, all or nothing", async () => {
     expect(await (await job({ page: true, figmaUrl: "" , image: undefined })).json()).toMatchObject({ error: expect.stringMatching(/Figma/) });
     const before = (await (await fetch(`${server.url}/api/me`, { headers: { cookie } })).json()).allowance.remaining;
     // Carbon's fluid form: header, body and footer.
