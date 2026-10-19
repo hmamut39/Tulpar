@@ -236,6 +236,7 @@ $("form").addEventListener("submit", async (e) => {
     ...($("language").value && { language: $("language").value }),
     ...($("styling").value && { styling: $("styling").value }),
     ...(figmaToken && { figmaToken }),
+    ...(m === "figma" && $("wholePage").checked && !$("pageOption").hidden && { page: true }),
     ...($("accessCode").value && { accessCode: $("accessCode").value }),
     ...(useImage && { image: await readAsDataUrl(screenshot) }),
   };
@@ -424,3 +425,11 @@ $("feedbackMore").addEventListener("submit", (e) => {
   $("feedbackMore").hidden = true;
   $("feedbackThanks").hidden = false;
 });
+
+// "Whole page" splits a Figma frame: offered with a Figma link alone, for frameworks whose components import one another.
+function showPageOption() {
+  $("pageOption").hidden = mode() !== "figma" || $("framework").value === "web-components";
+}
+for (const r of document.querySelectorAll('input[name="mode"]')) r.addEventListener("change", showPageOption);
+$("framework").addEventListener("change", showPageOption);
+showPageOption();

@@ -40,8 +40,9 @@ export async function generatePageCommand(projectDir: string, options: GenerateC
   const done: PageOutcome["sections"] = [];
   const built: Record<string, { name: string; importPath: string }> = {};
   let failed = false;
-  for (const s of sections) {
+  for (const [i, s] of sections.entries()) {
     log(`\n— Section ${s.name} (${s.node.id})`);
+    options.onEvent?.({ type: "section", name: s.name, index: i + 1, total: sections.length });
     const outcome = await generateCommand(projectDir, { ...options, frame: s.node.id, name: s.name, resultsDir: join(tmpdir(), "tulpar-page", options.name, s.name) });
     if (!outcome.result) return { code: 2, error: `Section ${s.name}: ${outcome.error ?? "nothing generated"}`, sections: done };
     done.push({ name: s.name, figmaId: s.node.id, status: outcome.result.status });
@@ -52,6 +53,7 @@ export async function generatePageCommand(projectDir: string, options: GenerateC
 
   // The page: places the sections, verified as a whole with them.
   log(`\n— Page ${options.name}`);
+  options.onEvent?.({ type: "section", name: options.name, index: sections.length + 1, total: sections.length, page: true });
   const page = await generateCommand(projectDir, { ...options, built, extraFiles: files, resultsDir: join(tmpdir(), "tulpar-page", options.name, "_page") });
   if (!page.result) return { code: 2, error: `The page: ${page.error ?? "nothing generated"}`, sections: done };
 

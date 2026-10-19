@@ -77,6 +77,32 @@ describe("ratings of results", () => {
   });
 });
 
+describe("charging a whole page", () => {
+  it("takes several generations at once or none, and refunds them all when the run is cut short", async () => {
+    const a = new Accounts(":memory:", { trial: 5, pro: 300 });
+    const me = a.signIn({ githubId: 21, login: "pager" });
+    expect(a.consume(me.id, new Date(), 6)).toMatchObject({ consumed: false, blocked: "This page needs 6 generations (one per section, one for the page); you have 5 left." });
+    expect(a.get(me.id)!.used).toBe(0);
+    expect(a.consume(me.id, new Date(), 4)).toMatchObject({ consumed: true, remaining: 1 });
+    a.openRun("page-job", me.id, 4);
+    expect(a.refundLostRuns()).toBe(1);
+    expect(a.get(me.id)!.used).toBe(0);
+  });
+
+  it("adds the charged count to a database made before pages", async () => {
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { DatabaseSync } = await import("node:sqlite");
+    const file = join(mkdtempSync(join(tmpdir(), "tulpar-db-")), "accounts.db");
+    const old = new DatabaseSync(file);
+    old.exec("CREATE TABLE open_runs (job TEXT PRIMARY KEY, account INTEGER NOT NULL, started_at TEXT NOT NULL); INSERT INTO open_runs VALUES ('j', 1, '2026-10-18');");
+    old.close();
+    const a = new Accounts(file, { trial: 5, pro: 300 });
+    expect(a.refundLostRuns()).toBe(1);
+  });
+});
+
 describe("Stripe webhook", () => {
   const secret = "whsec_test";
   const signed = (body: string, t = Math.floor(Date.now() / 1000)) => `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`;
@@ -245,5 +271,22 @@ describe("web API with sign-in and payments", () => {
     expect((await asApp(second)).status).toBe(200);
     expect(await (await post("/api/tokens/revoke")).json()).toEqual({ revoked: 1 });
     expect((await asApp(second)).status).toBe(401);
+  });
+
+  it("charges a whole page one generation per section and one for the page, all or nothing", async () => {
+    expect(await (await job({ page: true, figmaUrl: "" , image: undefined })).json()).toMatchObject({ error: expect.stringMatching(/Figma/) });
+    const before = (await (await fetch(`${server.url}/api/me`, { headers: { cookie } })).json()).allowance.remaining;
+    // Carbon's fluid form: header, body and footer.
+    const res = await job({ page: true, name: "FluidForm", figmaUrl: "https://www.figma.com/design/b8xYgmx2Js30XaldxPkOs9/Carbon?node-id=16827-270673" });
+    const after = (await (await fetch(`${server.url}/api/me`, { headers: { cookie } })).json()).allowance.remaining;
+    if (before >= 4) {
+      expect(res.status).toBe(202);
+      expect(await res.json()).toMatchObject({ charged: 4 });
+      expect(before - after).toBe(4);
+    } else {
+      expect(res.status).toBe(402);
+      expect((await res.json()).error).toBe(`This page needs 4 generations (one per section, one for the page); you have ${before} left.`);
+      expect(after).toBe(before);
+    }
   });
 });

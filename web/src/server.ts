@@ -26,8 +26,9 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
-import { DEFAULT_OPENAI_MODEL, OpenAiLlm, parseFigmaUrl, supportsOutput, type AdapterManifest, type Llm, type OutputChoice } from "@tulpar/core";
+import { DEFAULT_OPENAI_MODEL, OpenAiLlm, pageSections, parseFigmaUrl, supportsOutput, type AdapterManifest, type Llm, type OutputChoice } from "@tulpar/core";
 import { loadProject, withAdapter } from "@tulpar/cli/project";
+import { loadDesign } from "@tulpar/cli/pipeline";
 import { Accounts, type Account } from "./accounts.ts";
 import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, signInNext, startSignIn, type AuthConfig } from "./auth.ts";
 import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, revenue, verifyWebhook, type BillingConfig, type Revenue } from "./billing.ts";
@@ -149,7 +150,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   // Generations a stop or a deploy cut short were charged and never delivered: they are given back.
   const lostRuns = accounts?.refundLostRuns() ?? 0;
   if (lostRuns) log(JSON.stringify({ event: "lost-runs-refunded", at: new Date().toISOString(), count: lostRuns }));
-  const jobAccounts = new Map<string, { id: number; login: string }>(); // job id → the account it counts against
+  const jobAccounts = new Map<string, { id: number; login: string; charged?: number }>(); // job id → the account it counts against
   const proPrice = options.proPriceLabel ?? process.env.TULPAR_PRO_PRICE_LABEL ?? "$29";
   const admins = new Set((options.admins ?? (process.env.TULPAR_ADMINS ?? "").split(",")).map((a) => a.trim().toLowerCase()).filter(Boolean));
   // OpenAI prices in dollars per million tokens, for the dashboard's cost estimate; unset means "not estimated".
@@ -189,7 +190,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       });
       // Failed before the model ran (e.g. the Figma frame could not be read): the generation is given back.
       const owner = jobAccounts.get(job.id);
-      if (owner && job.state === "error" && !r) accounts?.refund(owner.id);
+      if (owner && job.state === "error" && !r) accounts?.refund(owner.id, owner.charged ?? 1);
       accounts?.closeRun(job.id);
       invites.delete(job.id);
       jobAccounts.delete(job.id);
@@ -394,6 +395,22 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const manifest = manifests.get(project.adapter);
         if (manifest && !supportsOutput(manifest, output)) return json(res, 400, { error: "This framework does not write that language and styling. Pick one from the list." });
 
+        // The visitor's own token first; the server's only as a fallback for the owner's own use.
+        const figmaToken = (typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN || undefined;
+        // A whole page costs one generation per section and one for the page: counted before anything runs.
+        const page = body.page === true;
+        let charge = 1;
+        if (page) {
+          if (!ref) return json(res, 400, { error: "A whole page is read from a Figma link." });
+          try {
+            const design = await loadDesign(await loadProject(project.dir), { frame: ref.nodeId!, fileKey: ref.fileKey, ...(figmaToken && { figmaToken }) }, resolve(options.repoRoot, ".cache/figma"));
+            const sections = pageSections(design.root).length;
+            charge = sections >= 2 ? sections + 1 : 1;
+          } catch (err) {
+            return json(res, 400, { error: `That Figma frame could not be read: ${(err as Error).message.split("\n")[0]}` });
+          }
+        }
+
         recent.push(Date.now());
         runs.set(visitor, recent);
         today.push(Date.now());
@@ -404,21 +421,22 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           ...(ref && { frame: ref.nodeId!, fileKey: ref.fileKey }),
           ...(scale && { scale }),
           // The visitor's own token first; the server's only as a fallback for the owner's own use.
-          ...((typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN ? { figmaToken: (typeof body.figmaToken === "string" && body.figmaToken.trim()) || process.env.FIGMA_TOKEN! } : {}),
+          ...(figmaToken && { figmaToken }),
           ...(image && { image }),
           ...(output && { output }),
+          ...(page && { page: true }),
         };
         if (account) {
-          const counted = accounts!.consume(account.id);
+          const counted = accounts!.consume(account.id, new Date(), charge);
           if (!counted.consumed) return json(res, 402, { error: counted.blocked, upgrade: !!billing });
         }
         const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro") });
         if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
         if (account) {
-          jobAccounts.set(id, { id: account.id, login: account.login });
-          accounts!.openRun(id, account.id);
+          jobAccounts.set(id, { id: account.id, login: account.login, charged: charge });
+          accounts!.openRun(id, account.id, charge);
         }
-        return json(res, 202, { id });
+        return json(res, 202, { id, ...(page && { charged: charge }) });
       }
 
       // What the person thought of a result: once per job, with an optional comment. No design or code is kept.

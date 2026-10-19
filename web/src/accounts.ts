@@ -131,6 +131,10 @@ export class Accounts {
         last_used TEXT
       );
     `);
+    // How many generations an open run charged (a page charges one per section and one for itself); databases
+    // made before pages have the table without it.
+    const columns = this.#db.prepare("PRAGMA table_info(open_runs)").all() as { name: string }[];
+    if (!columns.some((c) => c.name === "charged")) this.#db.exec("ALTER TABLE open_runs ADD COLUMN charged INTEGER NOT NULL DEFAULT 1");
   }
 
   /** The account for a GitHub user, created on first sign-in (on the trial). */
@@ -177,23 +181,27 @@ export class Accounts {
    * Counts one generation if the allowance has room: `consumed` says whether it did. Synchronous,
    * so two requests at once cannot both take the last generation.
    */
-  consume(id: number, now = new Date()): Allowance & { consumed: boolean } {
+  /** Charges `count` generations (a whole page: one per section and one for the page), all or none. */
+  consume(id: number, now = new Date(), count = 1): Allowance & { consumed: boolean } {
     const account = this.get(id);
     if (!account) return { plan: "trial", used: 0, limit: 0, remaining: 0, blocked: "No such account.", consumed: false };
     const before = this.allowance(account, now);
     if (before.blocked) return { ...before, consumed: false };
-    if (account.plan === "pro" && this.#monthStarted(account, now)) {
+    const fresh = account.plan === "pro" && this.#monthStarted(account, now);
+    const remaining = fresh ? before.limit : before.remaining;
+    if (remaining < count) return { ...before, consumed: false, blocked: `This page needs ${count} generations (one per section, one for the page); you have ${remaining} left.` };
+    if (fresh) {
       // The new month starts on the billing date, not on the day of first use: periods never drift.
-      this.#db.prepare("UPDATE accounts SET used = 1, period_start = ? WHERE id = ?").run(currentPeriod(account.periodStart!, now), id);
+      this.#db.prepare("UPDATE accounts SET used = ?, period_start = ? WHERE id = ?").run(count, currentPeriod(account.periodStart!, now), id);
     } else {
-      this.#db.prepare("UPDATE accounts SET used = used + 1 WHERE id = ?").run(id);
+      this.#db.prepare("UPDATE accounts SET used = used + ? WHERE id = ?").run(count, id);
     }
     return { ...this.allowance(this.get(id)!, now), consumed: true };
   }
 
   /** Gives a generation back (it failed before reaching the model). */
-  refund(id: number): void {
-    this.#db.prepare("UPDATE accounts SET used = MAX(0, used - 1) WHERE id = ?").run(id);
+  refund(id: number, count = 1): void {
+    this.#db.prepare("UPDATE accounts SET used = MAX(0, used - ?) WHERE id = ?").run(count, id);
   }
 
   /** A person's rating of one result, once per job. False when that job was already rated. */
@@ -205,8 +213,8 @@ export class Accounts {
   }
 
   /** Notes a charged generation as running. */
-  openRun(job: string, account: number): void {
-    this.#db.prepare("INSERT OR REPLACE INTO open_runs (job, account, started_at) VALUES (?, ?, ?)").run(job, account, new Date().toISOString());
+  openRun(job: string, account: number, charged = 1): void {
+    this.#db.prepare("INSERT OR REPLACE INTO open_runs (job, account, started_at, charged) VALUES (?, ?, ?, ?)").run(job, account, new Date().toISOString(), charged);
   }
 
   /** The generation finished (whatever its outcome): it is no longer open. */
@@ -216,9 +224,9 @@ export class Accounts {
 
   /** At start-up: generations still open were cut short by a stop or a deploy, so each is given back. Returns how many. */
   refundLostRuns(): number {
-    const lost = this.#db.prepare("SELECT job, account FROM open_runs").all() as { job: string; account: number }[];
+    const lost = this.#db.prepare("SELECT job, account, charged FROM open_runs").all() as { job: string; account: number; charged: number }[];
     for (const run of lost) {
-      this.refund(run.account);
+      this.refund(run.account, run.charged);
       this.closeRun(run.job);
     }
     return lost.length;

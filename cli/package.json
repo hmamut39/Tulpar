@@ -13,6 +13,7 @@
   },
   "exports": {
     "./generate": "./src/generate.ts",
+    "./page": "./src/page.ts",
     "./pipeline": "./src/pipeline.ts",
     "./project": "./src/project.ts",
     "./env": "./src/env.ts",

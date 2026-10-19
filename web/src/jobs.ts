@@ -6,6 +6,7 @@ import { readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { generateCommand } from "@tulpar/cli/generate";
+import { generatePageCommand } from "@tulpar/cli/page";
 import type { GenerationEvent, GenerationResult, Llm, LlmImage, OutputChoice, VerifyReport } from "@tulpar/core";
 
 export interface JobInput {
@@ -20,6 +21,8 @@ export interface JobInput {
   figmaToken?: string;
   image?: LlmImage;
   output?: OutputChoice;
+  /** A whole page: split into sections, each generated and verified, then a page that places them. */
+  page?: boolean;
 }
 
 export interface Job {
@@ -119,7 +122,7 @@ export class JobQueue {
     const started = Date.now();
     try {
       const llm = this.#llm();
-      const outcome = await generateCommand(job.input.projectDir, {
+      const outcome = await (job.input.page ? generatePageCommand : generateCommand)(job.input.projectDir, {
         ...(job.input.frame && { frame: job.input.frame }),
         ...(job.input.fileKey && { fileKey: job.input.fileKey }),
         ...(job.input.scale && { scale: job.input.scale }),
@@ -192,6 +195,8 @@ function describe(e: GenerationEvent): string {
       return "Building, rendering and checking against the design…";
     case "verified":
       return verdictLine(e.report);
+    case "section":
+      return e.page ? `All ${e.total} sections done. Now the page that places them: ${e.name}.` : `Section ${e.index} of ${e.total}: ${e.name}.`;
   }
 }
 

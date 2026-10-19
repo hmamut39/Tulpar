@@ -471,3 +471,6 @@ body { overflow-x: clip; }
 h1, h2, h3 { text-wrap: balance; }
 /* JetBrains Mono is wider than a fallback mono: the example run fits a phone's width. */
 @media (max-width: 520px) { .run-body { font-size: 9.5px; } }
+.page-option { align-items: flex-start; margin-top: 4px; line-height: 1.45; }
+.page-option input { margin-top: 3px; flex: none; }
+.page-option small { display: block; color: var(--muted); font-size: 12px; }

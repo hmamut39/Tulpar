@@ -38,7 +38,9 @@ export type GenerationEvent =
   | { type: "generating"; attempt: number; /** false for a first draft */ repair: boolean }
   | { type: "generated"; attempt: number; files: string[] }
   | { type: "verifying"; attempt: number }
-  | { type: "verified"; attempt: number; report: VerifyReport };
+  | { type: "verified"; attempt: number; report: VerifyReport }
+  /** A whole page: which section (or, last, the page itself) is being generated. */
+  | { type: "section"; name: string; index: number; total: number; page?: boolean };
 
 export interface GenerateOptions extends BriefInput {
   llm: Llm;
