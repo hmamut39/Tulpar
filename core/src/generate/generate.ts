@@ -31,7 +31,12 @@ export interface GenerationResult {
   attempts: Attempt[];
   model: string;
   usage: { inputTokens: number; outputTokens: number };
+  /** After a change: the design comparisons that fail, where the result now differs from the design (as asked). */
+  departures?: string[];
 }
+
+/** Checks that compare the result with the design, rather than the code with the design system. */
+export const DESIGN_MATCH = new Set(["layout", "visual", "text", "typeface"]);
 
 export type GenerationEvent =
   | { type: "brief"; brief: Brief }
@@ -55,6 +60,13 @@ export interface GenerateOptions extends BriefInput {
   candidates?: number;
   /** An image of the design (e.g. a screenshot) for the model to look at. */
   image?: LlmImage;
+  /**
+   * A change the team asked for on delivered files ("make the button full width"). The first attempt
+   * applies it to those files; repairs fix what the change broke. The request outranks the design, so
+   * checks that compare with the design (layout, pixels, text, typeface) neither trigger repairs nor fail
+   * the result: they are reported, and listed in `departures` when they fail.
+   */
+  change?: { files: GeneratedFile[]; request: string };
   /** The render a verification produced, so a repair after visual failures can look at what it drew. */
   renderOf?: (report: VerifyReport) => LlmImage | undefined;
   onEvent?: (e: GenerationEvent) => void;
@@ -93,19 +105,26 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
   const usage = { inputTokens: 0, outputTokens: 0 };
   let model = options.llm.name;
 
-  const candidates = Math.max(1, Math.floor(options.candidates ?? 1));
-  // The first `candidates` attempts are independent drafts; the rest repair.
+  const change = options.change;
+  // A failure that counts: after a change, differences from the design are what was asked for.
+  const counts = (c: VerifyReport["checks"][number]) => c.status === "fail" && !(change && DESIGN_MATCH.has(c.id));
+  const candidates = change ? 1 : Math.max(1, Math.floor(options.candidates ?? 1));
+  // The first `candidates` attempts are independent drafts (or, for a change, the change); the rest repair.
   for (let n = 1; n <= candidates + maxAttempts - 1; n++) {
     options.onEvent?.({ type: "generating", attempt: n, repair: n > candidates });
     // Repair from the best attempt so far, not the latest: a repair that made things worse is set aside, as a developer would.
-    const previous = n > candidates ? bestAttempt(attempts) : undefined;
+    const previous = n > candidates ? bestAttempt(attempts, counts) : undefined;
     // After visual failures, the model looks at its own render next to the design, as a developer would.
-    const looked = previous?.report && previous.report.checks.some((c) => c.status === "fail" && VISUAL.has(c.id)) ? options.renderOf?.(previous.report) : undefined;
+    const looked = previous?.report && previous.report.checks.some((c) => counts(c) && VISUAL.has(c.id)) ? options.renderOf?.(previous.report) : undefined;
     const images = [...(options.image ? [options.image] : []), ...(looked ? [looked] : [])];
-    const drafting = n <= candidates && !!options.draftLlm;
+    const drafting = n <= candidates && !!options.draftLlm && !change;
     const response = await (drafting ? options.draftLlm! : options.llm).complete({
       instructions: instructions(brief),
-      text: previous ? repairText(brief, previous, looked ? (options.image ? "The second image is your previous attempt as it rendered; the first is the design. Compare them." : "The image is your previous attempt as it rendered.") : undefined) : briefText(brief),
+      text: previous
+        ? repairText(brief, previous, looked ? (options.image ? "The second image is your previous attempt as it rendered; the first is the design. Compare them." : "The image is your previous attempt as it rendered.") : undefined, counts, change?.request)
+        : change
+          ? changeText(brief, change)
+          : briefText(brief),
       ...(images.length && { images }),
       schema: FILES_SCHEMA,
       maxOutputTokens: 16000,
@@ -134,13 +153,15 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     options.onEvent?.({ type: "verifying", attempt: n });
     attempt.report = await options.verify(files);
     options.onEvent?.({ type: "verified", attempt: n, report: attempt.report });
-    if (!attempt.rejected.length && !attempt.report.checks.some((c) => c.status === "fail")) break;
+    if (!attempt.rejected.length && !attempt.report.checks.some(counts)) break;
   }
 
-  const last = bestAttempt(attempts);
-  const failing = !last.report || last.rejected.length > 0 || last.report.checks.some((c) => c.status === "fail");
+  const last = bestAttempt(attempts, counts);
+  const failing = !last.report || last.rejected.length > 0 || last.report.checks.some(counts);
+  const departures = change ? (last.report?.checks ?? []).filter((c) => c.status === "fail" && DESIGN_MATCH.has(c.id)).map((c) => c.id) : [];
   return {
-    status: failing ? "failed" : last.report!.verdict === "pass" ? "verified" : "unchecked-remain",
+    status: failing ? "failed" : last.report!.verdict === "pass" || departures.length ? "verified" : "unchecked-remain",
+    ...(departures.length && { departures }),
     files: last.files,
     ...(last.report && { report: last.report }),
     attempts,
@@ -224,14 +245,28 @@ function briefText(b: Brief): string {
   ].join("\n");
 }
 
-function repairText(b: Brief, previous: Attempt, picture?: string): string {
+/** A change to delivered files: the brief, the files, and what the team asked for. */
+function changeText(b: Brief, change: { files: GeneratedFile[]; request: string }): string {
+  return [
+    briefText(b),
+    ``,
+    `THE TEAM'S FILES (written from this design and verified; they may have edited them since)`,
+    ...change.files.map((f) => `--- ${f.path}\n${f.content}`),
+    ``,
+    `THE CHANGE THEY ASK FOR — make it, and change nothing else. It outranks the design where the two differ; every rule above still holds (design-system components, tokens, data-figma-id, the tests kept in step with the code):`,
+    change.request,
+  ].join("\n");
+}
+
+function repairText(b: Brief, previous: Attempt, picture?: string, counts: (c: VerifyReport["checks"][number]) => boolean = (c) => c.status === "fail", request?: string): string {
   const failures = [
     ...previous.rejected,
-    ...(previous.report?.checks.filter((c) => c.status === "fail").flatMap((c) => [`${c.title}: ${c.summary}`, ...c.details.filter((d) => d.startsWith("✗")).map((d) => `  ${d}`)]) ?? []),
+    ...(previous.report?.checks.filter(counts).flatMap((c) => [`${c.title}: ${c.summary}`, ...c.details.filter((d) => d.startsWith("✗")).map((d) => `  ${d}`)]) ?? []),
   ];
   return [
     briefText(b),
     ``,
+    ...(request ? [`THE TEAM ASKED FOR THIS CHANGE, which your previous files make; keep it, it outranks the design:`, request, ``] : []),
     `YOUR PREVIOUS ATTEMPT FAILED THESE CHECKS — fix every one, change nothing else:`,
     ...failures.map((f) => `- ${f}`),
     ...(picture ? [``, picture] : []),
@@ -246,8 +281,8 @@ function repairText(b: Brief, previous: Attempt, picture?: string): string {
  * wins; on a tie, the later attempt (it saw more feedback). One that didn't build or render ranks below
  * any that did: its other checks were skipped, not passed.
  */
-export function bestAttempt<A extends Pick<Attempt, "rejected" | "report">>(attempts: A[]): A {
+export function bestAttempt<A extends Pick<Attempt, "rejected" | "report">>(attempts: A[], counts: (c: VerifyReport["checks"][number]) => boolean = (c) => c.status === "fail"): A {
   const failures = (a: A) =>
-    a.report ? a.rejected.length + a.report.checks.filter((c) => c.status === "fail").length + (a.report.checks.some((c) => c.status === "fail" && (c.id === "build" || c.id === "render")) ? 1000 : 0) : Infinity;
+    a.report ? a.rejected.length + a.report.checks.filter(counts).length + (a.report.checks.some((c) => c.status === "fail" && (c.id === "build" || c.id === "render")) ? 1000 : 0) : Infinity;
   return attempts.reduce<A | undefined>((best, a) => (!best || failures(a) <= failures(best) ? a : best), undefined) ?? attempts.at(-1)!;
 }

@@ -422,6 +422,16 @@ input, select, textarea { scroll-margin-top: 88px; }
 .feedback-more { display: flex; gap: 8px; flex: 1 1 260px; }
 .feedback-more input { flex: 1; min-width: 0; height: 36px; }
 .feedback-thanks { color: var(--text); font-weight: 500; }
+/* Ask for a change: a short request under the result, applied and checked again. */
+.change { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.change-label { display: block; font-weight: 600; color: var(--text); }
+.change .hint { margin: 4px 0 10px; }
+.change-row { display: flex; gap: 8px; align-items: flex-end; }
+.change-row textarea { flex: 1; min-width: 0; min-height: 44px; resize: vertical; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.change-row textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.change-row .btn-primary { flex: none; width: auto; height: 44px; padding: 0 18px; }
+.banner .asked { display: block; margin-top: 4px; font-weight: 400; opacity: .85; }
+@media (max-width: 560px) { .change-row { flex-direction: column; align-items: stretch; } }
 
 
 /* ---- Design pass: one font system, aligned controls, a distinctive hero ---- */

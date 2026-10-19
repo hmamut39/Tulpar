@@ -115,7 +115,33 @@ describe("web API", () => {
     expect(JSON.parse(logged.at(-1)!)).toMatchObject({ event: "feedback", project: "carbon-react", rating: "down", comment: true });
     expect(logged.at(-1)).not.toContain("the spacing was off");
     expect((await fetch(`${server.url}/api/jobs/00000000-0000-0000-0000-000000000000/feedback`, { method: "POST", body: "{}" })).status).toBe(404);
-  }, 180_000);
+
+    // Ask for a change: the files and the design the run read, with the request; checked again.
+    expect(job.canChange).toBe(true);
+    const ask = (jobId: string, body: Record<string, unknown>) => fetch(`${server.url}/api/jobs/${jobId}/change`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    expect((await ask("00000000-0000-0000-0000-000000000000", { accessCode: "open-sesame", request: "x" })).status).toBe(404);
+    expect((await ask(id, { accessCode: "open-sesame", request: "  " })).status).toBe(400);
+    expect((await ask(id, { request: "Make the buttons smaller." })).status).toBe(401);
+    llm = new ScriptedLlm([{ ...answer, files: answer.files.map((f) => (f.path === "ModalActions.tsx" ? { ...f, content: tsx.replace(/size="xl"/g, 'size="lg"') } : f)) }]);
+    const asked = await ask(id, { accessCode: "open-sesame", request: "Make the buttons smaller." });
+    expect(asked.status).toBe(202);
+    const changeId = (await asked.json()).id;
+    let changed: Record<string, any>;
+    for (;;) {
+      changed = await (await fetch(`${server.url}/api/jobs/${changeId}`)).json();
+      if (changed.state === "done" || changed.state === "error") break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    expect(changed).toMatchObject({ state: "done", changeOf: id, request: "Make the buttons smaller.", canChange: true });
+    // The model saw the delivered files and the request, and no screenshot or Figma reading happened again.
+    expect(llm.requests).toHaveLength(1);
+    expect(llm.requests[0]!.text).toContain('size="xl"');
+    expect(llm.requests[0]!.text).toContain("Make the buttons smaller.");
+    expect(changed.result.files.find((f: { path: string }) => f.path === "ModalActions.tsx").content).toContain('size="lg"');
+    // A smaller button no longer matches the design's: reported, and that is what was asked.
+    expect(changed.result.status).toBe("verified");
+    expect(changed.result.departures ?? []).toEqual(expect.arrayContaining(changed.result.report.checks.filter((c: { id: string; status: string }) => c.status === "fail").map((c: { id: string }) => c.id)));
+  }, 300_000);
 
   it("limits generations per visitor per hour", async () => {
     // Two runs per hour are allowed in this test server; earlier tests may have used one.

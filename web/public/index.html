@@ -239,6 +239,15 @@
           <div class="code-body"><pre class="gutter" id="gutter" aria-hidden="true"></pre><pre><code id="code"></code></pre></div>
         </div>
       </div>
+      <form class="change" id="change" hidden>
+        <label for="changeText" class="change-label">Ask for a change</label>
+        <p class="hint" id="changeHint">Say what to change, e.g. “make the button full width” or “add a Forgot password link under the fields”. Tulpar edits these files and checks them again. It counts as one generation.</p>
+        <div class="change-row">
+          <textarea id="changeText" rows="2" maxlength="2000" placeholder="What should change?"></textarea>
+          <button type="submit" class="btn-primary" id="changeSubmit">Change it</button>
+        </div>
+        <p class="form-error" id="changeError" role="alert"></p>
+      </form>
       <div class="feedback" id="feedback">
         <span class="feedback-q" id="feedbackQ">Was this result useful?</span>
         <div class="feedback-buttons" role="group" aria-labelledby="feedbackQ">

@@ -23,7 +23,7 @@ export { LlmError, generationCost, tokenCost, type Llm, type LlmImage, type LlmR
 export { DEFAULT_OPENAI_MODEL, OpenAiLlm, type OpenAiOptions } from "./generate/openai.ts";
 export { buildBrief, type Brief, type BriefInput, type Conventions, type InstanceHint } from "./generate/brief.ts";
 export { tokenHints, type TokenHint } from "./generate/tokens-hint.ts";
-export { bestAttempt, generate, type Attempt, type GeneratedFile, type GenerateOptions, type GenerationEvent, type GenerationResult } from "./generate/generate.ts";
+export { DESIGN_MATCH, bestAttempt, generate, type Attempt, type GeneratedFile, type GenerateOptions, type GenerationEvent, type GenerationResult } from "./generate/generate.ts";
 export { ScriptedLlm } from "./generate/scripted.ts";
 export { parseFigmaUrl, type FigmaRef } from "./figma/url.ts";
 export { compareImages, flatten, maskBoxes, type VisualComparison } from "./verify/visual.ts";

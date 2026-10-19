@@ -26,7 +26,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
-import { DEFAULT_OPENAI_MODEL, OpenAiLlm, pageSections, parseFigmaUrl, supportsOutput, type AdapterManifest, type Llm, type OutputChoice } from "@tulpar/core";
+import { DEFAULT_OPENAI_MODEL, OpenAiLlm, pageSections, parseFigmaUrl, supportsOutput, type AdapterManifest, type GeneratedFile, type Llm, type OutputChoice } from "@tulpar/core";
 import { loadProject, withAdapter } from "@tulpar/cli/project";
 import { loadDesign } from "@tulpar/cli/pipeline";
 import { Accounts, type Account } from "./accounts.ts";
@@ -204,6 +204,34 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const publicDir = resolve(import.meta.dirname, "../public");
 
   /** Who is asking: an app's token (Authorization: Bearer tlp_…), else the page's session cookie. */
+  // Who may start a run, and who pays: an invite code (not counted), or a signed-in account's allowance; then the rate limits.
+  // Who a run belongs to: its account, or which invite code (a hash, never the code); nobody on an open server.
+  const ownerOf = (code: string | undefined, account: Account | undefined): string | undefined =>
+    account ? `account:${account.id}` : code ? `invite:${createHash("sha256").update(code).digest("hex").slice(0, 8)}` : undefined;
+  type Admitted = { code?: string; account?: Account; visitor: string; recent: number[] };
+  const admit = (req: IncomingMessage, body: Record<string, unknown>): Admitted | { refuse: [number, Record<string, unknown>] } => {
+    const refuse = (status: number, payload: Record<string, unknown>) => ({ refuse: [status, payload] as [number, Record<string, unknown>] });
+    const given = String(body.accessCode ?? "");
+    const code = given ? codes.find((c) => sameSecret(given, c)) : undefined;
+    if (given && !code) return refuse(401, { error: "That invite code is not valid." });
+    const who = !code ? requester(req) : {};
+    if (who.badToken) return refuse(401, { error: who.badToken, signIn: true });
+    const account = who.account;
+    if (!code && auth && !account) return refuse(401, { error: "Sign in with GitHub to start your free trial.", signIn: true });
+    if (!code && !auth && codes.length) return refuse(401, { error: "Wrong or missing access code." });
+    if (account) {
+      const allowance = accounts!.allowance(account);
+      if (allowance.blocked) return refuse(402, { error: allowance.blocked, upgrade: !!billing });
+    }
+    const visitor = clientId(req, trustProxy);
+    const recent = (runs.get(visitor) ?? []).filter((t) => Date.now() - t < 3_600_000);
+    if (recent.length >= runsPerHour) return refuse(429, { error: `Limit reached: ${runsPerHour} generations per hour.` });
+    while (today.length && Date.now() - today[0]! > 86_400_000) today.shift();
+    if (today.length >= runsPerDay) return refuse(429, { error: "Tulpar has reached today's generation limit. Try again tomorrow." });
+    if (queue.pending >= maxQueue) return refuse(503, { error: "Tulpar is busy. Try again in a few minutes." });
+    return { ...(code && { code }), ...(account && { account }), visitor, recent };
+  };
+
   const requester = (req: IncomingMessage): { account?: Account; badToken?: string } => {
     if (!auth || !accounts) return {};
     const bearer = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization ?? ""))?.[1];
@@ -357,25 +385,9 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
 
       if (req.method === "POST" && path === "/api/jobs") {
         const body = await readJson(req);
-        const given = String(body.accessCode ?? "");
-        const code = given ? codes.find((c) => sameSecret(given, c)) : undefined;
-        if (given && !code) return json(res, 401, { error: "That invite code is not valid." });
-        // Who pays for this run: an invite code (not counted), or a signed-in account's allowance.
-        const who = !code ? requester(req) : {};
-        if (who.badToken) return json(res, 401, { error: who.badToken, signIn: true });
-        const account = who.account;
-        if (!code && auth && !account) return json(res, 401, { error: "Sign in with GitHub to start your free trial.", signIn: true });
-        if (!code && !auth && codes.length) return json(res, 401, { error: "Wrong or missing access code." });
-        if (account) {
-          const allowance = accounts!.allowance(account);
-          if (allowance.blocked) return json(res, 402, { error: allowance.blocked, upgrade: !!billing });
-        }
-        const visitor = clientId(req, trustProxy);
-        const recent = (runs.get(visitor) ?? []).filter((t) => Date.now() - t < 3_600_000);
-        if (recent.length >= runsPerHour) return json(res, 429, { error: `Limit reached: ${runsPerHour} generations per hour.` });
-        while (today.length && Date.now() - today[0]! > 86_400_000) today.shift();
-        if (today.length >= runsPerDay) return json(res, 429, { error: "Tulpar has reached today's generation limit. Try again tomorrow." });
-        if (queue.pending >= maxQueue) return json(res, 503, { error: "Tulpar is busy. Try again in a few minutes." });
+        const admitted = admit(req, body);
+        if ("refuse" in admitted) return json(res, admitted.refuse[0], admitted.refuse[1]);
+        const { code, account, visitor, recent } = admitted;
 
         await manifestsRead;
         const project = projects.find((p) => p.id === body.project && usable(p));
@@ -435,13 +447,53 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           const counted = accounts!.consume(account.id, new Date(), charge);
           if (!counted.consumed) return json(res, 402, { error: counted.blocked, upgrade: !!billing });
         }
-        const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro") });
+        const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro"), owner: ownerOf(code, account) });
         if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
         if (account) {
           jobAccounts.set(id, { id: account.id, login: account.login, charged: charge });
           accounts!.openRun(id, account.id, charge);
         }
         return json(res, 202, { id, ...(page && { charged: charge }) });
+      }
+
+      // A change asked for on a finished result ("make the button full width"): one generation, applied to
+      // its files with its design, re-verified. Only whoever ran it may ask, while its design is kept.
+      const changeMatch = /^\/api\/jobs\/([a-f0-9-]{36})\/change$/.exec(path);
+      if (req.method === "POST" && changeMatch) {
+        const body = await readJson(req);
+        const from = queue.get(changeMatch[1]!);
+        if (!from || from.state !== "done" || !from.context || !from.result) return json(res, 404, { error: "That result is no longer kept (results are kept for an hour). Generate it again to change it." });
+        const request = typeof body.request === "string" ? body.request.trim() : "";
+        if (!request) return json(res, 400, { error: "Say what to change." });
+        if (request.length > 2000) return json(res, 400, { error: "Keep the change under 2,000 characters." });
+        const admitted = admit(req, body);
+        if ("refuse" in admitted) return json(res, admitted.refuse[0], admitted.refuse[1]);
+        const { code, account, visitor, recent } = admitted;
+        if (from.owner !== ownerOf(code, account)) return json(res, 403, { error: "Only whoever generated this result can change it." });
+        // The team's own edits to the files, when they send them back; otherwise the files as delivered.
+        const sent = Array.isArray(body.files) ? (body.files as unknown[]).filter((f): f is GeneratedFile => !!f && typeof (f as GeneratedFile).path === "string" && typeof (f as GeneratedFile).content === "string") : [];
+        const delivered = new Set(from.result.files.map((f) => f.path));
+        const files = sent.length && sent.every((f) => delivered.has(f.path)) ? sent : from.result.files;
+        recent.push(Date.now());
+        runs.set(visitor, recent);
+        today.push(Date.now());
+        if (account) {
+          const counted = accounts!.consume(account.id, new Date());
+          if (!counted.consumed) return json(res, 402, { error: counted.blocked, upgrade: !!billing });
+        }
+        const input: JobInput = {
+          projectDir: from.input.projectDir,
+          name: from.input.name,
+          ...(from.input.output && { output: from.input.output }),
+          change: { of: from.id, request, files, context: from.context },
+        };
+        const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro"), owner: ownerOf(code, account) });
+        if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
+        if (account) {
+          jobAccounts.set(id, { id: account.id, login: account.login, charged: 1 });
+          accounts!.openRun(id, account.id, 1);
+        }
+        return json(res, 202, { id });
       }
 
       // What the person thought of a result: once per job, with an optional comment. No design or code is kept.

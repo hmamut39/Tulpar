@@ -218,6 +218,40 @@ function setScreenshot(file) {
   }
 }
 
+// Ask for a change: the result's files and design, with what to change, as a new run.
+let changeOf = null;
+function resetChange(job) {
+  changeOf = job.canChange ? job.id : null;
+  $("change").hidden = !job.canChange;
+  $("changeText").value = "";
+  $("changeError").textContent = "";
+}
+$("change").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const request = $("changeText").value.trim();
+  if (!changeOf) return;
+  if (!request) return ($("changeError").textContent = "Say what to change.");
+  $("changeError").textContent = "";
+  $("changeSubmit").disabled = true;
+  try {
+    const res = await fetch(`/api/jobs/${changeOf}/change`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ request, ...($("accessCode").value && { accessCode: $("accessCode").value }) }) });
+    const data = await res.json();
+    if (res.status === 401 && data.signIn) showNotice(data.error, "Sign in with GitHub", () => (location.href = "/auth/github"));
+    if (res.status === 402) showNotice(data.error, data.upgrade ? "Upgrade to Pro" : "", data.upgrade ? upgrade : null);
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+    current = data.id;
+    setBusy(true);
+    show("progress");
+    $("progressTitle").textContent = `Changing ${$("resultName").textContent}…`;
+    $("events").innerHTML = "";
+    poll(data.id);
+  } catch (err) {
+    $("changeError").textContent = err.message;
+  } finally {
+    $("changeSubmit").disabled = false;
+  }
+});
+
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   showError("");
@@ -290,7 +324,10 @@ function showResult(job) {
     failed: ["fail", "Some checks still fail after the last attempt. The files are the best attempt."],
   }[r.status];
   $("banner").className = `banner ${cls}`;
-  $("banner").textContent = text;
+  // After a change: where the result now differs from the design, because that was asked for.
+  const departs = r.departures?.length ? ` It differs from the design where you asked (${r.departures.join(", ")}); the code checks all pass.` : "";
+  $("banner").textContent = text + (r.status === "verified" ? departs : "");
+  if (job.request) $("banner").insertAdjacentHTML("beforeend", `<span class="asked">Changed as asked: “${esc(job.request)}”</span>`);
   $("resultName").textContent = job.name;
   const report = r.report;
   $("meta").textContent = `${r.attempts.length} attempt${r.attempts.length === 1 ? "" : "s"} · ${r.model.replace(/^openai:/, "")} · ${fmt(r.usage.inputTokens + r.usage.outputTokens)} tokens`;
@@ -312,6 +349,7 @@ function showResult(job) {
   $("download").href = `/api/jobs/${job.id}/download.zip`;
   $("download").hidden = !files.length;
   resetFeedback(job.id);
+  resetChange(job);
   selectTab("report");
   show("result");
   if (window.innerWidth <= 900) $("result").scrollIntoView({ behavior: "smooth", block: "start" });

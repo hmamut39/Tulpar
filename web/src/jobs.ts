@@ -5,9 +5,12 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { generateCommand } from "@tulpar/cli/generate";
+import { generateCommand, type GenerateOutcome } from "@tulpar/cli/generate";
 import { generatePageCommand } from "@tulpar/cli/page";
-import type { GenerationEvent, GenerationResult, Llm, LlmImage, OutputChoice, VerifyReport } from "@tulpar/core";
+import type { GeneratedFile, GenerationEvent, GenerationResult, Llm, LlmImage, OutputChoice, VerifyReport } from "@tulpar/core";
+
+/** The design as a run read it, kept in memory with the job so a change reuses it. */
+export type DesignContext = NonNullable<GenerateOutcome["context"]>;
 
 export interface JobInput {
   /** Where results go; default under out/. */
@@ -23,6 +26,8 @@ export interface JobInput {
   output?: OutputChoice;
   /** A whole page: split into sections, each generated and verified, then a page that places them. */
   page?: boolean;
+  /** A change asked for on an earlier job's files, with that job's design. */
+  change?: { of: string; request: string; files?: GeneratedFile[]; context?: DesignContext };
 }
 
 export interface Job {
@@ -38,6 +43,10 @@ export interface Job {
   result?: GenerationResult;
   png?: string;
   error?: string;
+  /** Who ran it (an account id, or a hash of the invite code), so only they can ask for a change. */
+  owner?: string;
+  /** The design as read: in memory only, forgotten with the job. */
+  context?: DesignContext;
 }
 
 const KEEP_MS = 3_600_000;
@@ -72,12 +81,13 @@ export class JobQueue {
   }
 
   /** Queues a job. A priority job (Pro, invite) waits only behind other priority jobs. */
-  add(input: JobInput, options: { priority?: boolean } = {}): string {
+  add(input: JobInput, options: { priority?: boolean; owner?: string } = {}): string {
     this.#sweep();
-    const source = input.frame && input.image ? "both" : input.image ? "screenshot" : "figma";
+    const of = input.change && this.#jobs.get(input.change.of);
+    const source = of ? of.source : input.frame && input.image ? "both" : input.image ? "screenshot" : "figma";
     const id = randomUUID();
     // Each job writes to its own temporary folder, deleted when the job ends: results are served from memory.
-    const job: Job = { id, input: { ...input, resultsDir: input.resultsDir ?? join(tmpdir(), "tulpar-results", id) }, source, state: "queued", createdAt: Date.now(), events: [], priority: !!options.priority };
+    const job: Job = { id, input: { ...input, resultsDir: input.resultsDir ?? join(tmpdir(), "tulpar-results", id) }, source, state: "queued", createdAt: of ? of.createdAt : Date.now(), events: [], priority: !!options.priority, ...(options.owner && { owner: options.owner }) };
     this.#jobs.set(job.id, job);
     const firstOrdinary = job.priority ? this.#waiting.findIndex((w) => !w.priority) : -1;
     if (firstOrdinary >= 0) this.#waiting.splice(firstOrdinary, 0, job);
@@ -97,6 +107,9 @@ export class JobQueue {
       id: job.id,
       state: job.state,
       name: job.input.name,
+      ...(job.input.change && { changeOf: job.input.change.of, request: job.input.change.request }),
+      // A change can be asked for while the design is still kept, on a single component.
+      canChange: job.state === "done" && !!job.context,
       events: job.events,
       ...(job.error && { error: job.error }),
       hasRender: !!job.png,
@@ -108,6 +121,7 @@ export class JobQueue {
           attempts: job.result.attempts.map((a) => ({ rejected: a.rejected, verdict: a.report?.verdict, failing: a.report?.checks.filter((c) => c.status === "fail").map((c) => c.summary) ?? [] })),
           files: job.result.files,
           report: job.result.report,
+          ...(job.result.departures && { departures: job.result.departures }),
         },
       }),
     };
@@ -133,10 +147,11 @@ export class JobQueue {
         cache: resolve(this.#repoRoot, ".cache/figma"),
         ...(job.input.image && { image: job.input.image }),
         ...(job.input.output && { output: job.input.output }),
+        ...(job.input.change?.files && job.input.change.context && { change: { files: job.input.change.files, request: job.input.change.request }, context: job.input.change.context }),
         ...(llm && { llm }),
         quiet: true,
         ...(!this.#rerank && { noRerank: true }),
-        onEvent: (e) => this.#log(job, describe(e)),
+        onEvent: (e) => this.#log(job, job.input.change && e.type === "generating" && !e.repair ? "Making the change you asked for…" : describe(e)),
       });
       if (outcome.error) {
         job.state = "error";
@@ -145,6 +160,7 @@ export class JobQueue {
         job.state = "done";
         job.result = outcome.result!;
         if (outcome.png) job.png = outcome.png;
+        if ("context" in outcome && outcome.context) job.context = outcome.context;
         this.#log(job, summary(outcome.result!));
       }
     } catch (err) {
@@ -155,6 +171,8 @@ export class JobQueue {
       // the job's results folder, the generated files in the project's workspace, and the build.
       delete job.input.figmaToken;
       delete job.input.image;
+      // The design passes to the change's own job; this one needs no copy.
+      if (job.input.change) job.input.change = { of: job.input.change.of, request: job.input.change.request };
       for (const dir of [job.input.resultsDir, join(job.input.projectDir, ".tulpar", "generated", job.input.name), join(job.input.projectDir, ".tulpar", "build")]) {
         if (dir) rmSync(dir, { recursive: true, force: true });
       }

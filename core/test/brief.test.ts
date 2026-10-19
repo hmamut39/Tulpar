@@ -120,3 +120,32 @@ describe("model routing", () => {
     expect(main.requests).toHaveLength(0);
   });
 });
+
+describe("a change asked for on delivered files", () => {
+  const files = (body: string) => ({ files: [{ path: "Footer.tsx", content: body }], notes: "" });
+  const check = (id: string) => ({ id, title: id, status: "fail", summary: `${id} failed`, details: [`✗ ${id} detail`] });
+  const report = (...failing: string[]) => ({ frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: failing.length ? "fail" : "pass", headline: "", checks: failing.map(check), warnings: [] }) as unknown as VerifyReport;
+  const change = { files: [{ path: "Footer.tsx", content: "// delivered" }], request: "Make the button full width." };
+
+  it("applies the request to the files, and differences from the design are what was asked", async () => {
+    const llm = new ScriptedLlm([files("// changed")]);
+    const result = await generate({ llm, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions, change, verify: async () => report("layout", "visual") });
+    expect(llm.requests[0]!.text).toContain("// delivered");
+    expect(llm.requests[0]!.text).toMatch(/THE CHANGE THEY ASK FOR[^\n]*\nMake the button full width\./);
+    // No repair to undo the change: the design comparisons do not count.
+    expect(result.attempts).toHaveLength(1);
+    expect(result).toMatchObject({ status: "verified", departures: ["layout", "visual"] });
+  });
+
+  it("repairs what the change broke, keeping the request in view", async () => {
+    const llm = new ScriptedLlm([files("// changed"), files("// fixed")]);
+    const reports = [report("colors", "layout"), report("layout")];
+    let n = 0;
+    const result = await generate({ llm, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions, change, verify: async () => reports[n++]! });
+    expect(llm.requests[1]!.text).toMatch(/THE TEAM ASKED FOR THIS CHANGE[^\n]*\nMake the button full width\./);
+    expect(llm.requests[1]!.text).toContain("colors failed");
+    expect(llm.requests[1]!.text).not.toContain("layout failed");
+    expect(result.files[0]!.content).toBe("// fixed");
+    expect(result.status).toBe("verified");
+  });
+});

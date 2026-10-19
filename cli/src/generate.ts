@@ -9,7 +9,7 @@ import { basename, dirname, extname, join } from "node:path";
 import { NAME_PLACEHOLDERS, OpenAiLlm, fillName, generate, generationCost, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
 import { formatFiles } from "./format.ts";
-import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry } from "./pipeline.ts";
+import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry, type Context } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
 
@@ -48,6 +48,10 @@ export interface GenerateCommandOptions {
   /** Skip asking the model to choose components that no explicit link covers. */
   noRerank?: boolean;
   onEvent?: (e: GenerationEvent) => void;
+  /** A change asked for on delivered files: applied, then verified like any generation. */
+  change?: { files: GeneratedFile[]; request: string };
+  /** The design as an earlier run read it (a change reuses it: same ids, no second screenshot reading). */
+  context?: Context;
 }
 
 export interface GenerateOutcome {
@@ -58,6 +62,8 @@ export interface GenerateOutcome {
   error?: string;
   /** The last render, PNG base64. */
   png?: string;
+  /** The design as read, for a change asked for later. */
+  context?: Context;
 }
 
 export async function generateCommand(projectDir: string, options: GenerateCommandOptions): Promise<GenerateOutcome> {
@@ -69,7 +75,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   const llm = options.llm ?? OpenAiLlm.fromEnv();
   const draftLlm = options.draftLlm ?? (options.llm ? undefined : OpenAiLlm.draftFromEnv());
   if (!llm) return fail("No model: set OPENAI_API_KEY in .env (copy .env.example) or in your system environment.");
-  if (!options.frame && !options.image) return fail("Give a Figma frame link, a screenshot, or both.");
+  if (!options.frame && !options.image && !options.context) return fail("Give a Figma frame link, a screenshot, or both.");
   let image: LlmImage | undefined;
   try {
     image = options.image === undefined ? undefined : typeof options.image === "string" ? await readImage(options.image) : options.image;
@@ -84,6 +90,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   const log = options.quiet ? () => undefined : (s: string) => console.log(s);
 
   let result: GenerationResult;
+  let context: Context | undefined = options.context;
   let png: string | undefined;
   // Each attempt's render, so the delivered attempt (the best, not always the last) keeps its own.
   const pngs = new Map<VerifyReport, string>();
@@ -100,17 +107,18 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       log(`Note: tulpar.json asks for ${outputName(output!)}, but ${why} Using its default.`);
       delete project.params.output;
     }
-    const ctx = options.frame
+    const ctx = options.context ?? (options.frame
       ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) }, options.out, options.cache)
-      : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out);
+      : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out));
+    context = ctx;
     debug.design = ctx.design;
-    if (ctx.source === "figma" && image?.mime === "image/png") ctx.baseline = { png: image.base64, source: "screenshot" };
-    if (ctx.source === "figma" && !options.noRerank) {
+    if (!options.context && ctx.source === "figma" && image?.mime === "image/png") ctx.baseline = { png: image.base64, source: "screenshot" };
+    if (!options.context && ctx.source === "figma" && !options.noRerank) {
       const picked = await rerankUnlinked(ctx, llm);
       ctx.notes.push(...picked.notes);
       if (picked.notes.length) log(`Asked ${llm.name} to choose components the design system doesn't link: ${picked.notes.length} chosen.`);
     }
-    if (ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
+    if (!options.context && ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
   note: ${n}`).join("")}`);
     const conventions = await host.call("conventions", project.params);
     const tokens = ctx.tokens;
@@ -144,6 +152,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       ...(draftLlm && { draftLlm }),
       ...(options.candidates && { candidates: options.candidates }),
       ...(image && { image }),
+      ...(options.change && { change: options.change }),
       onEvent: (e) => {
         options.onEvent?.(e);
         if (e.type === "generating") log(`Attempt ${(attempt = e.attempt)}${e.repair ? "" : e.attempt > 1 ? " (another draft)" : ""}: asking ${!e.repair && draftLlm ? draftLlm.name : llm.name}…`);
@@ -196,7 +205,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}${(() => { const cost = generationCost(result.attempts); return cost === undefined ? "" : ` (≈ $${cost.toFixed(3)})`; })()}`);
     console.log(`Files: ${outDir}`);
   }
-  return { code: result.status === "failed" ? 1 : 0, result, outDir, ...(png && { png }) };
+  return { code: result.status === "failed" ? 1 : 0, result, outDir, ...(png && { png }), ...(context && { context }) };
 }
 
 async function writeFiles(project: Project, workDir: string, files: GeneratedFile[]): Promise<void> {
