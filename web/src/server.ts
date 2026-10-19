@@ -249,6 +249,16 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       const url = new URL(req.url ?? "/", "http://localhost");
       const path = url.pathname;
       securityHeaders(res);
+      // Apps on other origins (the Figma plugin, whose page has none) call the API with their key
+      // (Authorization: Bearer), never with the site's cookie: a cross-origin request carries no
+      // credentials, so allowing any origin spends no one's allowance.
+      if (path.startsWith("/api/") && !path.startsWith("/api/stripe/")) {
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST", "access-control-allow-headers": "authorization, content-type", "access-control-max-age": "600" });
+          return res.end();
+        }
+        if (req.headers.authorization || path === "/api/config") res.setHeader("access-control-allow-origin", "*");
+      }
 
       if (req.method === "GET" && path === "/healthz") return json(res, 200, { ok: true, pending: queue.pending });
 

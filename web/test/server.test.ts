@@ -175,6 +175,18 @@ describe("hosting rules", () => {
     expect(head.headers.get("content-type")).toMatch(/text\/html/);
   });
 
+  it("lets apps on other origins (the Figma plugin) call the API with a key, never with the site's cookie", async () => {
+    const preflight = await fetch(`${hosted.url}/api/jobs`, { method: "OPTIONS", headers: { origin: "null", "access-control-request-headers": "authorization, content-type" } });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-headers")).toBe("authorization, content-type");
+    expect(preflight.headers.get("access-control-allow-credentials")).toBeNull();
+    expect((await fetch(`${hosted.url}/api/config`)).headers.get("access-control-allow-origin")).toBe("*");
+    // Without a key, a cross-origin page cannot read the API's answers.
+    expect((await fetch(`${hosted.url}/api/me`)).headers.get("access-control-allow-origin")).toBeNull();
+    expect((await fetch(`${hosted.url}/api/me`, { headers: { authorization: "Bearer tlp_nope" } })).headers.get("access-control-allow-origin")).toBe("*");
+    expect((await fetch(`${hosted.url}/`)).headers.get("access-control-allow-origin")).toBeNull();
+  });
+
   it("accepts any invite code, and turns work away when the queue is full", async () => {
     expect((await send({ accessCode: "carol-3", figmaUrl: FRAME })).status).toBe(401);
     expect((await send({ accessCode: "alice-1", figmaUrl: FRAME })).status).toBe(202);

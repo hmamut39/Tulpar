@@ -484,3 +484,9 @@ h1, h2, h3 { text-wrap: balance; }
 .page-option { align-items: flex-start; margin-top: 4px; line-height: 1.45; }
 .page-option input { margin-top: 3px; flex: none; }
 .page-option small { display: block; color: var(--muted); font-size: 12px; }
+
+/* The Figma plugin's key, shown once on the connect page to copy. */
+.connect-key { margin-top: 14px; text-align: left; }
+.connect-key label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.connect-key-row { display: flex; gap: 8px; }
+.connect-key-row input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; font-family: var(--font-mono); font-size: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }

@@ -1,0 +1,15 @@
+{
+  "name": "Tulpar",
+  "id": "tulpar-local-development",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma", "dev"],
+  "capabilities": ["inspect"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["https://tulparsi.com"],
+    "devAllowedDomains": ["http://localhost:4173"],
+    "reasoning": "Sends a picture of the selected frame to tulparsi.com, which generates the component with your design system, verifies it, and sends the code back."
+  }
+}

@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Figma's own theme colours (themeColors: true), with Tulpar's indigo for the one main action. */
+  :root {
+    --bg: var(--figma-color-bg, #ffffff);
+    --text: var(--figma-color-text, #1f2328);
+    --muted: var(--figma-color-text-secondary, #656d76);
+    --line: var(--figma-color-border, #e3e5e8);
+    --accent: #4f46e5;
+    --pass: var(--figma-color-text-success, #1a7f37);
+    --fail: var(--figma-color-text-danger, #cf222e);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { padding: 16px; display: grid; gap: 14px; }
+  h1 { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  h1 svg { width: 20px; height: 20px; }
+  h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  input, select, textarea { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+  textarea { resize: vertical; min-height: 56px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; padding: 8px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; width: 100%; padding: 10px 12px; }
+  button:disabled { opacity: .55; cursor: default; }
+  .link { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
+  .selection { display: flex; justify-content: space-between; gap: 8px; }
+  .selection strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .error { color: var(--fail); }
+  .events { margin: 0; padding-left: 18px; color: var(--muted); max-height: 160px; overflow: auto; }
+  .banner { border-radius: 8px; padding: 9px 11px; font-weight: 600; border: 1px solid var(--line); }
+  .banner.pass { color: var(--pass); border-color: currentColor; }
+  .banner.fail { color: var(--fail); border-color: currentColor; }
+  .banner .asked { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
+  .checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+  .checks li { display: grid; grid-template-columns: 16px 1fr; gap: 6px; }
+  .checks .fail { color: var(--fail); }
+  .checks .detail { color: var(--muted); font-size: 12px; grid-column: 2; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tabs button { padding: 4px 8px; font-size: 12px; }
+  .tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+  pre { margin: 0; max-height: 260px; overflow: auto; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font: 12px/1.5 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; white-space: pre; }
+  .actions { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+  .foot { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#4F46E5"/><g fill="#fff" transform="translate(6.5 3.5) scale(0.58)"><path d="M87 25 C88 28 86 30 83 30 L79 30 C75 29 71 27 69 24 C67 30 67 36 66 42 C66 44 65 45 64 46 C69 45 74 44 77 46 C79 47 79 50 77 52 L76 57 C77 59 76 61 74 61 C72 60 72 58 73 55 L74 51 C72 49 69 49 64 50 C57 53 50 56 42 58 C38 61 37 65 37 69 C36 74 33 77 33 81 L36 90 L38.5 95.5 L33 96 L31 91 L29 86 C27 83 25 80 25 77 C23 73 22 68 22 62 C22 56 25 51 30 48 C38 42 46 36 52 32 C58 28 62 20 64 14 C65 11 66 9 67 7 L67 2.5 L70.5 6.5 C75 11 81 17 87 25 Z"/> <path d="M67 42 C71 39 76 37 80 38 C82 39 82 42 81 44 L82 49 C83 51 82 53 80 52 C78 51 78 49 79 47 L78 43 C75 42 71 43 68 45 Z"/> <path d="M41 59 C43 65 44 71 42 77 L44.5 87 L48 94.5 L42.5 95 L40 89 L37.5 80 C36.5 75 37 69 38 63 Z"/> <path d="M67 8 C58 8 50 13 45 21 C41 27 36 30 30 31 C37 33 43 31 47 28 C44 34 39 38 34 40 C41 41 47 38 51 34 C50 39 47 42 44 45 C50 44 55 40 57 35 C60 27 63 17 67 8 Z"/> <path d="M28 50 C20 49 12 52 6 58 C4 60 2 61 0 62 C5 64 10 62 13 60 C9 66 5 70 1 73 C9 73 15 69 19 64 C21 60 24 56 28 54 Z"/> </g></svg>Tulpar</h1>
+
+  <!-- Connect: a key from tulparsi.com/connect?app=figma, kept in Figma's storage on this computer. -->
+  <section id="connect" class="card" hidden>
+    <h2>Connect your Tulpar account</h2>
+    <p class="muted">Generations count toward your free trial or Pro plan, the same as on tulparsi.com.</p>
+    <button type="button" id="getKey">Get a key on tulparsi.com</button>
+    <div>
+      <label for="key">Your Tulpar key</label>
+      <input id="key" placeholder="tlp_…" spellcheck="false" autocomplete="off">
+    </div>
+    <button type="button" class="primary" id="saveKey">Connect</button>
+    <p class="error" id="connectError" role="alert"></p>
+  </section>
+
+  <!-- Generate: the selected frame, with the team's design system and language. -->
+  <section id="generate" hidden>
+    <div class="card">
+      <div class="selection"><span class="muted">Selected</span><strong id="selection">Nothing selected</strong></div>
+      <div>
+        <label for="name">Component name</label>
+        <input id="name" placeholder="SignInCard" spellcheck="false" autocomplete="off">
+      </div>
+      <div>
+        <label for="project">Design system</label>
+        <select id="project"></select>
+      </div>
+      <div class="row">
+        <div><label for="language">Language</label><select id="language"></select></div>
+        <div><label for="styling">Styling</label><select id="styling"></select></div>
+      </div>
+      <button type="button" class="primary" id="go" disabled>Generate component</button>
+      <p class="error" id="error" role="alert"></p>
+      <p class="muted">Tulpar receives a picture of the frame, writes the component with your design system, then builds, renders and checks it before you get it.</p>
+    </div>
+  </section>
+
+  <section id="progress" class="card" hidden>
+    <h2 id="progressTitle">Generating…</h2>
+    <ol class="events" id="events"></ol>
+  </section>
+
+  <section id="result" class="card" hidden>
+    <div class="banner" id="banner"></div>
+    <ul class="checks" id="checks"></ul>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <pre id="code"></pre>
+    <div class="actions">
+      <button type="button" id="copy">Copy file</button>
+      <button type="button" class="link" id="again">Generate another</button>
+    </div>
+    <form id="change">
+      <label for="changeText">Ask for a change</label>
+      <textarea id="changeText" maxlength="2000" placeholder="e.g. make the button full width"></textarea>
+      <div class="actions"><span class="muted">Checked again; one generation.</span><button type="submit" id="changeGo">Change it</button></div>
+      <p class="error" id="changeError" role="alert"></p>
+    </form>
+  </section>
+
+  <div class="foot" id="foot" hidden><span id="who"></span><button type="button" class="link" id="disconnect">Disconnect</button></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const send = (message) => parent.postMessage({ pluginMessage: message }, "*");
+let server = "https://tulparsi.com";
+let key = "";
+let config = null;
+let selection = null;
+let job = null;
+let files = [];
+let shown = 0;
+
+const api = async (method, path, body) => {
+  const res = await fetch(server + path, {
+    method,
+    headers: { ...(key && { authorization: `Bearer ${key}` }), ...(body && { "content-type": "application/json" }) },
+    ...(body && { body: JSON.stringify(body) }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || `tulparsi.com answered ${res.status}.`);
+    err.status = res.status;
+    err.upgrade = data.upgrade;
+    throw err;
+  }
+  return data;
+};
+
+const view = (which) => {
+  $("connect").hidden = which !== "connect";
+  $("generate").hidden = which !== "generate";
+  $("progress").hidden = which !== "progress";
+  $("result").hidden = which !== "result";
+  $("foot").hidden = which === "connect";
+};
+
+const option = (value, label, disabled) => `<option value="${esc(value)}"${disabled ? " disabled" : ""}>${esc(label)}</option>`;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const LANGUAGES = { typescript: "TypeScript", javascript: "JavaScript" };
+const STYLINGS = { css: "CSS", "css-modules": "CSS Modules", scss: "SCSS", less: "LESS", tailwind: "Tailwind CSS", "styled-components": "styled-components", emotion: "Emotion" };
+const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", flutter: "Flutter", "web-components": "Web Components" };
+
+async function start() {
+  if (!key) return view("connect");
+  try {
+    config = await api("GET", "/api/config");
+    const me = await api("GET", "/api/me").catch(() => ({}));
+    if (config.signIn && !me.signedIn) {
+      $("connectError").textContent = "That key no longer works. Get a new one on tulparsi.com.";
+      return view("connect");
+    }
+    $("who").textContent = me.login ? `@${me.login}` : "";
+    fillProjects();
+    view("generate");
+  } catch (err) {
+    $("connectError").textContent = `Could not reach ${server}: ${err.message}`;
+    view("connect");
+  }
+}
+
+function fillProjects() {
+  const order = ["react", "vue", "angular", "svelte", "flutter", "web-components"];
+  const projects = [...config.projects].sort((a, b) => order.indexOf(a.adapter) - order.indexOf(b.adapter));
+  $("project").innerHTML = projects.map((p) => option(p.id, `${FRAMEWORKS[p.adapter] ?? p.adapter} · ${p.label.split(" · ").slice(1).join(" · ") || p.label}`)).join("");
+  fillOutputs();
+}
+
+function fillOutputs() {
+  const project = config.projects.find((p) => p.id === $("project").value);
+  const outputs = (config.outputs?.[project?.adapter] ?? []).filter((o) => !project?.stylings || project.stylings.includes(o.styling));
+  const languages = [...new Set(outputs.map((o) => o.language))];
+  $("language").innerHTML = languages.length ? languages.map((l) => option(l, LANGUAGES[l] ?? l)).join("") : option("", project?.adapter === "flutter" ? "Dart" : "Its default");
+  fillStyling();
+}
+
+function fillStyling() {
+  const project = config.projects.find((p) => p.id === $("project").value);
+  const stylings = (config.outputs?.[project?.adapter] ?? []).filter((o) => o.language === $("language").value && (!project?.stylings || project.stylings.includes(o.styling))).map((o) => o.styling);
+  $("styling").innerHTML = stylings.length ? stylings.map((s) => option(s, STYLINGS[s] ?? s)).join("") : option("", "Its default");
+}
+
+$("project").addEventListener("change", fillOutputs);
+$("language").addEventListener("change", fillStyling);
+
+$("getKey").addEventListener("click", () => send({ type: "open", url: `${server}/connect?app=figma` }));
+$("saveKey").addEventListener("click", async () => {
+  const value = $("key").value.trim();
+  if (!/^tlp_[\w-]{43}$/.test(value)) return ($("connectError").textContent = "Paste the whole key tulparsi.com showed you (it starts with tlp_).");
+  key = value;
+  send({ type: "save-key", key });
+  $("connectError").textContent = "";
+  await start();
+});
+$("disconnect").addEventListener("click", () => {
+  key = "";
+  send({ type: "save-key", key: "" });
+  $("key").value = "";
+  view("connect");
+});
+
+$("go").addEventListener("click", () => {
+  $("error").textContent = "";
+  if (!/^[A-Z][A-Za-z0-9]{0,63}$/.test($("name").value.trim())) return ($("error").textContent = "Give the component a PascalCase name, e.g. CheckoutCard.");
+  $("go").disabled = true;
+  send({ type: "export" });
+});
+
+// Uint8Array → data URL, in chunks (a large frame's bytes overflow one String.fromCharCode call).
+function dataUrl(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
+async function generate(image, scale) {
+  if (image.length > 8 * 1024 * 1024) {
+    $("go").disabled = false;
+    return ($("error").textContent = "The frame's picture is over 8 MB. Select a smaller frame or section.");
+  }
+  try {
+    const body = { project: $("project").value, name: $("name").value.trim(), image: dataUrl(image), scale: String(scale), ...($("language").value && { language: $("language").value }), ...($("styling").value && { styling: $("styling").value }) };
+    const { id } = await api("POST", "/api/jobs", body);
+    follow(id, `Generating ${body.name}…`);
+  } catch (err) {
+    $("error").textContent = err.message + (err.upgrade ? " Upgrade on tulparsi.com/pricing." : "");
+    $("go").disabled = !selection;
+  }
+}
+
+function follow(id, title) {
+  $("progressTitle").textContent = title;
+  $("events").innerHTML = "";
+  view("progress");
+  const tick = async () => {
+    try {
+      const j = await api("GET", `/api/jobs/${id}`);
+      $("events").innerHTML = j.events.map((e) => `<li>${esc(e.text)}</li>`).join("");
+      $("events").scrollTop = $("events").scrollHeight;
+      if (j.state === "queued" || j.state === "running") return setTimeout(tick, 1500);
+      if (j.state === "error") {
+        view("generate");
+        $("go").disabled = !selection;
+        $("error").textContent = j.error;
+        return;
+      }
+      showResult(j);
+    } catch (err) {
+      view("generate");
+      $("go").disabled = !selection;
+      $("error").textContent = err.message;
+    }
+  };
+  tick();
+}
+
+function showResult(j) {
+  job = j;
+  const r = j.result;
+  const departs = r.departures?.length ? ` It differs from the design where you asked (${r.departures.join(", ")}).` : "";
+  const text = { verified: "Verified: every check ran and passed." + departs, "unchecked-remain": "No check failed; some couldn't run.", failed: "Some checks still fail. These files are the best attempt." }[r.status];
+  $("banner").className = `banner ${r.status === "failed" ? "fail" : "pass"}`;
+  $("banner").innerHTML = esc(text) + (j.request ? `<span class="asked">Changed as asked: “${esc(j.request)}”</span>` : "");
+  const failing = (r.report?.checks ?? []).filter((c) => c.status === "fail");
+  $("checks").innerHTML = (r.report?.checks ?? [])
+    .filter((c) => c.status !== "not-checked")
+    .map((c) => `<li class="${c.status}"><span>${c.status === "fail" ? "✕" : "✓"}</span><span>${esc(c.summary)}</span>${c.status === "fail" ? c.details.filter((d) => !d.startsWith("✓")).slice(0, 3).map((d) => `<span class="detail">${esc(d.replace(/^[✗–]\s*/, ""))}</span>`).join("") : ""}</li>`)
+    .join("");
+  if (!failing.length && !r.report) $("checks").innerHTML = "";
+  files = r.files;
+  $("tabs").innerHTML = files.map((f, i) => `<button type="button" role="tab" data-file="${i}">${esc(f.path)}</button>`).join("");
+  showFile(0);
+  $("change").hidden = !j.canChange;
+  $("changeText").value = "";
+  $("changeError").textContent = "";
+  view("result");
+}
+
+function showFile(i) {
+  shown = i;
+  $("code").textContent = files[i]?.content ?? "";
+  for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(Number(b.dataset.file) === i));
+}
+$("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-file]");
+  if (b) showFile(Number(b.dataset.file));
+});
+
+// The plugin's frame may not grant the clipboard API: fall back to a selected textarea and copy.
+$("copy").addEventListener("click", async () => {
+  const text = files[shown]?.content ?? "";
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const t = document.createElement("textarea");
+    t.value = text;
+    document.body.append(t);
+    t.select();
+    document.execCommand("copy");
+    t.remove();
+  }
+  send({ type: "notify", text: `Copied ${files[shown]?.path ?? "the file"}` });
+});
+
+$("again").addEventListener("click", () => {
+  view("generate");
+  $("go").disabled = !selection;
+});
+
+$("change").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const request = $("changeText").value.trim();
+  if (!request) return ($("changeError").textContent = "Say what to change.");
+  $("changeGo").disabled = true;
+  try {
+    const { id } = await api("POST", `/api/jobs/${job.id}/change`, { request });
+    follow(id, `Changing ${job.name}…`);
+  } catch (err) {
+    $("changeError").textContent = err.message;
+  } finally {
+    $("changeGo").disabled = false;
+  }
+});
+
+onmessage = (event) => {
+  const m = event.data.pluginMessage;
+  if (!m) return;
+  if (m.type === "settings") {
+    key = m.key;
+    server = m.server;
+    start();
+  }
+  if (m.type === "selection") {
+    selection = m.error ? null : m;
+    $("selection").textContent = m.error ? m.error : `${m.layer} · ${m.width}×${m.height}`;
+    if (!m.error && (!$("name").value || $("name").dataset.auto === "1")) {
+      $("name").value = m.name;
+      $("name").dataset.auto = "1";
+    }
+    $("go").disabled = !selection;
+  }
+  if (m.type === "image") generate(m.bytes, m.scale);
+  if (m.type === "export-failed") {
+    $("error").textContent = m.error;
+    $("go").disabled = !selection;
+  }
+};
+$("name").addEventListener("input", () => ($("name").dataset.auto = "0"));
+send({ type: "ready" });
+</script>
+</body>
+</html>
