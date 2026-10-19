@@ -33,7 +33,16 @@
         "g90",
         "g100"
       ],
-      "cssPrefix": "cds"
+      "cssPrefix": "cds",
+      "css": {
+        "files": [
+          "node_modules/@carbon/styles/css/styles.css"
+        ],
+        "prefix": "cds",
+        "scopes": [
+          ".cds--guidebanner"
+        ]
+      }
     },
     "render": {
       "stylesheets": [

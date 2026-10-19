@@ -202,6 +202,9 @@ function briefText(b: Brief): string {
     ${e.code}`)]
       : []),
     ``,
+    ...(b.type.length
+      ? [`TYPE STYLES (each text size in the outline → the design system's type tokens that draw it; set every property listed, rather than a class named after the style)`, ...b.type.map((t) => `- ${t.text} → ${t.style}: ${Object.entries(t.refs).map(([k, v]) => `${k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())}: ${v}`).join("; ")}`), ``]
+      : []),
     `TOKENS FOR THE DESIGN'S COLOURS (Figma variable → candidate tokens, best first)`,
     ...(b.tokens.length ? b.tokens.map((t) => `- ${t.variable} (used ${t.uses}×): ${t.tokens.slice(0, 4).map((x) => x.codeRef ?? x.name).join(", ") || "no token has this value: report it in notes"}`) : ["(none)"]),
     ``,

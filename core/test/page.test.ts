@@ -61,3 +61,46 @@ describe("Figma's transparent pictures", () => {
     expect(flatten(opaque)).toBe(opaque);
   });
 });
+
+describe("type styles by value", () => {
+  it("names the token group that draws each text size, with the values as fallbacks", async () => {
+    const { typeHints } = await import("../src/generate/type-hint.ts");
+    const tok = (name: string, value: { kind: "dimension"; points: number } | { kind: "number"; value: number }) => ({ name, path: [name], type: "dimension", values: { default: value }, codeRef: `var(--${name})`, provenance: { source: "t", confidence: "high" as const } });
+    const set = {
+      adapter: "t",
+      modes: ["default"],
+      gaps: [],
+      tokens: [
+        tok("cds-heading-03-font-size", { kind: "dimension", points: 20 }),
+        tok("cds-heading-03-line-height", { kind: "number", value: 1.4 }),
+        tok("cds-heading-03-font-weight", { kind: "number", value: 400 }),
+        tok("cds-body-01-font-size", { kind: "dimension", points: 14 }),
+        tok("cds-body-01-line-height", { kind: "number", value: 1.42857 }),
+        tok("cds-body-compact-01-font-size", { kind: "dimension", points: 14 }),
+        tok("cds-body-compact-01-line-height", { kind: "number", value: 1.42857 }),
+      ],
+    };
+    const t = (id: string, fontSize: number, lineHeight: number, fontWeight = 400) => ({ ...text(id, "x", 0), style: { fontSize, lineHeight, fontWeight } }) as unknown as DesignNode;
+    const hints = typeHints(frame("r", "root", { x: 0, y: 0, width: 600, height: 200 }, [t("a", 20, 28), t("b", 14, 20), t("c", 14, 20), t("d", 37, 40)]), set as never, "default");
+    expect(hints).toEqual([
+      { text: "20/28 w400", style: "cds-heading-03", refs: { fontSize: "var(--cds-heading-03-font-size, 20px)", lineHeight: "var(--cds-heading-03-line-height, 1.4)", fontWeight: "var(--cds-heading-03-font-weight, 400)" } },
+      { text: "14/20 w400", style: "cds-body-01", refs: { fontSize: "var(--cds-body-01-font-size, 14px)", lineHeight: "var(--cds-body-01-line-height, 1.42857)" } },
+    ]);
+  });
+});
+
+describe("a design kit's placeholders", () => {
+  it("are found by name and masked out of Figma's picture", async () => {
+    const { isPlaceholder, placeholderBoxes, maskBoxes } = await import("../src/index.ts");
+    const { PNG } = await import("pngjs");
+    const slot = frame("9:1", "Slot", { x: 1, y: 0, width: 1, height: 1 });
+    const tree = frame("9:0", "Body", { x: 0, y: 0, width: 2, height: 1 }, [slot, frame("9:2", "Fields", { x: 0, y: 0, width: 1, height: 1 })]);
+    expect(isPlaceholder(slot)).toBe(true);
+    expect(isPlaceholder(frame("x", "Slots and fields", { x: 0, y: 0, width: 1, height: 1 }))).toBe(false);
+    expect(placeholderBoxes(tree)).toEqual([{ x: 1, y: 0, width: 1, height: 1 }]);
+    const img = new PNG({ width: 2, height: 1 });
+    img.data.set([10, 20, 30, 255, 232, 218, 255, 255]); // a field, then Carbon's lavender slot
+    const out = PNG.sync.read(Buffer.from(maskBoxes(PNG.sync.write(img).toString("base64"), placeholderBoxes(tree)), "base64"));
+    expect([...out.data]).toEqual([10, 20, 30, 255, 255, 255, 255, 255]);
+  });
+});

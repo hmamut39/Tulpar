@@ -7,6 +7,8 @@ import type { ComponentDef, DesignNode, DesignTree, InstanceNode, Library } from
 import { features, prepareCode } from "../match/features.ts";
 import { commonPrefix, normValue } from "../match/text.ts";
 import { tokenHints, type TokenHint } from "./tokens-hint.ts";
+import { typeHints, type TypeHint } from "./type-hint.ts";
+import { isPlaceholder } from "./page.ts";
 import { accentHint, accentProp, carriesAccent, type AccentHint } from "./accent.ts";
 
 /** What an adapter says about writing code for its framework. */
@@ -48,6 +50,8 @@ export interface Brief {
   examples: { component: string; file: string; code: string }[];
   /** Sections already written as components, to import and place instead of rebuilding. */
   built: { figmaId: string; name: string; importPath: string }[];
+  /** The design system's type styles that produce each text size in the design. */
+  type: TypeHint[];
 }
 
 export interface BriefInput {
@@ -83,6 +87,11 @@ export function buildBrief(input: BriefInput): Brief {
     if (!n.visible) return;
     const pad = "  ".repeat(depth);
     const box = n.box ? `(${r(n.box.x)},${r(n.box.y)} ${r(n.box.width)}×${r(n.box.height)})` : "";
+    // A kit's placeholder (a "Slot"): an empty area where the app's content goes, not something to paint.
+    if (n.id !== design.root.id && isPlaceholder(n)) {
+      lines.push(`${pad}- PLACEHOLDER id=${n.id} "${n.name}" ${box} (the design kit marks where content goes: keep an empty area of this size with data-figma-id on it; do not paint its fill, border or label)`);
+      return;
+    }
     // A section already written as its own component: one line, not its layers.
     const done = n.id !== design.root.id ? input.built?.[n.id] : undefined;
     if (done) {
@@ -136,6 +145,7 @@ export function buildBrief(input: BriefInput): Brief {
     built: Object.entries(input.built ?? {}).map(([figmaId, b]) => ({ figmaId, ...b })),
     examples: [...new Set(used)].flatMap((name) => (input.examples?.[name] ?? []).map((e) => ({ component: name, ...e }))),
     tokens: input.tokens ? tokenHints(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : [],
+    type: input.tokens ? typeHints(design.root, input.tokens, input.mode ?? input.tokens.modes[0] ?? "default") : [],
     ...(accent && { accent }),
     dimensions: (input.tokens?.tokens ?? [])
       .filter((t) => t.type === "dimension" && t.codeRefConfirmed !== false)

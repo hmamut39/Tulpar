@@ -53,7 +53,9 @@ export function readTokens(root: string, config: TokenConfig, cssDirs: string[],
   const css = readCssTokens(root, config.css);
   const known = new Set(result.tokens.map((t) => t.codeRef));
   const extra = css.tokens.filter((t) => !known.has(t.codeRef));
-  return { adapter, modes: [...new Set([...result.modes, ...css.modes])], tokens: [...result.tokens, ...extra], gaps: [...result.gaps, ...gaps, ...css.gaps] };
+  // CSS tokens outside any theme selector hold for every theme: their "default" is not a theme of its own.
+  const cssModes = result.modes.length ? css.modes.filter((m) => m !== "default") : css.modes;
+  return { adapter, modes: [...new Set([...result.modes, ...cssModes])], tokens: [...result.tokens, ...extra], gaps: [...result.gaps, ...gaps, ...css.gaps] };
 }
 
 /**

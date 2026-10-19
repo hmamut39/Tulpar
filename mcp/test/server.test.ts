@@ -37,7 +37,8 @@ describe("McpActions", () => { it("shows two actions", () => { render(<McpAction
 const answer = { files: [{ path: "McpActions.tsx", content: tsx }, { path: "McpActions.css", content: "" }, { path: "McpActions.test.tsx", content: test }], notes: "" };
 
 let client: Client;
-const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: args }) as Promise<{ content: { type: string; text: string }[]; structuredContent?: Record<string, any>; isError?: boolean }>;
+// A generation runs for a while, longer on a busy machine: the client's 60 s default is too short.
+const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: args }, { timeout: 170_000 }) as Promise<{ content: { type: string; text: string }[]; structuredContent?: Record<string, any>; isError?: boolean }>;
 
 describe("Tulpar MCP server", () => {
   beforeAll(async () => {

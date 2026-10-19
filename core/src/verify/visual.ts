@@ -187,3 +187,28 @@ export function flatten(pngBase64: string, background: [number, number, number] 
   }
   return PNG.sync.write(img).toString("base64");
 }
+
+/**
+ * A PNG (base64) with the given boxes painted a solid colour (white by default): the areas a design kit
+ * fills with placeholders, which code leaves empty. Boxes are in the picture's pixels at `scale` per point.
+ */
+export function maskBoxes(pngBase64: string, boxes: { x: number; y: number; width: number; height: number }[], scale = 1, color: [number, number, number] = [255, 255, 255]): string {
+  if (!boxes.length) return pngBase64;
+  const img = PNG.sync.read(Buffer.from(pngBase64, "base64"));
+  for (const b of boxes) {
+    const x0 = Math.max(0, Math.floor(b.x * scale));
+    const y0 = Math.max(0, Math.floor(b.y * scale));
+    const x1 = Math.min(img.width, Math.ceil((b.x + b.width) * scale));
+    const y1 = Math.min(img.height, Math.ceil((b.y + b.height) * scale));
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const i = (y * img.width + x) * 4;
+        img.data[i] = color[0];
+        img.data[i + 1] = color[1];
+        img.data[i + 2] = color[2];
+        img.data[i + 3] = 255;
+      }
+    }
+  }
+  return PNG.sync.write(img).toString("base64");
+}

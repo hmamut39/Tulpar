@@ -40,3 +40,28 @@ export function pascal(name: string): string {
   const joined = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
   return /^[0-9]/.test(joined) ? `Section${joined}` : joined;
 }
+
+/**
+ * A placeholder a design kit draws where the app's own content goes: a layer (or component) named
+ * "Slot", "Placeholder" or "Swap slot". Carbon paints them lavender with a dashed border; code leaves
+ * the area empty, so neither the brief nor the pixel check treats the paint as design.
+ */
+export function isPlaceholder(n: DesignNode): boolean {
+  const names = [n.name, n.kind === "instance" ? (n.component.set?.name ?? n.component.name) : undefined];
+  return names.some((x) => !!x && /^\s*(slot|placeholder|swap( me| slot)?|content slot)\s*$/i.test(x));
+}
+
+/** The boxes of every placeholder in the tree (relative to the root), for masking a picture of it. */
+export function placeholderBoxes(root: DesignNode): { x: number; y: number; width: number; height: number }[] {
+  const out: { x: number; y: number; width: number; height: number }[] = [];
+  const visit = (n: DesignNode) => {
+    if (!n.visible) return;
+    if (n !== root && isPlaceholder(n) && n.box) {
+      out.push(n.box);
+      return;
+    }
+    if ("children" in n) for (const c of n.children) visit(c);
+  };
+  visit(root);
+  return out;
+}
