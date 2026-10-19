@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ScriptedLlm } from "@tulpar/core";
+import { FigmaClient, ScriptedLlm } from "@tulpar/core";
 import { generateCommand } from "../src/generate.ts";
 
 const repo = resolve(import.meta.dirname, "../..");
@@ -137,4 +137,16 @@ export default function FromShot() {
     expect(report.warnings[0]).toMatch(/read from a screenshot/);
     expect(result!.status).toBe("unchecked-remain");
   }, 180_000);
+});
+
+describe.skipIf(!ready)("tulpar generate from the Figma plugin's frame", () => {
+  it("reads the design from the frame it is given (Figma's REST JSON), with no cache or token", async () => {
+    const cached = await new FigmaClient({ token: "", cacheDir: join(repo, ".cache/figma") }).findCached("b8xYgmx2Js30XaldxPkOs9", "3906:50588");
+    const node = JSON.parse(JSON.stringify(cached!.entry));
+    const llm = new ScriptedLlm([answer(good)]);
+    const empty = join(tmpdir(), "tulpar-no-cache", String(Math.random()).slice(2));
+    const { result } = await generateCommand(project, { frame: "3906:50588", fileKey: "a-file-never-cached", node, name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: empty, llm, quiet: true, noRerank: true });
+    expect(llm.requests[0]!.text).toContain("3906:50588");
+    expect(result!.report!.checks.find((c) => c.id === "components")!.status).toBe("pass");
+  });
 });

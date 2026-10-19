@@ -6,10 +6,10 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { NAME_PLACEHOLDERS, OpenAiLlm, fillName, generate, generationCost, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
+import { NAME_PLACEHOLDERS, OpenAiLlm, fillName, flatten, maskBoxes, placeholderBoxes, generate, generationCost, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
 import { formatFiles } from "./format.ts";
-import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry, type Context } from "./pipeline.ts";
+import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry, type Context, type FrameInput } from "./pipeline.ts";
 import { loadProject, withAdapter, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
 
@@ -22,6 +22,8 @@ export interface GenerateCommandOptions {
   fileKey?: string;
   /** Token to fetch the frame with when it isn't cached (the user's own). */
   figmaToken?: string;
+  /** The frame's Figma REST JSON, from the Figma plugin: the design without fetching it. */
+  node?: FrameInput["node"];
   name: string;
   /** Where the library is read from (out/library.json), and results go by default. */
   out: string;
@@ -108,11 +110,12 @@ export async function generateCommand(projectDir: string, options: GenerateComma
       delete project.params.output;
     }
     const ctx = options.context ?? (options.frame
-      ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }) }, options.out, options.cache)
+      ? await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(options.figmaToken && { figmaToken: options.figmaToken }), ...(options.node && { node: options.node }) }, options.out, options.cache)
       : await loadScreenshotContext(host, project, { image: image!, llm, ...(options.scale && { scale: options.scale }) }, options.out));
     context = ctx;
     debug.design = ctx.design;
-    if (!options.context && ctx.source === "figma" && image?.mime === "image/png") ctx.baseline = { png: image.base64, source: "screenshot" };
+    // The plugin's picture is Figma's own render of the frame at 1×: the same baseline a Figma link gets.
+    if (!options.context && ctx.source === "figma" && image?.mime === "image/png") ctx.baseline = options.node ? { png: maskBoxes(flatten(image.base64), placeholderBoxes(ctx.design.root)), source: "figma" } : { png: image.base64, source: "screenshot" };
     if (!options.context && ctx.source === "figma" && !options.noRerank) {
       const picked = await rerankUnlinked(ctx, llm);
       ctx.notes.push(...picked.notes);

@@ -48,7 +48,12 @@
   .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
   .tabs button { padding: 4px 8px; font-size: 12px; }
   .tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
-  pre { margin: 0; max-height: 260px; overflow: auto; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font: 12px/1.5 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; white-space: pre; }
+  /* Code reads as in an editor, the same colours as tulparsi.com: keywords and tags, attributes and properties, strings and numbers, comments. */
+  pre { margin: 0; max-height: 320px; overflow: auto; padding: 12px; border-radius: 8px; background: #181a2e; color: #e6e7f2; font: 12px/1.55 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; white-space: pre; tab-size: 2; }
+  .t-k { color: #a5a0ff; }
+  .t-a { color: #c9c6ff; }
+  .t-s { color: #f2a7bd; }
+  .t-c { color: #8b8fa8; font-style: italic; }
   .actions { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
   .foot { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
   [hidden] { display: none !important; }
@@ -89,7 +94,7 @@
       </div>
       <button type="button" class="primary" id="go" disabled>Generate component</button>
       <p class="error" id="error" role="alert"></p>
-      <p class="muted">Tulpar receives a picture of the frame, writes the component with your design system, then builds, renders and checks it before you get it.</p>
+      <p class="muted">Tulpar receives the frame (its layers and a picture), writes the component with your design system, then builds, renders and checks it before you get it.</p>
     </div>
   </section>
 
@@ -230,13 +235,13 @@ function dataUrl(bytes) {
   return `data:image/png;base64,${btoa(binary)}`;
 }
 
-async function generate(image, scale) {
+async function generate(image, scale, node) {
   if (image.length > 8 * 1024 * 1024) {
     $("go").disabled = false;
     return ($("error").textContent = "The frame's picture is over 8 MB. Select a smaller frame or section.");
   }
   try {
-    const body = { project: $("project").value, name: $("name").value.trim(), image: dataUrl(image), scale: String(scale), ...($("language").value && { language: $("language").value }), ...($("styling").value && { styling: $("styling").value }) };
+    const body = { project: $("project").value, name: $("name").value.trim(), image: dataUrl(image), scale: String(scale), ...(node && { figmaNode: node }), ...($("language").value && { language: $("language").value }), ...($("styling").value && { styling: $("styling").value }) };
     const { id } = await api("POST", "/api/jobs", body);
     follow(id, `Generating ${body.name}…`);
   } catch (err) {
@@ -293,9 +298,29 @@ function showResult(j) {
   view("result");
 }
 
+// A small highlighter (no library to load): enough to tell keywords, tags, attributes, strings and comments apart.
+const KEYWORDS = new Set("import export default from const let var function return if else for of in new class extends implements type interface async await true false null undefined this typeof as void switch case break continue while do try catch finally throw static get set enum super override final late required with mixin".split(" "));
+const CODE = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|<!--[\s\S]*?-->)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|(<\/?[A-Za-z][\w.:-]*|\/?>)|([A-Za-z_@:][\w:.-]*(?==))|(\b\d+(?:\.\d+)?\b)|(\b[A-Za-z_$][\w$]*\b)/g;
+const STYLE = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|(--[\w-]+|[a-z-]+(?=\s*:(?!:)))|(#[0-9a-fA-F]{3,8}\b|-?\d*\.?\d+(?:px|rem|em|%|ms|s|vh|vw|fr)?\b)|([.#][A-Za-z_][\w-]*|@[\w-]+)/g;
+function highlight(code, path) {
+  const style = /\.(css|scss|less)$/.test(path);
+  let out = "";
+  let at = 0;
+  for (const m of code.matchAll(style ? STYLE : CODE)) {
+    out += esc(code.slice(at, m.index));
+    at = m.index + m[0].length;
+    const t = esc(m[0]);
+    const cls = style
+      ? m[1] ? "t-c" : m[2] || m[4] ? "t-s" : m[3] ? "t-a" : "t-k"
+      : m[1] ? "t-c" : m[2] || m[5] ? "t-s" : m[3] ? "t-k" : m[4] ? "t-a" : KEYWORDS.has(m[0]) ? "t-k" : "";
+    out += cls ? `<span class="${cls}">${t}</span>` : t;
+  }
+  return out + esc(code.slice(at));
+}
+
 function showFile(i) {
   shown = i;
-  $("code").textContent = files[i]?.content ?? "";
+  $("code").innerHTML = highlight(files[i]?.content ?? "", files[i]?.path ?? "");
   for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(Number(b.dataset.file) === i));
 }
 $("tabs").addEventListener("click", (e) => {
@@ -356,7 +381,7 @@ onmessage = (event) => {
     }
     $("go").disabled = !selection;
   }
-  if (m.type === "image") generate(m.bytes, m.scale);
+  if (m.type === "image") generate(m.bytes, m.scale, m.node);
   if (m.type === "export-failed") {
     $("error").textContent = m.error;
     $("go").disabled = !selection;

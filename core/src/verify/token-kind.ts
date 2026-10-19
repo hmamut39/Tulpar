@@ -79,3 +79,32 @@ export function wrongKind(property: DesignProperty, token: string, type: string 
   if (!existing.length) return undefined;
   return `a ${kind} token used for ${property}; use a ${existing.join(" or ")} token`;
 }
+
+/** What a colour token colours, when its name says so: border-strong-01, text-secondary, layer-02. */
+export type ColorRole = "border" | "text" | "background";
+const ROLES: [RegExp, ColorRole][] = [
+  [/(^|-)(border|stroke|outline|divider)(-|$)/, "border"],
+  [/(^|-)(text|foreground|fg)(-|$)/, "text"],
+  [/(^|-)(background|bg|layer|surface|field)(-|$)/, "background"],
+];
+export function colorRole(name: string): ColorRole | undefined {
+  const n = name.toLowerCase();
+  return ROLES.find(([re]) => re.test(n))?.[1];
+}
+
+/**
+ * Why a colour token's role does not suit a property: a border or background colour used for text
+ * (its value matches today; change the theme and the text follows the borders), or a border colour as
+ * a fill. Text colours as fills are left alone: icons are filled with them. `names` are the design
+ * system's tokens, to suggest one of the right role; only roles the system has are asked for.
+ */
+export function wrongRole(property: DesignProperty, token: string, names: string[]): string | undefined {
+  const role = colorRole(token);
+  if (!role) return undefined;
+  const wrong = property === "textColor" ? role !== "text" : property === "fill" ? role === "border" : false;
+  if (!wrong) return undefined;
+  const want: ColorRole = property === "textColor" ? "text" : "background";
+  const example = names.find((n) => colorRole(n) === want);
+  if (!example) return undefined;
+  return `a ${role} colour token used for ${property === "textColor" ? "text" : "a fill"}; use a ${want} colour token, e.g. ${example}`;
+}

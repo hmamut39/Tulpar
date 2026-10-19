@@ -23,6 +23,8 @@ export interface JobInput {
   scale?: number;
   figmaToken?: string;
   image?: LlmImage;
+  /** The frame's Figma REST JSON, from the Figma plugin; dropped when the run ends, like the image. */
+  node?: { document: { id: string }; components?: unknown; componentSets?: unknown; styles?: unknown };
   output?: OutputChoice;
   /** A whole page: split into sections, each generated and verified, then a page that places them. */
   page?: boolean;
@@ -141,6 +143,7 @@ export class JobQueue {
         ...(job.input.fileKey && { fileKey: job.input.fileKey }),
         ...(job.input.scale && { scale: job.input.scale }),
         ...(job.input.figmaToken && { figmaToken: job.input.figmaToken }),
+        ...(job.input.node && { node: job.input.node }),
         name: job.input.name,
         out: resolve(this.#repoRoot, "out"),
         ...(job.input.resultsDir && { resultsDir: job.input.resultsDir }),
@@ -171,6 +174,7 @@ export class JobQueue {
       // the job's results folder, the generated files in the project's workspace, and the build.
       delete job.input.figmaToken;
       delete job.input.image;
+      delete job.input.node;
       // The design passes to the change's own job; this one needs no copy.
       if (job.input.change) job.input.change = { of: job.input.change.of, request: job.input.change.request };
       for (const dir of [job.input.resultsDir, join(job.input.projectDir, ".tulpar", "generated", job.input.name), join(job.input.projectDir, ".tulpar", "build")]) {

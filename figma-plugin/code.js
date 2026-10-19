@@ -1,5 +1,7 @@
-// Tulpar for Figma: the selected frame, exported as a picture, becomes a verified component on
-// tulparsi.com. This side reads the selection and keeps the key; the panel (ui.html) talks to the server.
+// Tulpar for Figma: the selected frame becomes a verified component on tulparsi.com. This side reads
+// the selection and keeps the key; the panel (ui.html) talks to the server. The frame goes as Figma's own
+// REST JSON (exact boxes, text, colours, components) with its picture at 1×, the reference the render
+// is compared with; a frame Figma cannot export as JSON goes as a picture at 2×, read by a vision model.
 
 figma.showUI(__html__, { width: 420, height: 640, themeColors: true, title: "Tulpar" });
 
@@ -55,10 +57,19 @@ figma.ui.onmessage = async (message) => {
     case "export": {
       const { node, error } = selected();
       if (error) return figma.ui.postMessage({ type: "export-failed", error });
-      const scale = Math.max(node.width, node.height) * 2 > MAX_SIDE ? 1 : 2;
+      let structure;
+      try {
+        structure = await node.exportAsync({ format: "JSON_REST_V1" });
+      } catch (err) {
+        structure = undefined;
+      }
+      const scale = structure || Math.max(node.width, node.height) * 2 > MAX_SIDE ? 1 : 2;
       try {
         const bytes = await node.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
-        figma.ui.postMessage({ type: "image", bytes, scale, name: componentName(node.name) });
+        // Plain object building: Figma's plugin sandbox may not take newer syntax (object spread).
+        const message = { type: "image", bytes: bytes, scale: scale, name: componentName(node.name) };
+        if (structure) message.node = structure;
+        figma.ui.postMessage(message);
       } catch (err) {
         figma.ui.postMessage({ type: "export-failed", error: `Figma could not export the layer: ${err && err.message ? err.message : err}` });
       }

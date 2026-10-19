@@ -183,6 +183,22 @@ describe("verify", () => {
     expect(status(verify(input(els, { tokens: noSpacing })), "spacing")).toBe("pass");
   });
 
+  it("fails a border or background colour used for text, when the system has text colours", () => {
+    const token = (name: string) => ({ name, path: [name], type: "color", values: {}, provenance: { source: "t", confidence: "high" as const } });
+    const tokens = { adapter: "t", modes: [], gaps: [], tokens: [token("border-strong-01"), token("text-secondary"), token("layer-01")] };
+    const fact = (property: "textColor" | "fill", name: string) => ({ property, written: `var(--cds-${name}, #8d8d8d)`, source: "token" as const, token: name, defined: true });
+    const els = good();
+    els[1] = { ...els[1]!, styles: [fact("textColor", "border-strong-01")] };
+    const colors = verify(input(els, { tokens })).checks.find((c) => c.id === "colors")!;
+    expect(colors.status).toBe("fail");
+    expect(colors.details.join()).toContain("a border colour token used for text; use a text colour token, e.g. text-secondary");
+    // A text colour as a fill is how icons are coloured; a background as a fill is what it is for.
+    els[1] = { ...els[1]!, styles: [fact("textColor", "text-secondary"), fact("fill", "text-secondary"), fact("fill", "layer-01")] };
+    expect(status(verify(input(els, { tokens })), "colors")).toBe("pass");
+    els[1] = { ...els[1]!, styles: [fact("fill", "border-strong-01")] };
+    expect(status(verify(input(els, { tokens })), "colors")).toBe("fail");
+  });
+
   it("tells a token's kind from its name", () => {
     expect(["cds-spacing-05", "sl-font-size-small", "sl-border-radius-medium", "sl-panel-border-width", "sl-toggle-size-medium", "cds-layer-01", "body-compact-01"].map((n) => tokenKind(n, n === "cds-layer-01" ? "color" : "dimension"))).toEqual(["spacing", "font-size", "radius", "border-width", "size", "color", undefined]);
   });

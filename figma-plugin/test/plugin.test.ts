@@ -26,7 +26,20 @@ function plugin(selection: unknown[]) {
   runInNewContext(code, { figma, __html__: "" });
   return { posted, opened, exports, storage, send: (m: unknown) => figma.ui.onmessage(m) };
 }
-const frame = (name: string, width: number, height: number, exported: unknown[] = []) => ({ name, width, height, exportAsync: async (o: unknown) => (exported.push(o), new Uint8Array([137, 80, 78, 71])) });
+const REST = { document: { id: "1:2", type: "FRAME", absoluteBoundingBox: { x: 0, y: 0, width: 400, height: 300 } }, components: {} };
+const frame = (name: string, width: number, height: number, exported: unknown[] = [], json = true) => ({
+  name,
+  width,
+  height,
+  exportAsync: async (o: { format: string }) => {
+    if (o.format === "JSON_REST_V1") {
+      if (!json) throw new Error("not supported");
+      return REST;
+    }
+    exported.push(o);
+    return new Uint8Array([137, 80, 78, 71]);
+  },
+});
 
 describe("Figma plugin", () => {
   it("names the component from the layer, PascalCase", async () => {
@@ -39,15 +52,21 @@ describe("Figma plugin", () => {
     expect(names).toEqual(["SignInCard", "CheckoutSummary", "Frame2ColumnHero", "Component"]);
   });
 
-  it("asks for one frame, and exports it at 2×, or 1× when that would be too large", async () => {
+  it("sends the frame's own structure with its picture at 1×", async () => {
+    const p = plugin([frame("Card", 400, 300)]);
+    await p.send({ type: "export" });
+    expect(p.posted.at(-1)).toMatchObject({ type: "image", scale: 1, name: "Card", node: REST });
+  });
+
+  it("without the structure, asks for one frame and sends its picture at 2×, or 1× when that would be too large", async () => {
     const none = plugin([]);
     await none.send({ type: "export" });
     expect(none.posted.at(-1)).toMatchObject({ type: "export-failed", error: expect.stringMatching(/Select a frame/) });
     const settings: unknown[] = [];
-    const small = plugin([frame("Card", 400, 300, settings)]);
+    const small = plugin([frame("Card", 400, 300, settings, false)]);
     await small.send({ type: "export" });
     expect(small.posted.at(-1)).toMatchObject({ type: "image", scale: 2, name: "Card" });
-    const big = plugin([frame("Page", 1440, 3200, settings)]);
+    const big = plugin([frame("Page", 1440, 3200, settings, false)]);
     await big.send({ type: "export" });
     expect(big.posted.at(-1)).toMatchObject({ type: "image", scale: 1 });
     expect(settings).toEqual([{ format: "PNG", constraint: { type: "SCALE", value: 2 } }, { format: "PNG", constraint: { type: "SCALE", value: 1 } }]);

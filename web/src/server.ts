@@ -410,7 +410,10 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         if (!/^[A-Z][A-Za-z0-9]{0,63}$/.test(name)) return json(res, 400, { error: "The component name must be PascalCase, e.g. CheckoutCard." });
         const image = parseImage(body.image);
         if (body.image && !image) return json(res, 400, { error: "The image must be a PNG, JPEG or WebP data URL." });
-        if (!ref && !image) return json(res, 400, { error: "Paste a Figma frame link, upload a screenshot, or both." });
+        // The Figma plugin sends the frame itself (Figma's REST JSON) with its picture: no link or token needed.
+        const node = figmaNodeOf(body.figmaNode);
+        if (body.figmaNode && !node) return json(res, 400, { error: "The plugin sent a frame Tulpar cannot read. Update the plugin and try again." });
+        if (!ref && !image && !node) return json(res, 400, { error: "Paste a Figma frame link, upload a screenshot, or both." });
         const scale = body.scale === undefined || body.scale === "" || body.scale === "auto" ? undefined : Number(body.scale);
         if (scale !== undefined && ![1, 1.5, 2, 3].includes(scale)) return json(res, 400, { error: "Scale must be auto, 1, 1.5, 2 or 3." });
         if (!llm()) return json(res, 503, { error: "The server has no OpenAI key configured (OPENAI_API_KEY)." });
@@ -446,6 +449,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           name,
           ...(options.resultsRoot && { resultsDir: join(options.resultsRoot, project.id, name) }),
           ...(ref && { frame: ref.nodeId!, fileKey: ref.fileKey }),
+          ...(node && !ref && { frame: node.document.id, node }),
           ...(scale && { scale }),
           // The visitor's own token first; the server's only as a fallback for the owner's own use.
           ...(figmaToken && { figmaToken }),
@@ -566,6 +570,16 @@ class HttpError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+/** The Figma plugin's frame (exportAsync JSON_REST_V1): a node with its box, and the components it uses. */
+function figmaNodeOf(raw: unknown): { document: { id: string }; components?: unknown; componentSets?: unknown; styles?: unknown } | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const doc = (r.document ?? r) as Record<string, unknown>;
+  if (typeof doc.id !== "string" || typeof doc.type !== "string" || !doc.absoluteBoundingBox) return undefined;
+  const obj = (v: unknown) => (v && typeof v === "object" ? v : undefined);
+  return { document: doc as { id: string }, ...(obj(r.components) && { components: r.components }), ...(obj(r.componentSets) && { componentSets: r.componentSets }), ...(obj(r.styles) && { styles: r.styles }) };
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {

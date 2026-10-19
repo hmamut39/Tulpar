@@ -28,6 +28,8 @@ import {
   type TokenSet,
   type RenderedElement,
   type VerifyReport,
+  type Figma,
+  type NormalizeContext,
 } from "@tulpar/core";
 import type { Project } from "./project.ts";
 
@@ -39,10 +41,19 @@ export interface FrameInput {
   fileKey?: string;
   /** A Figma token that may be used to fetch the frame when it isn't cached (e.g. the web user's own). */
   figmaToken?: string;
+  /**
+   * The frame as Figma's own REST JSON, sent by the Figma plugin (exportAsync JSON_REST_V1): its real
+   * structure, no token or fetch needed. { document, components, componentSets, styles }.
+   */
+  node?: { document: unknown; components?: unknown; componentSets?: unknown; styles?: unknown };
 }
 
 /** The frame's design: from the local cache, or fetched once with the given token and cached. */
 export async function loadDesign(project: Project, input: FrameInput, cacheDir: string): Promise<DesignTree> {
+  if (input.node) {
+    const n = input.node as { document: Figma.FigmaNode; components?: NormalizeContext["components"]; componentSets?: NormalizeContext["componentSets"]; styles?: NormalizeContext["styles"] };
+    return normalizeTree(n.document, { fileKey: input.fileKey ?? "plugin", fileVersion: "plugin", components: n.components ?? {}, componentSets: n.componentSets ?? {}, styles: n.styles ?? {} });
+  }
   const fileKey = input.fileKey ?? project.config.figma?.fileKey;
   if (!fileKey) throw new Error('No Figma file: pass a Figma link, or set "figma.fileKey" in tulpar.json.');
   const client = new FigmaClient({ token: input.figmaToken ?? "", cacheDir });

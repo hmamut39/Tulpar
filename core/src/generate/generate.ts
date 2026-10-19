@@ -188,7 +188,7 @@ function instructions(b: Brief): string {
     `- Put data-figma-id="<id>" on the root element and on every element that renders a Figma instance or a text layer, using the ids in the outline.`,
     `- Text must match the design character for character.`,
     `- Express what the design shows with the component's own API: a label as its label, a placeholder as its placeholder, a value as its value. Never imitate one with another (e.g. placeholder text in a slot, hidden with script) to get past a check; a reviewer rejects that even when every check passes.`,
-    `- Pick tokens by meaning as well as value: a spacing token for spacing, a font-size token for font size. When no token of the right kind has the value, use the nearest token of the right kind.`,
+    `- Pick tokens by meaning as well as value: a spacing token for spacing, a font-size token for font size, a text colour token for text, a background or layer token for fills, a border token for borders (a border colour on text is wrong even when the value matches). When no token of the right kind has the value, use the nearest token of the right kind.`,
     `- Write code a senior developer would merge as it is: no unused imports, variables or dead code; accessible markup (every field has a label tied to it, buttons have a type, images have alt text); names that say what things are; comments only where the code cannot say it.`,
     ...(c.files.some((f) => f.role === "test")
       ? [
