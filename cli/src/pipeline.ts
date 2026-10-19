@@ -9,6 +9,8 @@ import { join } from "node:path";
 import {
   FigmaClient,
   flatten,
+  maskBoxes,
+  placeholderBoxes,
   createMatcher,
   matchLibrary,
   rerank,
@@ -174,7 +176,7 @@ export async function loadContext(host: AdapterHost, project: Project, input: Fr
   const client = new FigmaClient({ token: input.figmaToken ?? "", cacheDir });
   client.offline = !input.figmaToken;
   const png = fileKey ? await client.frameImage(fileKey, input.frame).catch(() => undefined) : undefined;
-  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), ...(png && { baseline: { png: flatten(png), source: "figma" as const } }), source: "figma", notes };
+  return { design, index, links, mapping, ...(library && { library }), ...(tokens && { tokens }), ...(png && { baseline: { png: maskBoxes(flatten(png), placeholderBoxes(design.root)), source: "figma" as const } }), source: "figma", notes };
 }
 
 /**
