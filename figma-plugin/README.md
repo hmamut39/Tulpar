@@ -28,6 +28,7 @@ The plugin sends a picture of the selected frame (exported by Figma at 2×, or 1
    - **Description:** Select a frame and Tulpar writes it with your team's design system (React, Vue, Angular, Svelte, Web Components or Flutter; Carbon, MUI, Chakra, Radix, shadcn/ui, PrimeNG, Element Plus, Shoelace, Material 3, or any design system on npm). It then builds, renders and checks the code against your frame before you see it: components, tokens, layout, text, pixels, tests and interaction states. Ask for changes in words, and they are checked again.
    - **Network access:** tulparsi.com, to generate and verify the component.
    - **Icon:** `figma-plugin/icon-128.png`.
+   - **Cover:** `figma-plugin/cover-1920x960.png`.
    - **Support contact:** tulparsi.com/about.
 
 Figma reviews new plugins, which usually takes a few days.
