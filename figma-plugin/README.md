@@ -21,7 +21,7 @@ The plugin sends a picture of the selected frame (exported by Figma at 2×, or 1
 ## Publish it to the Figma Community
 
 1. In the Figma desktop app: **Plugins → Development → New plugin…**. Choose **Figma design + Dev Mode**, name it **Tulpar**, and save it anywhere. Figma shows a new manifest with an `"id"`.
-2. Copy that `"id"` into `figma-plugin/manifest.json`, replacing `tulpar-local-development`, and commit it.
+2. Copy that `"id"` into `figma-plugin/manifest.json` and commit it (done: 1694082041361272922).
 3. Import `figma-plugin/manifest.json` (as above), then **Plugins → Development → Manage plugins in development → Tulpar → Publish**.
 4. For the listing:
    - **Tagline:** Figma frames to verified code in your design system.
