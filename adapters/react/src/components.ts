@@ -7,8 +7,8 @@
 // - `children` is the default slot; other props typed as React nodes or component types are named slots;
 // - `on…` function props are events.
 
-import { existsSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, join, relative } from "node:path";
 import ts from "typescript";
 import type { CodeComponent, CodeEvent, CodeProp, CodeSlot, Provenance } from "@tulpar/core";
 import { typeShape } from "@tulpar/web-kit";
@@ -37,7 +37,53 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
     return { components: [], pkg };
   }
 
-  const entry = join(packageDir, typesEntry);
+  return indexEntry(join(packageDir, typesEntry), pkg, gaps, { baseDir: packageDir });
+}
+
+/**
+ * Components a project keeps in its own source, e.g. shadcn/ui's src/components/ui/*.tsx: each file's
+ * exports, imported the way the project writes it (moduleTemplate "@/components/ui/{file}"). The
+ * project's tsconfig paths resolve its own imports (@/lib/utils).
+ */
+export function indexSources(root: string, dir: string, moduleTemplate: string, gaps: string[]): IndexedPackage {
+  const files = readdirSync(join(root, dir)).filter((f) => /\.(tsx|ts|jsx|js)$/.test(f) && !/\.(test|spec|d)\./.test(f) && !/\.d\.ts$/.test(f));
+  const pkg = { name: moduleTemplate.replace(/\/?\{file\}$/, ""), version: "" };
+  if (!files.length) {
+    gaps.push(`${dir}: no component files found.`);
+    return { components: [], pkg };
+  }
+  const entryDir = join(root, ".tulpar");
+  mkdirSync(entryDir, { recursive: true });
+  const entry = join(entryDir, "index-sources.ts");
+  writeFileSync(entry, files.map((f) => `export * from ${JSON.stringify(relative(entryDir, join(root, dir, f)).replace(/\\/g, "/").replace(/\.(tsx|ts|jsx|js)$/, ""))};`).join("\n") + "\n");
+  const tsconfig = projectCompilerOptions(root);
+  const moduleOf = (file: string) => moduleTemplate.replace("{file}", basename(file).replace(/\.(d\.)?(tsx|ts|jsx|js)$/, ""));
+  return indexEntry(entry, pkg, gaps, { baseDir: root, moduleOf, compilerOptions: tsconfig });
+}
+
+/** baseUrl and paths from the project's tsconfig.json, so its own imports resolve (shadcn's @/lib/utils). */
+function projectCompilerOptions(root: string): ts.CompilerOptions {
+  const file = join(root, "tsconfig.json");
+  if (!existsSync(file)) return {};
+  const read = ts.readConfigFile(file, (p) => readFileSync(p, "utf8"));
+  const options = (read.config?.compilerOptions ?? {}) as { baseUrl?: string; paths?: Record<string, string[]> };
+  return { ...(options.baseUrl && { baseUrl: join(root, options.baseUrl) }), ...(options.paths && { paths: options.paths }) };
+}
+
+/** The project's tsconfig paths as bundler aliases: "@/*" → "./src/*" becomes "@" → <root>/src. */
+export function projectAliases(root: string): Record<string, string> {
+  const o = projectCompilerOptions(root);
+  const base = (o.baseUrl as string | undefined) ?? root;
+  return Object.fromEntries(
+    Object.entries((o.paths ?? {}) as Record<string, string[]>)
+      .filter(([k, v]) => k.endsWith("/*") && v[0]?.endsWith("/*"))
+      .map(([k, v]) => [k.slice(0, -2), join(base, v[0]!.slice(0, -2))]),
+  );
+}
+
+export function indexEntry(entry: string, pkg: { name: string; version: string }, gaps: string[], o: { baseDir: string; moduleOf?: (file: string) => string; compilerOptions?: ts.CompilerOptions }): IndexedPackage {
+  const packageDir = o.baseDir;
+  const typesEntry = relative(packageDir, entry);
   const program = ts.createProgram([entry], {
     noEmit: true,
     skipLibCheck: true,
@@ -45,6 +91,7 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     jsx: ts.JsxEmit.ReactJSX,
+    ...o.compilerOptions,
   });
   const checker = program.getTypeChecker();
   const sf = program.getSourceFile(entry)!;
@@ -202,7 +249,7 @@ export function indexPackage(packageDir: string, gaps: string[]): IndexedPackage
       id: `${pkg.name}#${name}`,
       name,
       exportName: name.split(".")[0]!,
-      module: pkg.name,
+      module: declFile && o.moduleOf ? o.moduleOf(declFile) : pkg.name,
       ...(declFile && { sourcePath: relative(packageDir, declFile).replace(/\\/g, "/") }),
       ...(docs && { description: docs }),
       ...(deprecated && { deprecated: deprecated.text ? ts.displayPartsToString(deprecated.text) : true }),

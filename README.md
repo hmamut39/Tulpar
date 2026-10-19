@@ -34,7 +34,7 @@ Verdict: VERIFIED
 | --- | --- |
 | **Frameworks** | React, Vue, Angular, Svelte, Web Components |
 | **Languages and styling** | TypeScript or JavaScript; CSS, CSS Modules, SCSS, Less, Tailwind CSS (strict: values only from your tokens), styled-components, Emotion — as the framework allows |
-| **Design systems built in** | Carbon (React, Angular, Web Components, Svelte), Material UI, Chakra UI, Radix Themes, PrimeNG, Element Plus, Shoelace — or any design system on npm, added from the web page or with `tulpar init` |
+| **Design systems built in** | Carbon (React, Angular, Web Components, Svelte), Material UI, Chakra UI, Radix Themes, shadcn/ui (components in your own source, styled with your Tailwind theme), PrimeNG, Element Plus, Shoelace — or any design system on npm, added from the web page or with `tulpar init` |
 | **Input** | A Figma frame link, a screenshot, or both |
 
 ## What it checks

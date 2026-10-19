@@ -8,6 +8,7 @@
     { "id": "vue-elementplus-shot", "project": "examples/element-plus", "image": "eval/fixtures/signin.png", "name": "SignInCard" },
     { "id": "react-radix-shot", "project": "examples/radix", "image": "eval/fixtures/signin.png", "name": "SignInCard" },
     { "id": "react-radix-tailwind-shot", "project": "examples/radix", "image": "eval/fixtures/signin.png", "name": "SignInCard", "output": { "styling": "tailwind" } },
+    { "id": "react-shadcn-shot", "project": "examples/shadcn", "image": "eval/fixtures/signin.png", "name": "SignInCard" },
     { "id": "angular-primeng-shot", "project": "examples/primeng", "image": "eval/fixtures/signin.png", "name": "SignInCard" },
     { "id": "flutter-material-shot", "project": "examples/flutter-material", "image": "eval/fixtures/signin.png", "name": "SignInCard" }
   ]

@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
-import { indexPackage } from "./components.ts";
+import { indexPackage, indexSources, projectAliases } from "./components.ts";
 import { readLinks } from "./links.ts";
 import { analyzeReact } from "./verify/analyze.ts";
 import { build } from "./verify/build.ts";
@@ -19,6 +19,10 @@ interface Config {
   styleDirs?: string[];
   codeConnect?: string[];
   render?: RenderConfig;
+  /** Components kept in the project's own source (shadcn/ui): a folder, and how code imports a file from it ("@/components/ui/{file}"). */
+  sources?: { dir: string; module: string }[];
+  /** The project's Tailwind stylesheet (shadcn/ui's src/index.css): its theme is the design system's scale, and code styles with Tailwind. */
+  tailwind?: { css: string };
 }
 
 const config = (p: ProjectParams) => p.config as Config;
@@ -26,12 +30,13 @@ const prefix = (p: ProjectParams) => tokenPrefix(config(p).tokens);
 
 let cachedIndex: { key: string; index: ComponentIndex } | undefined;
 function index(params: ProjectParams): ComponentIndex {
-  const key = JSON.stringify([params.root, config(params).packages]);
+  const key = JSON.stringify([params.root, config(params).packages, config(params).sources]);
   if (cachedIndex?.key === key) return cachedIndex.index;
   const gaps: string[] = [];
   const dirs = (config(params).packages ?? []).map((p) => join(params.root, p));
-  if (!dirs.length) gaps.push('No "packages" configured; nothing to index.');
-  const results = dirs.map((dir) => indexPackage(dir, gaps));
+  const sources = config(params).sources ?? [];
+  if (!dirs.length && !sources.length) gaps.push('No "packages" or "sources" configured; nothing to index.');
+  const results = [...dirs.map((dir) => indexPackage(dir, gaps)), ...sources.map((s) => indexSources(params.root, s.dir, s.module, gaps))];
   const result: ComponentIndex = {
     adapter: "react",
     ...(results.length === 1 && { package: results[0]!.pkg }),
@@ -90,7 +95,7 @@ serve({
     return readLinks(params.root, dirs);
   },
 
-  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? [], prefix(params)),
+  build: (params) => build(params, config(params).render ?? {}, config(params).packages ?? [], prefix(params), config(params)),
 
   // Identifying components needs the index's names, to find the design-system component in a wrapper chain.
   render: (params) => render(params, config(params).render ?? {}, prefix(params), reactHooks(new Set(index(params).components.map((c) => c.name)))),
@@ -104,6 +109,7 @@ serve({
       root: params.root,
       testFile: params.entry,
       fallbackModules: ["styled-components", "@emotion/react", "@emotion/styled"],
+      aliases: projectAliases(params.root),
       optimize: [
         ...["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", ...TEST_LIBRARIES].filter((m) => installed(params.root, m)),
         ...(config(params).packages ?? []).map((p) => p.replace(/\\/g, "/").split("node_modules/").pop()!).filter((m) => installed(params.root, m)),
@@ -114,7 +120,9 @@ serve({
     const pkg = index(params).package?.name ?? "the design system";
     // The team's language and styling: TypeScript or JavaScript; plain CSS, CSS Modules, SCSS, LESS, Tailwind, styled-components or Emotion.
     const js = params.output?.language === "javascript";
-    const chosen = params.output?.styling;
+    // A project whose design system is its Tailwind theme (shadcn/ui) styles with Tailwind, whatever was chosen.
+    const themed = !!config(params).tailwind;
+    const chosen = themed ? "tailwind" : params.output?.styling;
     const styling = chosen === "css-modules" || chosen === "scss" || chosen === "less" || chosen === "tailwind" || chosen === "styled-components" || chosen === "emotion" ? chosen : "css";
     const cssInJs = styling === "styled-components" || styling === "emotion";
     const library = styling === "emotion" ? "@emotion/styled" : "styled-components";
@@ -124,7 +132,9 @@ serve({
     const styleFile = cssInJs ? `{name}.styles.${js ? "js" : "ts"}` : styling === "css-modules" ? "{name}.module.css" : styling === "scss" ? "{name}.scss" : styling === "less" ? "{name}.less" : "{name}.css";
     const styleRule = cssInJs
       ? `Style with ${styling === "emotion" ? "Emotion" : "styled-components"}: in {name}.styles.${js ? "js" : "ts"}, import styled from "${library}" and export the styled elements (export const Root = styled.div\`…\`), and use them in {name}.${ext}. Use template literals with tokens and their fallbacks, e.g. gap: ${tokenExample}; no hard-coded values, in interpolations either. A design-system component may be wrapped (styled(Button)) for its layout around it (margins, alignment) or its theming CSS variables only. Props that only drive styles start with $ (transient props), so they never reach the DOM.`
-      : styling === "tailwind"
+      : themed
+        ? `Style with Tailwind utility classes in className; there is no stylesheet. The project's Tailwind theme is the design system: its colour tokens as classes (bg-background, bg-card, text-foreground, text-muted-foreground, border-border, bg-primary, text-primary-foreground, ring-ring…), Tailwind's spacing scale (p-4, gap-6, space-y-2), its radii (rounded-md, rounded-lg) and type scale (text-sm, text-2xl, font-medium, leading-none). No arbitrary values with literal colours or sizes (bg-[#…], p-[13px], text-[15px]): take the nearest step of the scale. No style={{}}. Join conditional classes with cn() from "@/lib/utils".`
+        : styling === "tailwind"
         ? `Style with Tailwind utility classes in className; there is no stylesheet. Tailwind's own scale is switched off: use layout utilities as they are (flex, grid, flex-col, items-center, justify-between, w-full, md:…), and write every spacing, colour, size, radius and type value as an arbitrary value with a design-system token, e.g. gap-[${tokenExample.replace(/ /g, "")}] or bg-[${tokenExample.replace(/ /g, "")}]. Classes such as p-4, text-sm or bg-blue-500 draw nothing here. No style={{}}.`
         : styling === "css-modules"
         ? `Import the styles as a CSS Module: import styles from "./{name}.module.css", and use className={styles.root} and so on; class names in the file are local.`
@@ -142,10 +152,12 @@ serve({
         "Default-export a function component named {name} with no required props.",
         styleRule,
         `Design-system components pass unknown props such as data-figma-id through to their root element; put data-figma-id directly on them.`,
-        `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
+        themed
+          ? `Tokens are written as the theme's classes (bg-primary, not bg-[var(--primary)]); the token list names the CSS variables behind them.`
+          : `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
         `In {name}.test.${ext} import { render, screen } from "@testing-library/react", { describe, it, expect } from "vitest", and the component from "./{name}". The test libraries installed are: ${TEST_LIBRARIES.filter((m) => installed(params.root, m)).join(", ") || "none besides Vitest"}; import no other${installed(params.root, "@testing-library/user-event") ? "" : " (use fireEvent from @testing-library/react for input, not @testing-library/user-event)"}.`,
       ],
-      importExample: `import { Button } from "${pkg}";`,
+      importExample: config(params).sources?.length ? `import { Button } from "${config(params).sources![0]!.module.replace("{file}", "button")}";` : `import { Button } from "${pkg}";`,
     };
   },
 

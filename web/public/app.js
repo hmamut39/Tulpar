@@ -48,7 +48,9 @@ function fillOutputs() {
 // The stylings the chosen language is written with in this framework.
 function fillStyling(preferred) {
   const adapter = $("framework").value;
-  const stylings = (OUTPUTS[adapter] ?? []).filter((o) => o.language === $("language").value).map((o) => o.styling);
+  // A design system written in one styling only (shadcn/ui: Tailwind) offers just that.
+  const only = projects.find((p) => p.id === $("project").value)?.stylings;
+  const stylings = (OUTPUTS[adapter] ?? []).filter((o) => o.language === $("language").value).map((o) => o.styling).filter((s) => !only || only.includes(s));
   if (!stylings.length) return;
   const keep = preferred ?? $("styling").value;
   $("styling").innerHTML = stylings.map((s) => option(s, s === "css" && SCOPED.has(adapter) ? "Scoped CSS" : STYLING_LABELS[s] ?? s)).join("");
@@ -147,6 +149,7 @@ function fillAddOption() {
 $("project").addEventListener("change", () => {
   const adding = $("project").value === ADD;
   $("addDs").hidden = !adding;
+  fillStyling();
   if (adding) $("addPackage").focus();
 });
 $("addGo").addEventListener("click", async () => {

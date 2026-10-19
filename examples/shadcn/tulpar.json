@@ -1,0 +1,35 @@
+{
+  "adapter": "react",
+  "output": {
+    "language": "typescript",
+    "styling": "tailwind"
+  },
+  "react": {
+    "sources": [
+      {
+        "dir": "src/components/ui",
+        "module": "@/components/ui/{file}"
+      }
+    ],
+    "tailwind": {
+      "css": "src/index.css"
+    },
+    "tokens": {
+      "css": {
+        "files": [
+          "src/index.css"
+        ],
+        "modes": {
+          "dark": ".dark"
+        }
+      }
+    },
+    "render": {
+      "themes": {
+        "light": "light",
+        "dark": "dark"
+      },
+      "baseFont": "'Geist Variable', sans-serif"
+    }
+  }
+}

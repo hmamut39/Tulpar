@@ -21,6 +21,8 @@ export interface VitestOptions {
   fallbackModules?: string[];
   /** Packages to pre-bundle before the run: imports Vite's start-up scan cannot see (inside an .html file). */
   optimize?: string[];
+  /** The project's own import aliases (tsconfig paths, e.g. "@" → its src folder), as absolute paths. */
+  aliases?: Record<string, string>;
   /** Setup files, relative to the root, run in the browser before the tests. */
   setupFiles?: string[];
   timeoutMs?: number;
@@ -52,6 +54,7 @@ export async function runVitestBrowser(o: VitestOptions): Promise<TestRunResult>
       }
     }),
   );
+  const projectAliases = Object.fromEntries(Object.entries(o.aliases ?? {}).map(([k, v]) => [k, v.replace(/\\/g, "/")]));
   const reportFile = join(dir, `${id}.json`);
   const config = `import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
@@ -60,7 +63,7 @@ export default defineConfig({
   root: ${JSON.stringify(o.root.replace(/\\/g, "/"))},
   cacheDir: ${JSON.stringify(cacheDir.split(sep).join("/"))},
   ${o.plugins ? `plugins: ${o.plugins},` : ""}
-  resolve: { alias: ${JSON.stringify(aliases)}, dedupe: ["react", "react-dom"] },
+  resolve: { alias: ${JSON.stringify({ ...aliases, ...projectAliases })}, dedupe: ["react", "react-dom"] },
   // Modules supplied from Tulpar's copies live outside the project, where Vite's start-up scan does not
   // look: found mid-run, they would be optimized late and the page reloaded with a second React.
   ${Object.keys(aliases).length || o.optimize?.length ? `optimizeDeps: { include: ${JSON.stringify([...Object.keys(aliases), ...(o.optimize ?? [])])} },` : ""}
@@ -95,6 +98,10 @@ export default defineConfig({
       status: a.status === "passed" ? ("passed" as const) : a.status === "failed" ? ("failed" as const) : ("skipped" as const),
       ...(a.failureMessages?.length && { error: clean(a.failureMessages.join("\n")) }),
     }));
+    // No tests and an unhandled error: the run broke before the file's tests were collected (the browser
+    // did not launch), which says nothing about the file.
+    const unhandled = /Unhandled Error[^\n]*\n(?:[^\n]*\n)*?\s*((?:\w*Error|browserType)[^\n]*)/.exec(output.replace(/\x1b\[[0-9;]*m/g, ""));
+    if (!tests.length && unhandled) return { status: "failed", reason: `Vitest could not run the tests: ${unhandled[1]!.trim().slice(0, 300)}` };
     // "Failed to import test file" alone does not say why: the reason is in Vitest's own output.
     const why = /Failed to import test file/.test(file?.message ?? "") ? importError(output) : "";
     const fileError = file?.status === "failed" && !tests.some((t) => t.status === "failed") ? clean([file.message || "the test file failed", why].filter(Boolean).join(": ")) : undefined;

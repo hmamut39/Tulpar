@@ -74,6 +74,8 @@ export interface ProjectInfo {
   dir: string;
   adapter: string;
   label: string;
+  /** The only stylings this design system is written in (shadcn/ui: Tailwind, its theme being the design system). */
+  stylings?: string[];
 }
 
 const MAX_BODY = 12 * 1024 * 1024;
@@ -96,8 +98,11 @@ function projectsIn(base: string): ProjectInfo[] {
       const pkg = pkgs[0] && existsSync(join(base, d.name, pkgs[0], "package.json")) ? JSON.parse(readFileSync(join(base, d.name, pkgs[0], "package.json"), "utf8")) : undefined;
       // Flutter's design system is a Dart library, not an npm package: Material, unless configured otherwise.
       const library = cfg.adapter === "flutter" ? (cfg.flutter?.library as string | undefined) ?? "package:flutter/material.dart" : undefined;
-      const product = library ? (library === "package:flutter/material.dart" ? "Material 3" : library) : undefined;
-      return { id: d.name, dir: join(base, d.name), adapter: cfg.adapter, label: `${labels[cfg.adapter] ?? cfg.adapter}${pkg ? ` · ${pkg.name}@${pkg.version}` : product ? ` · ${product}` : ""}` };
+      // A design system kept in the project's source: shadcn/ui when its CLI's components.json is there.
+      const ownSource = !pkg && cfg[cfg.adapter]?.sources?.length ? (existsSync(join(base, d.name, "components.json")) ? "shadcn/ui" : "the project's components") : undefined;
+      const product = library ? (library === "package:flutter/material.dart" ? "Material 3" : library) : ownSource;
+      const stylings = cfg[cfg.adapter]?.tailwind ? ["tailwind"] : undefined;
+      return { id: d.name, dir: join(base, d.name), adapter: cfg.adapter, label: `${labels[cfg.adapter] ?? cfg.adapter}${pkg ? ` · ${pkg.name}@${pkg.version}` : product ? ` · ${product}` : ""}`, ...(stylings && { stylings }) };
     });
 }
 
@@ -223,7 +228,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         await manifestsRead;
         const model = llm();
         return json(res, 200, {
-          projects: projects.filter(usable).map(({ id, adapter, label }) => ({ id, adapter, label })),
+          projects: projects.filter(usable).map(({ id, adapter, label, stylings }) => ({ id, adapter, label, ...(stylings && { stylings }) })),
           // Framework → the language and styling combinations it writes, its default first.
           outputs: Object.fromEntries([...manifests].map(([adapter, m]) => [adapter, m.capabilities.outputs ?? []])),
           accessCodeRequired: codes.length > 0 && !auth,

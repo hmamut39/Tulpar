@@ -6,9 +6,10 @@
 // works with Tailwind's scale is reported by name, so the repair loop can fix it instead of the
 // style silently vanishing.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { compile } from "tailwindcss";
 
 const require = createRequire(import.meta.url);
@@ -65,6 +66,74 @@ export async function tailwindCss(sources: string[]): Promise<TailwindResult> {
 export function offScaleMessage(offScale: string[], prefix: string): string {
   const example = prefix ? `p-[var(--${prefix}-…,16px)]` : "p-[var(--token,16px)]";
   return `Tailwind's own scale is switched off here, so these classes draw nothing: ${offScale.slice(0, 12).join(", ")}. Use layout utilities (flex, grid, items-center, w-full) as they are, and write every spacing, colour, size, radius and type value as an arbitrary value with a design-system token and its fallback, e.g. ${example}.`;
+}
+
+/**
+ * Tailwind with the project's own theme (shadcn/ui): its stylesheet (index.css: @import "tailwindcss",
+ * its @theme and its :root tokens) compiled as the app compiles it. Tailwind's scale is the design
+ * system's here, so nothing is switched off. Two sheets: the design system's, for every class the
+ * project's components and the generated code use (with its theme variables, base styles and fonts),
+ * and the generated code's own utilities, which the token checks read.
+ */
+export async function tailwindThemeCss(themeFile: string, designSystemSources: string[], sources: string[]): Promise<{ designSystem: string; css: string }> {
+  const own = [...new Set(sources.flatMap(classCandidates))];
+  const all = [...new Set([...designSystemSources.flatMap(classCandidates), ...own])];
+  const theme = readFileSync(themeFile, "utf8");
+  const load = async (id: string, base: string) => {
+    const path = resolveCssImport(id, base);
+    return { path, base: dirname(path), content: absoluteUrls(readFileSync(path, "utf8"), dirname(path)) };
+  };
+  const compiler = () => compile(absoluteUrls(theme, dirname(themeFile)), { base: dirname(themeFile), loadStylesheet: load });
+  const [ds, mine] = await Promise.all([compiler(), compiler()]);
+  return { designSystem: ds.build(all), css: layerBlock(mine.build(own), "utilities") };
+}
+
+/** A stylesheet @import as a bundler resolves it: a relative path, or a package's style entry or exported .css file. */
+export function resolveCssImport(id: string, base: string): string {
+  if (/^\.{1,2}\//.test(id) || isAbsolute(id)) return resolve(base, id);
+  if (id === "tailwindcss") return join(twDir, "index.css");
+  if (id.startsWith("tailwindcss/")) return join(twDir, id.slice("tailwindcss/".length));
+  const name = id.split("/").slice(0, id.startsWith("@") ? 2 : 1).join("/");
+  const sub = id.slice(name.length);
+  let pkgDir: string | undefined;
+  for (let d = base; ; d = dirname(d)) {
+    if (existsSync(join(d, "node_modules", name, "package.json"))) {
+      pkgDir = join(d, "node_modules", name);
+      break;
+    }
+    if (dirname(d) === d) break;
+  }
+  if (!pkgDir) throw new Error(`Stylesheet not found: ${id} (from ${base})`);
+  const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")) as { style?: string; main?: string; exports?: unknown };
+  const pick = (t: unknown): string | undefined => (typeof t === "string" ? t : t && typeof t === "object" ? pick((t as Record<string, unknown>).style ?? (t as Record<string, unknown>).default) : undefined);
+  const exportsMap = pkg.exports && typeof pkg.exports === "object" && !Array.isArray(pkg.exports) ? (pkg.exports as Record<string, unknown>) : {};
+  let target = pick(exportsMap[`.${sub}`]);
+  if (!target)
+    for (const [key, value] of Object.entries(exportsMap)) {
+      const star = key.indexOf("*");
+      if (star < 0 || !`.${sub}`.startsWith(key.slice(0, star)) || !`.${sub}`.endsWith(key.slice(star + 1))) continue;
+      target = pick(value)?.replace("*", `.${sub}`.slice(star, `.${sub}`.length - (key.length - star - 1)));
+      if (target) break;
+    }
+  if (!target && !sub) target = pkg.style ?? (pkg.main?.endsWith(".css") ? pkg.main : "index.css");
+  return join(pkgDir, target ?? sub.slice(1));
+}
+
+/** url(./files/font.woff2) made absolute (file:), so the sheet works from wherever the page loads it. */
+function absoluteUrls(css: string, dir: string): string {
+  return css.replace(/url\(\s*(['"]?)(?![a-z]+:|#|\/)([^'")]+)\1\s*\)/gi, (_m, _q, path: string) => `url("${pathToFileURL(resolve(dir, path)).href}")`);
+}
+
+/** The contents of `@layer name { … }` in compiled CSS, wrapped again so it keeps its place in the cascade. */
+function layerBlock(css: string, name: string): string {
+  const start = css.indexOf(`@layer ${name} {`);
+  if (start < 0) return "";
+  let depth = 0;
+  for (let i = css.indexOf("{", start); i < css.length; i++) {
+    if (css[i] === "{") depth++;
+    else if (css[i] === "}" && --depth === 0) return css.slice(start, i + 1);
+  }
+  return "";
 }
 
 function cssEscape(s: string): string {

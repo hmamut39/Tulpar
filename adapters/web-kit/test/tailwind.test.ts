@@ -2,7 +2,9 @@
 // scale draws nothing, and is named so the repair loop can fix it.
 
 import { describe, expect, it } from "vitest";
-import { classCandidates, offScaleMessage, tailwindCss } from "../src/index.ts";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { classCandidates, offScaleMessage, resolveCssImport, tailwindCss, tailwindThemeCss } from "../src/index.ts";
 
 describe("Tailwind, strict", () => {
   it("compiles layout utilities, breakpoints and token values", async () => {
@@ -30,5 +32,22 @@ describe("Tailwind, strict", () => {
   it("reads class names from string literals only, not from the text a component shows", () => {
     expect(classCandidates(`<p className="grid">container shadow</p>`)).toEqual(["grid"]);
     expect(classCandidates("cn('flex', `w-full ${x}`)")).toEqual(expect.arrayContaining(["flex", "w-full"]));
+  });
+});
+
+describe("Tailwind with a project's theme (shadcn/ui)", () => {
+  const shadcn = join(__dirname, "../../../examples/shadcn");
+  it.skipIf(!existsSync(join(shadcn, "node_modules", "shadcn")))("resolves stylesheet imports as a bundler does, and keeps the code's utilities apart", async () => {
+    const src = join(shadcn, "src");
+    expect(resolveCssImport("tw-animate-css", src)).toMatch(/tw-animate-css[\\/]dist[\\/]tw-animate\.css$/);
+    expect(resolveCssImport("shadcn/tailwind.css", src)).toMatch(/shadcn[\\/]dist[\\/]tailwind\.css$/);
+    expect(resolveCssImport("@fontsource-variable/geist", src)).toMatch(/geist[\\/]index\.css$/);
+    const r = await tailwindThemeCss(join(src, "index.css"), [`<button className="bg-primary text-primary-foreground" />`], [`<div className="flex gap-4 bg-card text-sm bg-[#ff0000]" />`]);
+    expect(r.designSystem).toMatch(/--primary:/);
+    expect(r.designSystem).toMatch(/\.bg-primary \{/);
+    expect(r.css).toMatch(/^@layer utilities \{/);
+    expect(r.css).toMatch(/\.gap-4 \{\s*gap: calc\(var\(--spacing\) \* 4\);/);
+    expect(r.css).toMatch(/background-color: #ff0000;/);
+    expect(r.css).not.toMatch(/bg-primary/);
   });
 });
