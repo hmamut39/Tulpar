@@ -50,4 +50,10 @@ describe("Tailwind with a project's theme (shadcn/ui)", () => {
     expect(r.css).toMatch(/background-color: #ff0000;/);
     expect(r.css).not.toMatch(/bg-primary/);
   });
+
+  it.skipIf(!existsSync(join(shadcn, "node_modules", "shadcn")))("uses a theme step written as a formula by its name, defined on every element", async () => {
+    const r = await tailwindThemeCss(join(shadcn, "src", "index.css"), [], [`<div className="rounded-xl rounded-lg" />`]);
+    expect(r.css).toMatch(/border-radius: var\(--radius-xl\);/);
+    expect(r.designSystem).toMatch(/\*, ::before, ::after \{[^}]*--radius-xl: calc\(var\(--radius\) \* 1\.4\);/);
+  });
 });

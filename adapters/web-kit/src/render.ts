@@ -219,7 +219,8 @@ async function markUndefinedTokens(page: Page, elements: RenderedElement[]): Pro
       const el = document.querySelector(`[data-figma-id="${CSS.escape(q.figmaId)}"]`);
       if (!el) return true;
       const style = getComputedStyle(el);
-      return q.vars.every((v) => style.getPropertyValue(v).trim() !== "");
+      // Tailwind's own --tw-* variables are unset until a utility sets them, by design.
+      return q.vars.filter((v) => !v.startsWith("--tw-")).every((v) => style.getPropertyValue(v).trim() !== "");
     });
   }, queries);
   let i = 0;

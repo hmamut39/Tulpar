@@ -27,3 +27,9 @@ describe("arithmetic on tokens", () => {
     expect(source("padding", "calc(var(--mui-spacing) / 3)")).toBe("literal");
   });
 });
+
+describe("Tailwind's own variables", () => {
+  it("are no tokens: the token is the one they fall back to", () => {
+    expect(classify("line-height", "var(--tw-leading, var(--text-sm--line-height))", "")).toMatchObject({ source: "token", token: "text-sm--line-height" });
+  });
+});

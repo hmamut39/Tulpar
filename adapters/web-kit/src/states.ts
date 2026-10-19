@@ -47,7 +47,7 @@ export async function measureStates(page: Page, frameId: string): Promise<StateF
           ({ id, selector }) => {
             const el = document.querySelector<HTMLElement>(`[data-figma-id="${CSS.escape(id)}"]`);
             const control = el && (el.matches(selector) ? el : el.querySelector<HTMLElement>(selector));
-            control?.focus();
+            control?.focus({ preventScroll: true });
           },
           { id: t.figmaId, selector: INTERACTIVE },
         );
@@ -71,7 +71,15 @@ async function capture(page: Page, figmaId: string, clip: { x: number; y: number
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
   const info = await page.evaluate((id) => {
     const el = document.querySelector<HTMLElement>(`[data-figma-id="${CSS.escape(id)}"]`)!;
-    const r = el.getBoundingClientRect();
+    // The layout box, without transforms: a press that only translates or scales the element (shadcn's
+    // Button moves down 1px) moves nothing around it, so it is no layout shift. Padding, border or size do.
+    let x = 0;
+    let y = 0;
+    for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) {
+      x += n.offsetLeft;
+      y += n.offsetTop;
+    }
+    const r = { x, y, width: el.offsetWidth, height: el.offsetHeight };
     const colors = new Set<string>();
     const opaque = (c: string) => c && !/^rgba\(.*,\s*0\)$/.test(c) && c !== "transparent";
     for (const node of [el, ...el.querySelectorAll<HTMLElement>("*")]) {

@@ -85,7 +85,22 @@ export async function tailwindThemeCss(themeFile: string, designSystemSources: s
   };
   const compiler = () => compile(absoluteUrls(theme, dirname(themeFile)), { base: dirname(themeFile), loadStylesheet: load });
   const [ds, mine] = await Promise.all([compiler(), compiler()]);
-  return { designSystem: ds.build(all), css: layerBlock(mine.build(own), "utilities") };
+  // A theme step written as a formula (--radius-xl: calc(var(--radius) * 1.4)) is inlined by @theme
+  // inline, and would read as arithmetic on a token. It is the design system's step: defined by name on
+  // every element (as inline resolves it, per element, so a dark subtree keeps working) and used by name.
+  const steps = themeFormulas(theme);
+  let css = layerBlock(mine.build(own), "utilities");
+  for (const [name, value] of steps) css = css.split(`: ${value};`).join(`: var(--${name});`);
+  const defined = steps.length ? `\n*, ::before, ::after { ${steps.map(([n, v]) => `--${n}: ${v};`).join(" ")} }\n` : "";
+  return { designSystem: ds.build(all) + defined, css };
+}
+
+/** Variables of the theme's @theme inline blocks whose value is a formula: [name, value]. */
+function themeFormulas(css: string): [string, string][] {
+  const out: [string, string][] = [];
+  for (const block of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/@theme\s+inline\s*\{([^{}]*)\}/g))
+    for (const d of block[1]!.matchAll(/--([\w-]+)\s*:\s*(calc\([^;]+\))\s*;/g)) out.push([d[1]!, d[2]!.trim()]);
+  return out;
 }
 
 /** A stylesheet @import as a bundler resolves it: a relative path, or a package's style entry or exported .css file. */

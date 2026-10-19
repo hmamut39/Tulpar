@@ -71,7 +71,8 @@ export function classify(cssProperty: string, value: string, prefix: string, at?
   const base = { property, written, ...(at && { at }) };
   if (literal.length || (arithmetic && !unitMultiple)) return { ...base, source: "literal" };
   if (vars.length) {
-    const name = vars[0]!;
+    // Tailwind's own plumbing (var(--tw-leading, var(--text-sm--line-height))) is no design token: the token is the one it falls back to.
+    const name = vars.find((v) => !v.startsWith("tw-")) ?? vars[0]!;
     return { ...base, source: "token", token: prefix && name.startsWith(`${prefix}-`) ? name.slice(prefix.length + 1) : name };
   }
   return { ...base, source: "keyword" };
