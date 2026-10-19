@@ -148,15 +148,19 @@ export function verify(input: VerifyInput): VerifyReport {
     const tokens = facts.filter((f) => f.source === "token" && props.includes(f.property));
     // A token must be real. Undefined in the render is fine only for a known token written with its
     // fallback (how Carbon itself writes spacing); otherwise it is invented, or renders nothing.
-    const known = input.tokens ? new Set(input.tokens.tokens.map((t) => t.name)) : undefined;
+    // A token is known by its name, or by the CSS variable code writes it as: readers name tokens with or
+    // without the design system's prefix (cds-heading-03-font-size or heading-03-font-size).
+    const knownNames = input.tokens ? new Set(input.tokens.tokens.flatMap((t) => [t.name, /var\(\s*--([\w-]+)/.exec(t.codeRef ?? "")?.[1] ?? t.name])) : undefined;
+    const varOf = (f: StyleFact) => /var\(\s*--([\w-]+)/.exec(f.written)?.[1];
+    const known = knownNames && { has: (name: string, f?: StyleFact) => knownNames.has(name) || (!!f && knownNames.has(varOf(f) ?? "")) };
     const hasFallback = (f: StyleFact) => /var\(\s*--[a-zA-Z0-9-]+\s*,/.test(f.written);
-    const undefinedTokens = tokens.filter((f) => f.defined === false && !(known?.has(f.token ?? "") && hasFallback(f)));
-    const misused = input.tokens ? tokens.filter((f) => f.defined !== false || known?.has(f.token ?? "")).map((f) => ({ f, why: f.token ? wrongKind(f.property, f.token, tokenType.get(f.token), kinds) : undefined })).filter((m) => m.why) : [];
+    const undefinedTokens = tokens.filter((f) => f.defined === false && !(known?.has(f.token ?? "", f) && hasFallback(f)));
+    const misused = input.tokens ? tokens.filter((f) => f.defined !== false || known?.has(f.token ?? "", f)).map((f) => ({ f, why: f.token ? wrongKind(f.property, f.token, tokenType.get(f.token), kinds) : undefined })).filter((m) => m.why) : [];
     const summary = `${literal.length} hard-coded ${noun}${undefinedTokens.length ? `, ${undefinedTokens.length} undefined token${undefinedTokens.length === 1 ? "" : "s"}` : ""}${misused.length ? `, ${misused.length} token${misused.length === 1 ? "" : "s"} of the wrong kind` : ""}`;
     const details = [
       ...literal.map((f) => `✗ ${f.property}: ${f.written}${f.at ? ` at ${f.at}` : ""}`),
       ...undefinedTokens.map((f) =>
-        known && !known.has(f.token ?? "")
+        known && !known.has(f.token ?? "", f)
           ? `✗ ${f.property}: ${f.written} — no such token (misspelt or invented)${f.at ? ` at ${f.at}` : ""}`
           : `✗ ${f.property}: ${f.written} — the token is not defined on the page; write its fallback, e.g. var(--token, value)${f.at ? ` at ${f.at}` : ""}`,
       ),
