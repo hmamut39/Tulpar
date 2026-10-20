@@ -80,15 +80,22 @@ export async function loadDesign(project: Project, input: FrameInput, cacheDir: 
 export function mapByComponentKeys(mapping: Map<string, string>, library: Library | undefined, design: DesignTree): void {
   if (!library) return;
   const byKey = new Map<string, string>();
+  // An older copy of a component (a kit keeps "Checkbox group/Enabled/False" beside the "Checkbox group"
+  // set that Code Connect links) shares no id or key with it, only its name: an exact name match, to one
+  // mapped component and no other, maps it too.
+  const byName = new Map<string, string | null>();
+  const baseName = (name: string) => name.split("/")[0]!.trim().toLowerCase();
   for (const def of library.components) {
     const component = mapping.get(def.id);
     if (!component) continue;
+    const name = baseName(def.name);
+    byName.set(name, byName.has(name) && byName.get(name) !== component ? null : component);
     if (def.key) byKey.set(def.key, component);
     for (const v of def.variants) if (v.key) byKey.set(v.key, component);
   }
   const visit = (n: DesignTree["root"]) => {
     if (n.kind === "instance" && !mapping.has(n.component.id)) {
-      const component = (n.component.key && byKey.get(n.component.key)) ?? (n.component.set?.key && byKey.get(n.component.set.key));
+      const component = (n.component.key && byKey.get(n.component.key)) || (n.component.set?.key && byKey.get(n.component.set.key)) || byName.get(baseName(n.component.set?.name ?? n.component.name ?? ""));
       if (component) mapping.set(n.component.id, component);
     }
     if (n.kind !== "text") n.children.forEach(visit);

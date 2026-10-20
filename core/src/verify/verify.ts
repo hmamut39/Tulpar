@@ -24,6 +24,7 @@ import {
 } from "./types.ts";
 import { compareImages, type VisualComparison } from "./visual.ts";
 import { accentProp, familyOf, nearestColorToken } from "../generate/accent.ts";
+import { isPlaceholder } from "../generate/page.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
@@ -108,7 +109,11 @@ export function verify(input: VerifyInput): VerifyReport {
   if (!elements) checks.push(skip("components", "Design-system components", noRender));
   else {
     const mapped = components.filter((e) => e.component);
-    const unmapped = components.filter((e) => e.unmapped);
+    // A kit's placeholder is meant to be empty, and a small square instance is an icon, drawn with the icon
+    // set (the brief says so): neither is a design-system component missing its mapping.
+    const isIcon = (n: DesignNode) => !!n.box && n.box.width <= 32 && n.box.height <= 32 && Math.abs(n.box.width - n.box.height) <= 2;
+    const aside = components.filter((e) => e.unmapped && (isPlaceholder(e.node) || isIcon(e.node)));
+    const unmapped = components.filter((e) => e.unmapped && !aside.includes(e));
     let used = 0;
     const details: string[] = [];
     const known = new Map(index.components.map((c) => [c.name, c]));
@@ -130,8 +135,10 @@ export function verify(input: VerifyInput): VerifyReport {
       }
     }
     for (const e of unmapped) details.push(`– ${e.node.name} (${e.node.id}): not checked, its Figma component has no confirmed mapping`);
+    for (const e of aside) details.push(`– ${e.node.name} (${e.node.id}): ${isPlaceholder(e.node) ? "a placeholder the team fills" : "an icon, drawn with the icon set"}`);
     const summary = `${used} of ${mapped.length} design-system components used, ${invented} invented`;
-    if (!mapped.length) checks.push(skip("components", "Design-system components", unmapped.length ? `${unmapped.length} instances, none with a confirmed mapping` : "the frame has no component instances"));
+    if (!mapped.length && !unmapped.length && aside.length) checks.push(skip("components", "Design-system components", "only placeholders and icons, no components to check"));
+    else if (!mapped.length) checks.push(skip("components", "Design-system components", unmapped.length ? `${unmapped.length} instances, none with a confirmed mapping` : "the frame has no component instances"));
     else checks.push(used === mapped.length ? { ...ok("components", "Design-system components", summary, details), ...(unmapped.length && { summary: `${summary} (${unmapped.length} unmapped, not checked)` }) } : fail("components", "Design-system components", summary, details));
   }
 

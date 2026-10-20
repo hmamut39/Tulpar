@@ -212,6 +212,15 @@ describe("verify", () => {
     expect(r.checks.find((c) => c.id === "typeface")!.details).toEqual(["✗ Button 2:1 (2:1): design uses Plex, drawn with Arial"]);
   });
 
+  it("does not count a kit's placeholders or icons as components missing a mapping", () => {
+    const slot = { ...instance("2:5", "S", 0, ""), name: "Slot", component: { id: "Sv", set: { id: "S", name: "Slot" } }, children: [] } as DesignNode;
+    const icon = { ...instance("2:6", "C", 280, ""), name: "Close", box: box(280, 12, 16, 16), component: { id: "Cv", name: "Close" }, children: [] } as DesignNode;
+    const withAside = { ...design, root: { ...design.root, children: [...(design.root as { children: DesignNode[] }).children, slot, icon] } } as DesignTree;
+    const c = verify({ ...input(good()), design: withAside }).checks.find((x) => x.id === "components")!;
+    expect(c.summary).toBe("2 of 2 design-system components used, 0 invented (1 unmapped, not checked)");
+    expect(c.details).toEqual(expect.arrayContaining(["– Slot (2:5): a placeholder the team fills", "– Close (2:6): an icon, drawn with the icon set"]));
+  });
+
   it("takes a font's face name as its family: Plex SemiBold is Plex", () => {
     const els = good();
     els[1] = { ...els[1]!, fonts: ["Plex SemiBold"] };
