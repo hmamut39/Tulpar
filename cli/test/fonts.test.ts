@@ -39,6 +39,17 @@ describe("the design's fonts", () => {
     expect(fetched).toEqual([]);
   });
 
+  it("takes the variable font when there is one: every weight, and its optical size follows the text", async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      fetched.push(url);
+      return url.startsWith("https://api.fontsource.org/") ? new Response(JSON.stringify({ ...meta, family: "Fraunces", variable: true })) : new Response(new Uint8Array([119, 79, 70, 50]));
+    });
+    const css = await designFontFaces({ kind: "container", visible: true, children: [text("Fraunces", 400), text("Fraunces", 700)] } as unknown as DesignNode);
+    expect(fetched).toEqual(["https://api.fontsource.org/v1/fonts/fraunces", "https://cdn.jsdelivr.net/fontsource/fonts/fraunces:vf@latest/latin-standard-normal.woff2"]);
+    expect(css).toContain(`font-family: "Fraunces"; font-style: normal; font-weight: 400 600;`);
+  });
+
   it("leaves a family Fontsource does not have to the fallback, without failing", async () => {
     vi.stubGlobal("fetch", async () => new Response("not found", { status: 404 }));
     expect(await designFontFaces({ kind: "container", visible: true, children: [text("Company Sans", 400)] } as unknown as DesignNode)).toBe("");

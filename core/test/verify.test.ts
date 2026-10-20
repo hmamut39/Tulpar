@@ -212,6 +212,15 @@ describe("verify", () => {
     expect(r.checks.find((c) => c.id === "typeface")!.details).toEqual(["✗ Button 2:1 (2:1): design uses Plex, drawn with Arial"]);
   });
 
+  it("takes a font's face name as its family: Plex SemiBold is Plex", () => {
+    const els = good();
+    els[1] = { ...els[1]!, fonts: ["Plex SemiBold"] };
+    els[2] = { ...els[2]!, fonts: ["Plex Bold Italic"] };
+    expect(status(verify(input(els)), "typeface")).toBe("pass");
+    els[1] = { ...els[1]!, fonts: ["Plex Serif"] };
+    expect(status(verify(input(els)), "typeface")).toBe("fail");
+  });
+
   it("sets aside an input's placeholder inside a form field, but still checks the field's own label", () => {
     const fieldInput = { ...instance("3:2", "B", 0, ""), children: [] } as DesignNode;
     const field = { ...instance("3:1", "B", 0, "Email"), children: [text("I3:1;1", "Email"), fieldInput] } as DesignNode;

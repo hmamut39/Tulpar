@@ -36,6 +36,7 @@ interface FontsourceFont {
   weights: number[];
   styles: string[];
   defSubset: string;
+  variable?: boolean;
   variants: Record<string, Record<string, Record<string, { url: { woff2?: string } }>>>;
 }
 
@@ -51,6 +52,22 @@ export async function designFontFaces(root: DesignNode): Promise<string> {
       });
       if (!meta) continue;
       const font = JSON.parse(meta.toString("utf8")) as FontsourceFont;
+      // A variable font, as Figma draws it: one file for every weight, and its optical size (opsz) follows
+      // the text size. A static file is cut at one optical size, and draws large headings at another width.
+      if (font.variable) {
+        const styles = new Set([...variants].map((v) => v.split("-")[1]!).filter((s) => font.styles.includes(s)));
+        let any = false;
+        for (const style of styles) {
+          const file = await cached(`${id}-vf-${style}.woff2`, async () => {
+            const res = await fetch(`https://cdn.jsdelivr.net/fontsource/fonts/${id}:vf@latest/${font.defSubset}-standard-${style}.woff2`, { signal: AbortSignal.timeout(15000) });
+            return res.ok ? Buffer.from(await res.arrayBuffer()) : undefined;
+          });
+          if (!file) continue;
+          any = true;
+          rules.push(`@font-face { font-family: ${JSON.stringify(font.family)}; font-style: ${style}; font-weight: ${Math.min(...font.weights)} ${Math.max(...font.weights)}; font-display: block; src: url(data:font/woff2;base64,${file.toString("base64")}) format("woff2"); }`);
+        }
+        if (any) continue;
+      }
       for (const v of variants) {
         const [w, style] = v.split("-") as [string, "normal" | "italic"];
         const weight = font.weights.reduce((best, x) => (Math.abs(x - Number(w)) < Math.abs(best - Number(w)) ? x : best), font.weights[0]!);

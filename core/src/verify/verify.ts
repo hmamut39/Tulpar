@@ -260,6 +260,10 @@ export function verify(input: VerifyInput): VerifyReport {
     else checks.push(exact === checked ? ok("text", "Text", `${summary} (${checked})`, details) : fail("text", "Text", summary, details));
   }
 
+  // A drawn font names its face: "Inter SemiBold" is Inter at weight 600, the family the design asks for.
+  const sameFamily = (drawn: string, family: string) =>
+    drawn === family || (drawn.startsWith(`${family} `) && /^(thin|hairline|extra ?light|ultra ?light|light|regular|normal|book|medium|semi ?bold|demi ?bold|bold|extra ?bold|ultra ?bold|black|heavy|italic|oblique|\s)+$/i.test(drawn.slice(family.length + 1)));
+
   // 9. Typeface actually used to draw the text
   if (!elements) checks.push(skip("typeface", "Typeface", noRender));
   else {
@@ -275,7 +279,7 @@ export function verify(input: VerifyInput): VerifyReport {
       if (!el.fonts.length) continue; // the renderer could not say
       checked++;
       if (families.length) {
-        if (families.every((f) => el.fonts.includes(f))) right++;
+        if (families.every((f) => el.fonts.some((d) => sameFamily(d, f)))) right++;
         else details.push(`✗ ${e.node.name} (${e.node.id}): design uses ${families.join(", ")}, drawn with ${el.fonts.join(", ")}`);
       } else {
         const drawn = [...new Set(el.fonts.map(fontClass))];
