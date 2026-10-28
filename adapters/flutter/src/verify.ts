@@ -52,8 +52,7 @@ void main() {
   const out = `.tulpar/flutter/build/${name}`;
   const run = await sdk("flutter", ["build", "web", ...WEB_BUILD, "-t", `.tulpar/flutter/harness_${name}.dart`, "-o", out], root);
   if (run.code !== 0) {
-    const lines = (run.stdout + "\n" + run.stderr).split("\n").filter((l) => /error/i.test(l) && !/^\s*#\d/.test(l) && !/Failed to compile application|Compilation failed|ProcessException/.test(l));
-    return { ok: false, log: lines.slice(0, 12).join("\n") || run.stderr.slice(-1500) || `flutter build web failed (exit ${run.code})` };
+    return { ok: false, log: buildErrors(run.stdout + "\n" + run.stderr) || run.stderr.slice(-1500) || `flutter build web failed (exit ${run.code})` };
   }
   return { ok: true, log: `built ${out}`, artifact: join(root, out) };
 }
@@ -125,6 +124,27 @@ export async function render(params: RenderParams, spacingClass?: string): Promi
   } catch (err) {
     return { status: "failed", reason: (err as Error).message.split("\n")[0]! };
   }
+}
+
+/**
+ * The compiler's errors with where they are. dart2js prints the place on the line before the message
+ * ("lib/card.dart:133:23:" then "Error: No named parameter …"), the code after it, and an "Info: Found
+ * this candidate" naming the call that did not match (FilledButton.styleFrom): without them a repair
+ * cannot tell which of two uses of a name is wrong, and fixes the other one.
+ */
+export function buildErrors(output: string): string {
+  const lines = output.split("\n");
+  const out: string[] = [];
+  for (let i = 0; i < lines.length && out.length < 12; i++) {
+    const m = /^(Error|Info): (.+)$/.exec(lines[i]!.trim());
+    if (!m || /Compilation failed/.test(m[2]!)) continue;
+    const place = /(\S+\.dart):(\d+):(\d+):\s*$/.exec(lines[i - 1] ?? "");
+    const code = lines[i + 1]?.trim();
+    const file = place?.[1]!.replace(/\\/g, "/").replace(/^.*\/packages\/flutter\/lib\//, "package:flutter/").replace(/^.*\.tulpar\/generated\/[^/]+\//, "");
+    const where = place ? `${file}:${place[2]}:${place[3]}: ` : "";
+    out.push(`${where}${m[1]}: ${m[2]}${code && !code.startsWith("^") ? ` — ${code}` : ""}`);
+  }
+  return out.join("\n");
 }
 
 export async function analyze(root: string, entry: string, spacingClass?: string): Promise<AnalyzeResult> {

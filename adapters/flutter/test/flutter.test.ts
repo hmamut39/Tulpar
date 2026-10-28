@@ -8,7 +8,7 @@ import { AdapterHost } from "@tulpar/core";
 import { toComponent } from "../src/components.ts";
 import { parse, stalled } from "../src/tests.ts";
 import { flutterBin } from "../src/sdk.ts";
-import { widgetClass } from "../src/verify.ts";
+import { buildErrors, widgetClass } from "../src/verify.ts";
 
 const main = resolve(import.meta.dirname, "../src/main.ts");
 const example = resolve(import.meta.dirname, "../../../examples/flutter-material");
@@ -48,6 +48,25 @@ describe("the Flutter component model", () => {
     expect(parse(events, 1)).toEqual({ status: "ran", runner: "flutter test in Chromium", tests: [{ name: "shows the actions", status: "passed" }, { name: "fails honestly", status: "failed", error: "Expected: exactly one matching candidate   Actual: _TextWidgetFinder:<Found 0 widgets>" }] });
     const broken = [{ type: "testStart", test: { id: 1, name: "loading test/tulpar_run/a_test.dart", url: null } }, { type: "error", testID: 1, error: "a_test.dart:3:8: Error: Not found: 'x.dart'" }, { type: "testDone", testID: 1, result: "error", hidden: true }].map((e) => JSON.stringify(e)).join("\n");
     expect(parse(broken, 1)).toMatchObject({ status: "ran", tests: [], fileError: "a_test.dart:3:8: Error: Not found: 'x.dart'" });
+  });
+
+  it("gives a build error its place and the call it belongs to, so a repair fixes the right line", () => {
+    const out = [
+      "Target dart2js failed: ProcessException: Process exited abnormally with exit code 1:",
+      ".tulpar/generated/SignInCard/sign_in_card.dart:133:23:",
+      "Error: No named parameter with the name 'materialTapTargetSize'.",
+      "                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,",
+      "                      ^^^^^^^^^^^^^^^^^^^^^",
+      "../../../flutter/packages/flutter/lib/src/material/filled_button.dart:243:22:",
+      "Info: Found this candidate, but the arguments don't match.",
+      "  static ButtonStyle styleFrom({",
+      "                     ^^^^^^^^^",
+      "Error: Compilation failed.",
+    ].join("\n");
+    expect(buildErrors(out).split("\n")).toEqual([
+      "sign_in_card.dart:133:23: Error: No named parameter with the name 'materialTapTargetSize'. — materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,",
+      "package:flutter/src/material/filled_button.dart:243:22: Info: Found this candidate, but the arguments don't match. — static ButtonStyle styleFrom({",
+    ]);
   });
 
   it("names a run whose browser never loaded the tests, and marks it worth one more try", () => {
