@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-28T22:37:57.986Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "svelte-carbon-figma",
+      "status": "verified",
+      "attempts": 2,
+      "inputTokens": 10751,
+      "outputTokens": 3049,
+      "seconds": 73,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}

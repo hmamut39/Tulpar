@@ -133,7 +133,7 @@ serve({
         `Put data-figma-id directly on design-system components: they pass unknown attributes through to their element.`,
         `Fill a component's named slots or snippets the way its API declares them (children for the default content).`,
         `Write every token with its value as the fallback, e.g. ${tokenExample}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
-        `In {name}.test.${ext} import { mount, flushSync } from "svelte", { describe, it, expect } from "vitest", and the component from "./{name}.svelte"; mount it into a div appended to document.body, call flushSync(), and query the DOM.`,
+        `In {name}.test.${ext} import { mount, flushSync } from "svelte", { describe, it, expect } from "vitest", and the component from "./{name}.svelte"; mount it into a div appended to document.body, call flushSync(), and query the DOM. ${existsSync(join(params.root, "node_modules", "@testing-library", "svelte")) ? "@testing-library/svelte is installed and may be used." : "Use document.querySelector and the DOM's own APIs: no testing library is installed (no @testing-library/dom or @testing-library/svelte)."} After an event, call flushSync() again before asserting.`,
       ],
       importExample: `import { ${first} } from "${pkg}";`,
     };

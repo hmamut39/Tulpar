@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-28T22:40:22.235Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "react-radix-tailwind-shot",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 27708,
+      "outputTokens": 7435,
+      "seconds": 84,
+      "checks": {
+        "build": false,
+        "colors": true,
+        "type": true,
+        "spacing": true
+      }
+    }
+  ]
+}

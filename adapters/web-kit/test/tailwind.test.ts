@@ -22,6 +22,13 @@ describe("Tailwind, strict", () => {
     expect(offScaleMessage(r.offScale, "el")).toMatch(/p-4, text-red-500.*p-\[var\(--el-…,16px\)\]/);
   });
 
+  it("tells a repair the token form of each rejected class: a weight is not written like a size", () => {
+    const msg = offScaleMessage(["font-normal", "md:text-sm", "bg-blue-500"], "");
+    expect(msg).toContain("a font weight: font-[var(--…font-weight…,400)]");
+    expect(msg).toContain("a font size: text-[length:var(--…font-size…,14px)]");
+    expect(msg).toContain("a colour: bg-[var(--…color…,#…)]");
+  });
+
   it("allows zero, which is no design value, but not the other steps of Tailwind's spacing scale", async () => {
     const r = await tailwindCss([`<h1 className="m-0 !m-0 gap-0 p-4 -mt-2">Sign in</h1>`]);
     expect(r.offScale.sort()).toEqual(["-mt-2", "p-4"]);

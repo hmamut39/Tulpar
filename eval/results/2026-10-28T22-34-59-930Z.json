@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-28T22:34:59.930Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "react-carbon-figma",
+      "status": "verified",
+      "attempts": 1,
+      "inputTokens": 4871,
+      "outputTokens": 1365,
+      "seconds": 41,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}

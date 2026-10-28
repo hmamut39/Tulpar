@@ -116,7 +116,7 @@ serve({
         "Put data-figma-id attributes directly on the design system's elements and on the native elements that carry its directives.",
         `Write every token with its value as the fallback, e.g. ${p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)"}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
         ...(styling === "css" ? [] : [`No ${sheet} variables for design values: use the tokens directly.`]),
-        "In {kebab}.component.spec.ts use TestBed with the standalone component in imports. The specs run under Vitest with its globals (describe, it, expect, beforeEach, vi): no Jasmine-only APIs (jasmine.createSpy, toBeTrue).",
+        "In {kebab}.component.spec.ts use TestBed with the standalone component in imports. The specs run under Vitest with its globals (describe, it, expect, beforeEach, vi): no Jasmine-only APIs (jasmine.createSpy, toBeTrue). The page updates only on change detection: after clicking or typing, call fixture.detectChanges() (and await fixture.whenStable() for async work) before asserting what changed.",
       ],
       importExample: `import { ButtonModule } from "${pkg}/button";`,
     };

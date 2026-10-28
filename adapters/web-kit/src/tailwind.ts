@@ -64,8 +64,21 @@ export async function tailwindCss(sources: string[]): Promise<TailwindResult> {
 
 /** The message a build fails with when classes rely on Tailwind's own scale. */
 export function offScaleMessage(offScale: string[], prefix: string): string {
-  const example = prefix ? `p-[var(--${prefix}-…,16px)]` : "p-[var(--token,16px)]";
-  return `Tailwind's own scale is switched off here, so these classes draw nothing: ${offScale.slice(0, 12).join(", ")}. Use layout utilities (flex, grid, items-center, w-full) as they are, and write every spacing, colour, size, radius and type value as an arbitrary value with a design-system token and its fallback, e.g. ${example}.`;
+  const t = (kind: string, fallback: string) => `var(--${prefix ? `${prefix}-` : ""}${kind},${fallback})`;
+  const example = `p-[${t("…", "16px")}]`;
+  // The form each rejected class takes with a token: a weight is not written like a size (a repair that
+  // only hears "use a token" kept writing font-normal three times).
+  const hints = new Set<string>();
+  for (const c of offScale) {
+    const base = c.replace(/^.*:/, "");
+    if (/^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/.test(base)) hints.add(`a font weight: font-[${t("…font-weight…", "400")}] (Tailwind reads a variable named …weight… as a weight)`);
+    else if (/^text-(xs|sm|base|lg|[2-9]?xl)$/.test(base)) hints.add(`a font size: text-[length:${t("…font-size…", "14px")}]`);
+    else if (/^leading-/.test(base)) hints.add(`a line height: leading-[${t("…line-height…", "20px")}]`);
+    else if (/^tracking-/.test(base)) hints.add(`letter spacing: tracking-[${t("…letter-spacing…", "0px")}]`);
+    else if (/^rounded/.test(base)) hints.add(`a radius: rounded-[${t("…radius…", "4px")}]`);
+    else if (/^(bg|text|border|ring|fill|stroke)-[a-z]+-\d+$/.test(base)) hints.add(`a colour: bg-[${t("…color…", "#…")}] or text-[color:${t("…", "#…")}]`);
+  }
+  return `Tailwind's own scale is switched off here, so these classes draw nothing: ${offScale.slice(0, 12).join(", ")}. Use layout utilities (flex, grid, items-center, w-full) as they are, and write every spacing, colour, size, radius and type value as an arbitrary value with a design-system token and its fallback, e.g. ${example}.${hints.size ? ` Written with a token: ${[...hints].join("; ")}.` : ""}`;
 }
 
 /**
