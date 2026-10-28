@@ -78,7 +78,7 @@ export function familyOf(name: string): string | undefined {
   return family;
 }
 
-function hex(c: Color): string {
+export function hex(c: Color): string {
   return `#${[c.r, c.g, c.b].map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("")}`;
 }
 

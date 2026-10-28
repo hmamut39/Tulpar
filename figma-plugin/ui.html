@@ -40,6 +40,7 @@
   .banner { border-radius: 8px; padding: 9px 11px; font-weight: 600; border: 1px solid var(--line); }
   .banner.pass { color: var(--pass); border-color: currentColor; }
   .banner.fail { color: var(--fail); border-color: currentColor; }
+  .banner.warn { color: var(--figma-color-text-warning, #9a6700); border-color: currentColor; }
   .banner .asked { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
   .checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
   .checks li { display: grid; grid-template-columns: 16px 1fr; gap: 6px; }
@@ -280,9 +281,11 @@ function showResult(j) {
   job = j;
   const r = j.result;
   const departs = r.departures?.length ? ` It differs from the design where you asked (${r.departures.join(", ")}).` : "";
-  const text = { verified: "Verified: every check ran and passed." + departs, "unchecked-remain": "No check failed; some couldn't run.", failed: "Some checks still fail. These files are the best attempt." }[r.status];
-  $("banner").className = `banner ${r.status === "failed" ? "fail" : "pass"}`;
-  $("banner").innerHTML = esc(text) + (j.request ? `<span class="asked">Changed as asked: “${esc(j.request)}”</span>` : "");
+  // Failing only where the design uses values its design system lacks: the code is right, the match cannot be.
+  const designOnly = r.status === "failed" && r.report?.designNote && r.report.checks.filter((c) => c.status === "fail").every((c) => ["layout", "visual", "text", "typeface"].includes(c.id));
+  const text = designOnly ? "The code checks pass. Layout or pixels differ from the design where it uses values the design system doesn't have." : { verified: "Verified: every check ran and passed." + departs, "unchecked-remain": "No check failed; some couldn't run.", failed: "Some checks still fail. These files are the best attempt." }[r.status];
+  $("banner").className = `banner ${designOnly ? "warn" : r.status === "failed" ? "fail" : "pass"}`;
+  $("banner").innerHTML = esc(text) + (r.report?.designNote ? `<span class="asked">${esc(r.report.designNote)}</span>` : "") + (j.request ? `<span class="asked">Changed as asked: “${esc(j.request)}”</span>` : "");
   const failing = (r.report?.checks ?? []).filter((c) => c.status === "fail");
   $("checks").innerHTML = (r.report?.checks ?? [])
     .filter((c) => c.status !== "not-checked")

@@ -430,7 +430,8 @@ input, select, textarea { scroll-margin-top: 88px; }
 .change-row textarea { flex: 1; min-width: 0; min-height: 44px; resize: vertical; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .change-row textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .change-row .btn-primary { flex: none; width: auto; height: 44px; padding: 0 18px; }
-.banner .asked { display: block; margin-top: 4px; font-weight: 400; opacity: .85; }
+.banner:has(.asked) { flex-wrap: wrap; }
+.banner .asked { display: block; flex-basis: 100%; margin-top: 2px; padding-left: 18px; font-weight: 400; opacity: .85; }
 @media (max-width: 560px) { .change-row { flex-direction: column; align-items: stretch; } }
 
 

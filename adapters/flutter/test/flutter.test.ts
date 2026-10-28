@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AdapterHost } from "@tulpar/core";
 import { toComponent } from "../src/components.ts";
-import { parse } from "../src/tests.ts";
+import { parse, stalled } from "../src/tests.ts";
 import { flutterBin } from "../src/sdk.ts";
 import { widgetClass } from "../src/verify.ts";
 
@@ -48,6 +48,17 @@ describe("the Flutter component model", () => {
     expect(parse(events, 1)).toEqual({ status: "ran", runner: "flutter test in Chromium", tests: [{ name: "shows the actions", status: "passed" }, { name: "fails honestly", status: "failed", error: "Expected: exactly one matching candidate   Actual: _TextWidgetFinder:<Found 0 widgets>" }] });
     const broken = [{ type: "testStart", test: { id: 1, name: "loading test/tulpar_run/a_test.dart", url: null } }, { type: "error", testID: 1, error: "a_test.dart:3:8: Error: Not found: 'x.dart'" }, { type: "testDone", testID: 1, result: "error", hidden: true }].map((e) => JSON.stringify(e)).join("\n");
     expect(parse(broken, 1)).toMatchObject({ status: "ran", tests: [], fileError: "a_test.dart:3:8: Error: Not found: 'x.dart'" });
+  });
+
+  it("names a run whose browser never loaded the tests, and marks it worth one more try", () => {
+    // Started, then waited on Chromium until it was stopped: no test finished, the file never loaded.
+    const hung = [{ type: "start", pid: 1 }, { type: "suite", suite: { id: 0, platform: "chrome" } }, { type: "testStart", test: { id: 1, name: "loading test/tulpar_run/a_test.dart", url: null } }].map((e) => JSON.stringify(e)).join("\n");
+    const r = parse(hung, null);
+    expect(r).toEqual({ status: "failed", reason: "the test browser did not load the tests in time (flutter test was stopped)" });
+    expect(stalled(r)).toBe(true);
+    expect(stalled(parse("", null))).toBe(true);
+    // A run that finished, even failing, is never run again.
+    expect(stalled(parse(hung, 1))).toBe(false);
   });
 
   it("names the class a Dart file declares", () => {

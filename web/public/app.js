@@ -316,17 +316,25 @@ async function poll(id) {
   showResult(job);
 }
 
+// Checks that compare the result with the design, rather than the code with the design system.
+const DESIGN_MATCH = ["layout", "visual", "text", "typeface"];
 function showResult(job) {
   const r = job.result;
-  const [cls, text] = {
-    verified: ["pass", "Verified — every check ran and passed."],
-    "unchecked-remain": ["skip", "No check failed. Some couldn't be checked; they're listed below."],
-    failed: ["fail", "Some checks still fail after the last attempt. The files are the best attempt."],
-  }[r.status];
+  // Failing only where the design uses values its design system lacks: the code is right, the match cannot be.
+  const designOnly = r.status === "failed" && r.report?.designNote && r.report.checks.filter((c) => c.status === "fail").every((c) => DESIGN_MATCH.includes(c.id));
+  const [cls, text] = designOnly
+    ? ["skip", "The code checks pass. Layout or pixels differ from the design where it uses values the design system doesn't have."]
+    : {
+        verified: ["pass", "Verified — every check ran and passed."],
+        "unchecked-remain": ["skip", "No check failed. Some couldn't be checked; they're listed below."],
+        failed: ["fail", "Some checks still fail after the last attempt. The files are the best attempt."],
+      }[r.status];
   $("banner").className = `banner ${cls}`;
   // After a change: where the result now differs from the design, because that was asked for.
   const departs = r.departures?.length ? ` It differs from the design where you asked (${r.departures.join(", ")}); the code checks all pass.` : "";
   $("banner").textContent = text + (r.status === "verified" ? departs : "");
+  // A frame not built with the chosen design system: why its layout and pixels differ, before the list of checks.
+  if (r.report?.designNote) $("banner").insertAdjacentHTML("beforeend", `<span class="asked">${esc(r.report.designNote)}</span>`);
   if (job.request) $("banner").insertAdjacentHTML("beforeend", `<span class="asked">Changed as asked: “${esc(job.request)}”</span>`);
   $("resultName").textContent = job.name;
   const report = r.report;

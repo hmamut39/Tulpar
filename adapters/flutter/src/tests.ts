@@ -20,7 +20,11 @@ interface Event {
   error?: string;
 }
 
-export async function runWidgetTests(root: string, testFile: string, timeoutMs = 300_000): Promise<TestRunResult> {
+// A run takes about a minute. Now and then Flutter's web runner starts Chromium and the suite never
+// loads (it waits on the browser until killed): such a run is started again once, with a fresh browser.
+const ATTEMPT_MS = 180_000;
+
+export async function runWidgetTests(root: string, testFile: string, timeoutMs = ATTEMPT_MS): Promise<TestRunResult> {
   if (process.platform === "win32") return { status: "unsupported", reason: "flutter test --platform chrome does not run on Windows here; it runs on Linux" };
   const from = dirname(join(root, testFile));
   const run = join(root, "test", "tulpar_run");
@@ -30,12 +34,20 @@ export async function runWidgetTests(root: string, testFile: string, timeoutMs =
   try {
     const browser = chromium.executablePath();
     if (!existsSync(browser)) return { status: "unsupported", reason: "Playwright's Chromium is not installed (npx playwright install chromium)" };
-    const result = await sdk("flutter", ["test", "--platform", "chrome", "--reporter", "json", `test/tulpar_run/${basename(testFile)}`], root, timeoutMs, { CHROME_EXECUTABLE: browser });
-    return parse(result.stdout, result.code);
+    const once = async () => {
+      const result = await sdk("flutter", ["test", "--platform", "chrome", "--reporter", "json", `test/tulpar_run/${basename(testFile)}`], root, timeoutMs, { CHROME_EXECUTABLE: browser });
+      return parse(result.stdout, result.code);
+    };
+    const first = await once();
+    return stalled(first) ? once() : first;
   } finally {
     rmSync(run, { recursive: true, force: true });
   }
 }
+
+const STALLED = "the test browser did not load the tests in time (flutter test was stopped)";
+/** A run whose browser never loaded the suite: worth one more try. */
+export const stalled = (r: TestRunResult) => r.status === "failed" && (r.reason === STALLED || r.reason === "flutter test did not finish in time and reported nothing");
 
 export function parse(stdout: string, code: number | null): TestRunResult {
   const events = stdout.split("\n").filter((l) => l.startsWith("{")).map((l) => JSON.parse(l) as Event);
@@ -58,6 +70,9 @@ export function parse(stdout: string, code: number | null): TestRunResult {
       tests.push({ name: t.name, status: e.skipped ? "skipped" : e.result === "success" ? "passed" : "failed", ...(e.result !== "success" && errors.has(e.testID) && { error: errors.get(e.testID)! }) });
     }
   }
-  if (!events.length) return { status: "failed", reason: `flutter test reported nothing (exit ${code})` };
+  if (!events.length) return { status: "failed", reason: code === null ? "flutter test did not finish in time and reported nothing" : `flutter test reported nothing (exit ${code})` };
+  // Killed with no test finished and the file never loaded: the browser never ran the suite.
+  const loaded = events.some((e) => e.type === "testDone" && e.testID !== undefined && names.get(e.testID)?.loading);
+  if (code === null && !tests.length && !fileError && !loaded) return { status: "failed", reason: STALLED };
   return { status: "ran", runner: "flutter test in Chromium", tests, ...(fileError && { fileError }) };
 }

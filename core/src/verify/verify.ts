@@ -25,6 +25,7 @@ import {
 import { compareImages, type VisualComparison } from "./visual.ts";
 import { accentProp, familyOf, nearestColorToken } from "../generate/accent.ts";
 import { isPlaceholder } from "../generate/page.ts";
+import { designFit, fitNote } from "./fit.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
@@ -63,6 +64,8 @@ export interface VerifyReport {
   checks: Check[];
   renderer?: { name: string; version: string; os: string };
   warnings: string[];
+  /** When the frame is not built with the design system: what does not match, said before the failures it explains. */
+  designNote?: string;
 }
 
 interface Expected {
@@ -306,6 +309,10 @@ export function verify(input: VerifyInput): VerifyReport {
   checks.push(visualCheck(input, elements, skip, ok, fail));
   checks.push(statesCheck(input, elements, skip, ok, fail));
 
+  const mappedNode = (n: DesignNode) => n.kind === "instance" && !!(input.mapping.get(n.id) ?? input.mapping.get(n.component.id) ?? (n.component.set && input.mapping.get(n.component.set.id)));
+  // Only for a Figma frame: a screenshot's colours and sizes are estimates, too rough to call gaps.
+  const designNote = input.design.source.fileKey === "screenshot" ? undefined : fitNote(designFit(root, input.tokens, mappedNode), input.index.package?.name ?? "the design system");
+
   const ran = checks.filter((c) => c.status !== "not-checked");
   const verdict = checks.some((c) => c.status === "fail") ? "fail" : checks.some((c) => c.status === "not-checked") ? "incomplete" : "pass";
   return {
@@ -315,6 +322,7 @@ export function verify(input: VerifyInput): VerifyReport {
     checks,
     ...(render?.status === "ok" && { renderer: render.renderer }),
     warnings,
+    ...(designNote && { designNote }),
   };
 }
 
