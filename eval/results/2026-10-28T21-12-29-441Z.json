@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-28T21:12:29.441Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "flutter-material-shot",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 12651,
+      "outputTokens": 8107,
+      "seconds": 368,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "visual": true,
+        "states": false
+      }
+    }
+  ]
+}

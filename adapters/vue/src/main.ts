@@ -144,6 +144,7 @@ serve({
           : `Style with ${styleTag}.${styling === "scss" || styling === "less" ? " Nesting is fine; no hard-coded values in variables either." : ""}`,
         `Put data-figma-id directly on design-system components: Vue passes it through to their root element.`,
         `Fill a component's named slots with <template #name>, and bind values with v-model where the component has one (modelValue).`,
+        `Tie each field to its label the way the design system does: a form-item component that renders the label (Element Plus <el-form-item label="Email">) needs its for set to the input's id (and the input that id), or the label points at nothing and tests that find the field by its label fail.`,
         `Write every token with its value as the fallback, e.g. ${p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)"}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
         testUtils
           ? `In {name}.test.${ext} import { mount } from "@vue/test-utils", { describe, it, expect } from "vitest", and the component from "./{name}.vue"; use attachTo: document.body.`

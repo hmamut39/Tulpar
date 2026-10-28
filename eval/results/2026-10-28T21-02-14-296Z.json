@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-28T21:02:14.296Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "react-radix-shot",
+      "status": "verified",
+      "attempts": 1,
+      "inputTokens": 7885,
+      "outputTokens": 2606,
+      "seconds": 77,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}

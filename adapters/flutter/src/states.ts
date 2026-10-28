@@ -38,13 +38,16 @@ export async function measureFlutterStates(page: Page): Promise<StateFact[]> {
       // In steps, as a hand moves: one jump does not always register as hovering in Flutter.
       if (state !== "focus") await page.mouse.move(at.x, at.y, { steps: 6 });
       if (state === "pressed") await page.mouse.down();
-      // Focus as keyboard users reach it: Tab until it is focused (calling .focus() on the page's
-      // element does not move Flutter's own focus).
+      // Focus as keyboard users reach it (calling .focus() on the page's element does not move Flutter's
+      // own focus). A key press first: any key switches Flutter to keyboard mode, where focus is drawn.
+      // The press before may have focused the control already, and a Tab would then move away from it;
+      // otherwise Tab forward, then back, until it is reached.
       if (state === "focus") {
-        for (let i = 0; i < 30; i++) {
-          await page.keyboard.press("Tab");
-          const there = await page.evaluate((id) => !!document.activeElement?.closest(`[flt-semantics-identifier="${CSS.escape(id)}"]`), t.figmaId);
-          if (there) break;
+        const there = () => page.evaluate((id) => !!document.activeElement?.closest(`[flt-semantics-identifier="${CSS.escape(id)}"]`), t.figmaId);
+        await page.keyboard.press("Shift");
+        for (const key of ["Tab", "Shift+Tab"]) {
+          for (let i = 0; i < 30 && !(await there()); i++) await page.keyboard.press(key);
+          if (await there()) break;
         }
       }
       const now = await shot(page, clip);

@@ -31,6 +31,7 @@ function activate(ctx) {
     statusItem,
     vscode.commands.registerCommand("tulpar.generate", generate),
     vscode.commands.registerCommand("tulpar.verify", verify),
+    vscode.commands.registerCommand("tulpar.change", askForChange),
     vscode.commands.registerCommand("tulpar.signIn", signIn),
     vscode.commands.registerCommand("tulpar.signOut", signOut),
     vscode.commands.registerCommand("tulpar.forgetFigmaToken", async () => {
@@ -215,28 +216,65 @@ async function generateHosted(preferred) {
   output.appendLine(`Generating ${design.name} with ${pick.project.label} on tulparsi.com…`);
   let job;
   try {
-    job = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Tulpar: ${design.name}`, cancellable: true }, async (progress, cancel) => {
-      const { id } = await api("POST", "/api/jobs", lib.jobBody({ project: pick.project.id, name: design.name, figmaUrl: design.figmaUrl, screenshot: design.screenshot, figmaToken: design.figmaToken, output: outputChoice }));
-      let shown = 0;
-      for (;;) {
-        if (cancel.isCancellationRequested) throw new Error("Stopped watching. The generation still finishes on tulparsi.com and counts toward your plan.");
-        const current = await api("GET", `/api/jobs/${id}`);
-        for (const e of current.events.slice(shown)) output.appendLine(`  ${e.text}`);
-        if (current.events.length > shown) progress.report({ message: current.events.at(-1).text });
-        else if (current.state === "queued") progress.report({ message: "waiting for a free slot…" });
-        shown = current.events.length;
-        if (current.state === "done" || current.state === "error") return current;
-        await new Promise((r) => setTimeout(r, 1500));
-      }
-    });
+    job = await follow(design.name, () => api("POST", "/api/jobs", lib.jobBody({ project: pick.project.id, name: design.name, figmaUrl: design.figmaUrl, screenshot: design.screenshot, figmaToken: design.figmaToken, output: outputChoice })));
   } catch (e) {
     return reportApiError(e);
   }
+  await finish(job, design.name, design.targetDir);
+}
+
+/** Starts a job on tulparsi.com and shows its progress until it ends; the job as it ended. */
+function follow(title, start) {
+  return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Tulpar: ${title}`, cancellable: true }, async (progress, cancel) => {
+    const { id } = await start();
+    let shown = 0;
+    for (;;) {
+      if (cancel.isCancellationRequested) throw new Error("Stopped watching. The generation still finishes on tulparsi.com and counts toward your plan.");
+      const current = await api("GET", `/api/jobs/${id}`);
+      for (const e of current.events.slice(shown)) output.appendLine(`  ${e.text}`);
+      if (current.events.length > shown) progress.report({ message: current.events.at(-1).text });
+      else if (current.state === "queued") progress.report({ message: "waiting for a free slot…" });
+      shown = current.events.length;
+      if (current.state === "done" || current.state === "error") return current;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  });
+}
+
+/** A finished job: its files written, its render kept, and remembered so a change can be asked for. */
+async function finish(job, name, targetDir, replace = false) {
   refreshStatus();
   const result = lib.fromJob(job);
   if (!result.ok) return void vscode.window.showErrorMessage(`Tulpar: ${result.error}`);
-  if (job.hasRender) await saveRender(job.id, design.name).catch(() => undefined);
-  await deliver(result, design.name, design.targetDir);
+  if (job.hasRender) await saveRender(job.id, name).catch(() => undefined);
+  const changeable = job.canChange ? { id: job.id, name, targetDir, paths: result.files.map((f) => f.path) } : undefined;
+  context.workspaceState.update("tulpar.lastResult", changeable);
+  await deliver(result, name, targetDir, { replace, changeable: !!changeable });
+}
+
+/** "Ask for a change": the last result's files as they are now (with the team's own edits), and the request. */
+async function askForChange() {
+  const last = context.workspaceState.get("tulpar.lastResult");
+  if (!last) return void vscode.window.showInformationMessage("Tulpar: generate a component first (results can be changed for an hour after they finish).");
+  const request = await vscode.window.showInputBox({ title: `Tulpar: change ${last.name}`, prompt: "What should change? It is checked again, and counts as one generation.", placeHolder: "e.g. make the button full width", ignoreFocusOut: true, validateInput: (v) => (v.trim() ? undefined : "Say what to change") });
+  if (!request) return;
+  const files = last.paths.flatMap((p) => {
+    try {
+      return [{ path: p, content: fs.readFileSync(path.join(last.targetDir, p), "utf8") }];
+    } catch {
+      return [];
+    }
+  });
+  output.clear();
+  output.show(true);
+  output.appendLine(`Changing ${last.name} on tulparsi.com: ${request}`);
+  let job;
+  try {
+    job = await follow(`changing ${last.name}`, () => api("POST", `/api/jobs/${last.id}/change`, { request: request.trim(), ...(files.length === last.paths.length && { files }) }));
+  } catch (e) {
+    return reportApiError(e);
+  }
+  await finish(job, last.name, last.targetDir, true);
 }
 
 function reportApiError(e) {
@@ -261,8 +299,9 @@ async function saveRender(id, name) {
 }
 
 /** Writes the files (asking before replacing any), shows the report, and opens the component. */
-async function deliver(result, name, targetDir) {
-  const clashes = lib.collisions(targetDir, result.files);
+async function deliver(result, name, targetDir, { replace = false, changeable = false } = {}) {
+  // A change replaces the files it was asked on: no question.
+  const clashes = replace ? [] : lib.collisions(targetDir, result.files);
   if (clashes.length) {
     const answer = await vscode.window.showWarningMessage(`These files already exist:\n${clashes.map((c) => path.basename(c)).join(", ")}`, { modal: true }, "Replace them");
     if (answer !== "Replace them") {
@@ -283,8 +322,9 @@ async function deliver(result, name, targetDir) {
   if (main) await vscode.window.showTextDocument(vscode.Uri.file(path.join(targetDir, main.path)));
   const status = { verified: "verified: every check passed", "unchecked-remain": "no check failed; some could not be checked", failed: "some checks still fail — see the report" }[result.status];
   const render = context.workspaceState.get("tulpar.lastRender");
-  const actions = ["Show report", ...(render ? ["Show render"] : [])];
+  const actions = [...(changeable ? ["Ask for a change"] : []), "Show report", ...(render ? ["Show render"] : [])];
   (result.status === "failed" ? vscode.window.showWarningMessage : vscode.window.showInformationMessage)(`Tulpar: ${name} — ${status}.`, ...actions).then((a) => {
+    if (a === "Ask for a change") askForChange();
     if (a === "Show report") output.show();
     if (a === "Show render") vscode.commands.executeCommand("vscode.open", vscode.Uri.parse(render), vscode.ViewColumn.Beside);
   });

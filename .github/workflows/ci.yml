@@ -12,10 +12,11 @@ on:
 permissions:
   contents: read
 
-# A newer push makes an older run of the same branch pointless.
+# On main every push is tested and shipped in turn: a newer run (or a re-run of a failed one) never
+# cancels another, which once left a pushed fix untested and never deployed. Elsewhere, newer wins.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:

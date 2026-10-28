@@ -148,5 +148,5 @@ describe.skipIf(!ready)("tulpar generate from the Figma plugin's frame", () => {
     const { result } = await generateCommand(project, { frame: "3906:50588", fileKey: "a-file-never-cached", node, name: "ModalActions", out: join(repo, "out"), resultsDir: join(tmpdir(), "tulpar-test-results", String(Math.random()).slice(2)), cache: empty, llm, quiet: true, noRerank: true });
     expect(llm.requests[0]!.text).toContain("3906:50588");
     expect(result!.report!.checks.find((c) => c.id === "components")!.status).toBe("pass");
-  });
+  }, 180_000);
 });

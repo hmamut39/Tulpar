@@ -36,6 +36,7 @@ Frameworks: **React, Vue, Angular, Svelte, Web Components**. You pick the langua
 | --- | --- |
 | Tulpar: Sign in / Sign out | Connect this editor to your Tulpar account. |
 | Tulpar: Generate component from Figma or a screenshot | Generate, verify and write the files. |
+| Tulpar: Ask for a change to the last component | Say what to change ("make the button full width"). Your files, with your own edits, are changed and checked again. One generation; for an hour after the result. |
 | Tulpar: Forget my Figma token | Remove the saved Figma token from this machine. |
 | Tulpar: Verify this file against a Figma frame | Check your own file against a frame (needs a local Tulpar repository, see below). |
 
