@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: The example project's design system
         run: cd examples/radix && npm ci --no-workspaces --ignore-scripts --no-audit --no-fund
       - uses: ./
