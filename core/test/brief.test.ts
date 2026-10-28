@@ -149,3 +149,27 @@ describe("a change asked for on delivered files", () => {
     expect(result.status).toBe("verified");
   });
 });
+
+describe("repairs never weaken the tests", () => {
+  const conv = { ...conventions, files: [...conventions.files, { path: "{name}.test.tsx", role: "test" as const, description: "" }] };
+  const answer = (test: string) => ({ files: [{ path: "Footer.tsx", content: "export default () => null;" }, { path: "Footer.test.tsx", content: test }], notes: "" });
+  const two = `it("a", () => { expect(1).toBe(1); expect(2).toBe(2); });\nit("b", () => { expect(3).toBe(3); });`;
+  const fewer = `it("a", () => { expect(1).toBe(1); });`;
+  const report = (...failing: string[]) => ({ frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: failing.length ? "fail" : "pass", headline: "", checks: failing.map((id) => ({ id, title: id, status: "fail", summary: `${id} failed`, details: [] })), warnings: [] }) as unknown as VerifyReport;
+
+  it("rejects a repair that drops tests or assertions, and says why", async () => {
+    const llm = new ScriptedLlm([answer(two), answer(fewer), answer(two)]);
+    const reports = [report("tests"), report(), report()];
+    let n = 0;
+    const result = await generate({ llm, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions: conv, maxAttempts: 3, verify: async () => reports[n++]! });
+    expect(result.attempts[1]!.rejected.join()).toMatch(/Footer\.test\.tsx lost tests or assertions \(2 tests and 3 assertions before, 1 and 1 now\)/);
+    // The weakened attempt passed its checks but is not delivered: the next repair is.
+    expect(result.attempts).toHaveLength(3);
+    expect(llm.requests[2]!.text).toContain("never remove or weaken a test");
+  });
+
+  it("counts test cases and assertions, not comments", async () => {
+    const { testWeight } = await import("../src/index.ts");
+    expect(testWeight(`// it("old", () => expect(x))\ntestWidgets("w", (t) async { expect(find.text("A"), findsOneWidget); });`)).toEqual({ tests: 1, assertions: 1 });
+  });
+});

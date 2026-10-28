@@ -491,3 +491,16 @@ h1, h2, h3 { text-wrap: balance; }
 .connect-key label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--text); }
 .connect-key-row { display: flex; gap: 8px; }
 .connect-key-row input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; font-family: var(--font-mono); font-size: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+
+/* Benchmark page: one card per case, the verdict as a pill. */
+.bench-summary { font-weight: 600; color: var(--text); margin: 8px 0 18px; }
+.bench-list { display: grid; gap: 12px; margin-bottom: 28px; }
+.bench-case { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--surface); }
+.bench-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bench-head h3 { margin: 0; font-size: 16px; }
+.bench-status { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.bench-status.pass { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.bench-status.skip { color: var(--muted); border-color: var(--line); }
+.bench-status.fail { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+.bench-meta, .bench-checks { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+.bench-fail { color: var(--danger); }

@@ -100,6 +100,8 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
   const brief = buildBrief(options);
   options.onEvent?.({ type: "brief", brief });
   const expected = brief.conventions.files.map((f) => f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, brief.name)));
+  const testSpec = brief.conventions.files.find((f) => f.role === "test");
+  const testPath = testSpec?.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, brief.name));
   const maxAttempts = options.maxAttempts ?? 3;
   const attempts: Attempt[] = [];
   const usage = { inputTokens: 0, outputTokens: 0 };
@@ -143,6 +145,15 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
       else files.push({ path, content: f.content });
     }
     for (const e of expected) if (!files.some((f) => f.path === e)) rejected.push(`Missing file "${e}".`);
+    // A repair fixes the code, never the tests out of the way: fewer tests or assertions than the attempt
+    // it repairs hide what failed. (A change may drop what it asks to drop; its own repairs may not.)
+    if (previous && testPath) {
+      const before = testWeight(previous.files.find((f) => f.path === testPath)?.content);
+      const after = testWeight(files.find((f) => f.path === testPath)?.content);
+      if (before && after && (after.tests < before.tests || after.assertions < before.assertions)) {
+        rejected.push(`${testPath} lost tests or assertions (${before.tests} tests and ${before.assertions} assertions before, ${after.tests} and ${after.assertions} now): fix the code so the tests pass; never remove or weaken a test to get past a failure.`);
+      }
+    }
     if (options.format && files.length) files.splice(0, files.length, ...(await options.format(files)));
     options.onEvent?.({ type: "generated", attempt: n, files: files.map((f) => f.path) });
 
@@ -193,7 +204,7 @@ function instructions(b: Brief): string {
     `- Write code a senior developer would merge as it is: no unused imports, variables or dead code; accessible markup (every field has a label tied to it, buttons have a type, images have alt text); names that say what things are; comments only where the code cannot say it.`,
     ...(c.files.some((f) => f.role === "test")
       ? [
-          `- The tests are kept and run by the team, so they test what a person sees and does: find things by role, label and visible text (the heading, a field by its label, a button by its name), check each design-system component is there (by its data-figma-id), type and click as a user would, and assert what changes on screen. Never assert a design-system component's internal markup, class names or default attribute values (a checkbox's value, an inner wrapper): they change between library versions and the test then fails for no reason.`,
+          `- The tests are kept and run by the team, so they test what a person sees and does: find things by role, label and visible text (the heading, a field by its label, a button by its name), check each design-system component is there (by its data-figma-id), type and click as a user would, and assert what changes on screen. When a test fails, fix the component, not the test: a repair with fewer tests or assertions is rejected. Never assert a design-system component's internal markup, class names or default attribute values (a checkbox's value, an inner wrapper): they change between library versions and the test then fails for no reason.`,
         ]
       : []),
     `- Write exactly these files and no others: ${c.files.map((f) => f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))).join(", ")}.`,
@@ -275,6 +286,13 @@ function repairText(b: Brief, previous: Attempt, picture?: string, counts: (c: V
     `YOUR PREVIOUS FILES`,
     ...previous.files.map((f) => `--- ${f.path}\n${f.content}`),
   ].join("\n");
+}
+
+/** How much a test file tests: its test cases (it, test, testWidgets) and its assertions (expect). */
+export function testWeight(source: string | undefined): { tests: number; assertions: number } | undefined {
+  if (!source) return undefined;
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  return { tests: (code.match(/\b(?:it|test|testWidgets)\s*\(/g) ?? []).length, assertions: (code.match(/\bexpect\s*\(/g) ?? []).length };
 }
 
 /**

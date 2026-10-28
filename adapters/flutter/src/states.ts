@@ -43,12 +43,17 @@ export async function measureFlutterStates(page: Page): Promise<StateFact[]> {
       // The press before may have focused the control already, and a Tab would then move away from it;
       // otherwise Tab forward, then back, until it is reached.
       if (state === "focus") {
-        const there = () => page.evaluate((id) => !!document.activeElement?.closest(`[flt-semantics-identifier="${CSS.escape(id)}"]`), t.figmaId);
+        // Focus on this control itself: its nearest tagged node is this one, not a field tagged inside it
+        // (Tab reaching a card's text field does not focus the card).
+        const there = () => page.evaluate((id) => document.activeElement?.closest("[flt-semantics-identifier]")?.getAttribute("flt-semantics-identifier") === id, t.figmaId);
         await page.keyboard.press("Shift");
         for (const key of ["Tab", "Shift+Tab"]) {
           for (let i = 0; i < 30 && !(await there()); i++) await page.keyboard.press(key);
           if (await there()) break;
         }
+        // Not reachable by keyboard (a tappable label beside a checkbox the keyboard does reach): it has no
+        // focus to show, so its focus is not judged.
+        if (!(await there())) continue;
       }
       const now = await shot(page, clip);
       await page.mouse.move(0, 0);

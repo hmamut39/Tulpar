@@ -80,7 +80,7 @@ export interface ProjectInfo {
 
 const MAX_BODY = 12 * 1024 * 1024;
 /** Clean URLs for the site's pages. */
-const PAGES: Record<string, string> = { "/": "/index.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html", "/admin": "/admin.html", "/connect": "/connect.html" };
+const PAGES: Record<string, string> = { "/": "/index.html", "/benchmark": "/benchmark.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html", "/admin": "/admin.html", "/connect": "/connect.html" };
 
 export function listProjects(repoRoot: string): ProjectInfo[] {
   // The built-in examples, then design systems added from the page (out/projects).
@@ -259,6 +259,9 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         }
         if (req.headers.authorization || path === "/api/config") res.setHeader("access-control-allow-origin", "*");
       }
+
+      // The public benchmark: the latest result of every case in eval/cases.json, as the benchmark recorded it.
+      if (req.method === "GET" && path === "/api/benchmark") return json(res, 200, benchmark(options.repoRoot, projects));
 
       if (req.method === "GET" && path === "/healthz") return json(res, 200, { ok: true, pending: queue.pending });
 
@@ -570,6 +573,30 @@ class HttpError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+/**
+ * The benchmark as eval/results records it: per case, its latest run (status, attempts, seconds, the
+ * checks that passed or failed), with the project it ran on. Read once: the results ship with the server.
+ */
+let benchmarkCache: unknown;
+function benchmark(repoRoot: string, projects: ProjectInfo[]): unknown {
+  if (benchmarkCache) return benchmarkCache;
+  const dir = join(repoRoot, "eval", "results");
+  const cases = existsSync(join(repoRoot, "eval", "cases.json")) ? (JSON.parse(readFileSync(join(repoRoot, "eval", "cases.json"), "utf8")) as { cases: { id: string; project: string; frame?: string; image?: string; output?: { language?: string; styling?: string } }[] }).cases : [];
+  const latest = new Map<string, { at: string; model: string; result: { status: string; attempts: number; seconds: number; checks: Record<string, boolean> } }>();
+  for (const file of existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")).sort() : []) {
+    const run = JSON.parse(readFileSync(join(dir, file), "utf8")) as { at: string; model: string; results?: { id: string; status: string; attempts: number; seconds: number; checks: Record<string, boolean> }[] };
+    for (const r of run.results ?? []) latest.set(r.id, { at: run.at, model: run.model, result: r });
+  }
+  const rows = cases.flatMap((c) => {
+    const run = latest.get(c.id);
+    if (!run) return [];
+    const project = projects.find((p) => p.dir.replace(/\\/g, "/").endsWith(c.project));
+    return [{ id: c.id, adapter: project?.adapter ?? c.project.split("/").pop(), designSystem: project?.label.split(" · ").slice(1).join(" · ") ?? c.project, input: c.frame ? "figma" : "screenshot", styling: c.output?.styling ?? "default", at: run.at, model: run.model.replace(/^openai:/, ""), status: run.result.status, attempts: run.result.attempts, seconds: run.result.seconds, checks: run.result.checks }];
+  });
+  benchmarkCache = { cases: rows, updated: rows.map((r) => r.at).sort().at(-1) ?? null };
+  return benchmarkCache;
 }
 
 /** The Figma plugin's frame (exportAsync JSON_REST_V1): a node with its box, and the components it uses. */
