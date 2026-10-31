@@ -57,8 +57,7 @@ createServer(async (req, res) => {
         });
         res.end(JSON.stringify(result));
       } catch (err) {
-        res.end(JSON.stringify({ ok: false, log: (err as Error).message.split("
-")[0] }));
+        res.end(JSON.stringify({ ok: false, log: (err as Error).message.split("\n")[0] }));
       } finally {
         clearInterval(alive);
       }
