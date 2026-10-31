@@ -54,7 +54,8 @@ RUN curl -sSL -o /tmp/flutter.tar.xz "https://storage.googleapis.com/flutter_inf
  && flutter --disable-analytics && dart --disable-analytics \
  && flutter config --no-enable-android --no-enable-ios --no-enable-linux-desktop --no-enable-macos-desktop --no-enable-windows-desktop \
  && flutter precache --web \
- && rm -rf /opt/flutter/examples /opt/flutter/dev/integration_tests /opt/flutter/dev/benchmarks /opt/flutter/dev/devicelab /opt/flutter/bin/cache/downloads
+ && rm -rf /opt/flutter/examples /opt/flutter/dev/integration_tests /opt/flutter/dev/benchmarks /opt/flutter/dev/devicelab /opt/flutter/bin/cache/downloads \
+ && rm -rf /opt/flutter/bin/cache/artifacts/engine/android-* /opt/flutter/bin/cache/artifacts/engine/linux-x64-profile /opt/flutter/bin/cache/artifacts/engine/linux-x64-release
 # The Flutter example's packages and Tulpar's analyzer programs, fetched now: nothing downloads during a run.
 COPY --chown=node:node --parents examples/flutter-material/pubspec.yaml examples/flutter-material/pubspec.lock adapters/flutter/tool/pubspec.yaml adapters/flutter/tool/pubspec.lock ./
 RUN (cd examples/flutter-material && flutter pub get) && (cd adapters/flutter/tool && dart pub get)
