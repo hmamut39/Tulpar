@@ -25,7 +25,7 @@ The plugin sends a picture of the selected frame (exported by Figma at 2×, or 1
 3. Import `figma-plugin/manifest.json` (as above), then **Plugins → Development → Manage plugins in development → Tulpar → Publish**.
 4. For the listing:
    - **Tagline:** Figma frames to verified code in your design system.
-   - **Description:** Select a frame and Tulpar writes it with your team's design system (React, Vue, Angular, Svelte, Web Components or Flutter; Carbon, MUI, Chakra, Radix, shadcn/ui, PrimeNG, Element Plus, Shoelace, Material 3, or any design system on npm). It then builds, renders and checks the code against your frame before you see it: components, tokens, layout, text, pixels, tests and interaction states. Ask for changes in words, and they are checked again.
+   - **Description:** Select a frame and Tulpar writes it with your team's design system (React, Vue, Angular, Svelte, Web Components, Flutter, Blazor or Leptos; Carbon, MUI, Chakra, Radix, shadcn/ui, PrimeNG, Element Plus, Shoelace, Material 3, or any design system on npm). It then builds, renders and checks the code against your frame before you see it: components, tokens, layout, text, pixels, tests and interaction states. Ask for changes in words, and they are checked again.
    - **Network access:** tulparsi.com, to generate and verify the component.
    - **Icon:** `figma-plugin/icon-128.png`.
    - **Cover:** `figma-plugin/cover-1920x960.png`.
