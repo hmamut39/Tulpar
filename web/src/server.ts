@@ -89,7 +89,7 @@ export function listProjects(repoRoot: string): ProjectInfo[] {
 
 function projectsIn(base: string): ProjectInfo[] {
   if (!existsSync(base)) return [];
-  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor", leptos: "Leptos" };
+  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor", compose: "Compose", leptos: "Leptos" };
   return readdirSync(base, { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(join(base, d.name, "tulpar.json")))
     .map((d) => {
@@ -97,7 +97,7 @@ function projectsIn(base: string): ProjectInfo[] {
       const pkgs = (cfg[cfg.adapter]?.packages as string[] | undefined) ?? [];
       const pkg = pkgs[0] && existsSync(join(base, d.name, pkgs[0], "package.json")) ? JSON.parse(readFileSync(join(base, d.name, pkgs[0], "package.json"), "utf8")) : undefined;
       // Flutter's design system is a Dart library, not an npm package: Material, unless configured otherwise.
-      const library = cfg.adapter === "flutter" ? (cfg.flutter?.library as string | undefined) ?? "package:flutter/material.dart" : undefined;
+      const library = cfg.adapter === "flutter" ? (cfg.flutter?.library as string | undefined) ?? "package:flutter/material.dart" : cfg.adapter === "compose" ? "Material 3" : undefined;
       // A design system kept in the project's source: shadcn/ui when its CLI's components.json is there.
       const ownSource = !pkg && cfg[cfg.adapter]?.sources?.length ? (existsSync(join(base, d.name, "components.json")) ? "shadcn/ui" : "the project's components") : undefined;
       // Blazor's design system is a NuGet package, at the version the project's .csproj pins.

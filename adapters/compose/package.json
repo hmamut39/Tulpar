@@ -1,0 +1,13 @@
+{
+  "name": "@tulpar/adapter-compose",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "tulpar-adapter-compose": "./src/main.ts" },
+  "dependencies": {
+    "@tulpar/core": "0.0.0",
+    "@tulpar/web-kit": "0.0.0",
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0"
+  }
+}

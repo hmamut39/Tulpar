@@ -1,0 +1,9 @@
+{
+  "adapter": "compose",
+  "figma": {
+    "fileKey": "b8xYgmx2Js30XaldxPkOs9"
+  },
+  "compose": {
+    "spacing": { "file": "src/wasmJsMain/kotlin/Space.kt", "object": "Space" }
+  }
+}

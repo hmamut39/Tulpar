@@ -12,3 +12,7 @@ examples/blazor-mud/obj
 adapters/blazor/tool/bin
 adapters/blazor/tool/obj
 examples/leptos-thaw/target
+examples/compose-material/build
+examples/compose-material/.gradle
+examples/compose-material/.kotlin
+examples/compose-material/.tulpar
