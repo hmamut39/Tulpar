@@ -45,6 +45,7 @@ export async function verifyCommand(projectDir: string, entry: string, options: 
 export function printReport(r: VerifyReport): void {
   const mark = { pass: "✓", fail: "✗", "not-checked": "–" } as const;
   console.log(`${r.frame.name} (${r.frame.id}, ${r.frame.width}×${r.frame.height})`);
+  if (r.designNote) console.log(`  ! ${r.designNote}`);
   for (const c of r.checks) {
     console.log(`  ${mark[c.status]} ${c.status === "not-checked" ? `${c.title}: not checked (${c.summary})` : c.summary}`);
     for (const d of c.details.filter((d) => !d.startsWith("✓"))) console.log(`      ${d}`);

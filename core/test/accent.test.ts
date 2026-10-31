@@ -30,6 +30,9 @@ describe("accent colour", () => {
     expect(hint.options.map((o) => o.family)).toEqual(["blue", "cyan", "red"]);
     expect(familyOf("chakra-colors-blue-500")).toBe("blue");
     expect(familyOf("mui-palette-info-main")).toBe("info");
+    expect(familyOf("mud-palette-info")).toBe("info");
+    expect(familyOf("mud-palette-info-darken")).toBe("info");
+    expect(familyOf("mud-palette-background")).toBeUndefined();
     expect(familyOf("p-gray-500")).toBeUndefined();
   });
 

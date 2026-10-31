@@ -13,7 +13,8 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-    TULPAR_FLUTTER_SDK=/opt/flutter PATH=/opt/flutter/bin:$PATH
+    TULPAR_FLUTTER_SDK=/opt/flutter TULPAR_DOTNET_ROOT=/opt/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+    PATH=/opt/flutter/bin:/opt/dotnet:$PATH
 
 # System packages: git for Carbon's Code Connect files, and the typefaces design systems are drawn in.
 # The render's network is blocked, so a design system's web fonts (Carbon's IBM Plex from IBM's CDN)
@@ -21,10 +22,10 @@ ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
 # IBM Plex (Carbon), Roboto (Material UI), Inter and Open Sans (common in designs); all open licences.
 # (Debian ships IBM Plex in its contrib section, which the base image does not enable.)
 RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources \
- && apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl xz-utils unzip \
+ && apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl xz-utils unzip libicu72 \
       fonts-ibm-plex fonts-roboto fonts-inter fonts-open-sans \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /opt/flutter && chown node:node /app /opt/flutter
+ && mkdir -p /opt/flutter /opt/dotnet && chown node:node /app /opt/flutter /opt/dotnet
 
 # Tulpar's own dependencies: the manifests only, so a code change reuses this layer.
 COPY --chown=node:node package.json package-lock.json ./
@@ -55,6 +56,14 @@ RUN curl -sSL -o /tmp/flutter.tar.xz "https://storage.googleapis.com/flutter_inf
 COPY --chown=node:node --parents examples/flutter-material/pubspec.yaml examples/flutter-material/pubspec.lock adapters/flutter/tool/pubspec.yaml adapters/flutter/tool/pubspec.lock ./
 RUN (cd examples/flutter-material && flutter pub get) && (cd adapters/flutter/tool && dart pub get)
 
+# .NET, for building and checking Blazor components: Microsoft's release archive, its published SHA-512
+# checked. Generated C# is compiled here and runs only in Chromium, as WebAssembly.
+ARG DOTNET_VERSION=10.0.403
+ARG DOTNET_SHA512=b7b3d8461cf98b07d2552ce9199702fa3ad010ac2671a5f8cd5136f7534e50f6855ba7bbb02b11494563f1d04156276a31cda1103b900e5eecd0d9473dc7b9c5
+RUN curl -sSL -o /tmp/dotnet.tar.gz "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_VERSION}/dotnet-sdk-${DOTNET_VERSION}-linux-x64.tar.gz" \
+ && echo "${DOTNET_SHA512}  /tmp/dotnet.tar.gz" | sha512sum -c - \
+ && tar -xzf /tmp/dotnet.tar.gz -C /opt/dotnet && rm /tmp/dotnet.tar.gz
+
 # Carbon's Code Connect files: the explicit Figma ↔ code links (public repository).
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-design-system/carbon.git .cache/repos/carbon \
  && git -C .cache/repos/carbon sparse-checkout set --no-cone '**/*.figma.ts' '**/*.figma.tsx'
@@ -65,6 +74,8 @@ COPY --chown=node:node . .
 RUN node deploy/manifests.ts
 # Flutter's widget index and theme, read now: an idle machine restarts and would lose them.
 RUN node deploy/warm-flutter.ts
+# The Blazor example's packages, components and theme, fetched and read now: nothing downloads during a run.
+RUN (cd examples/blazor-mud && dotnet restore) && node deploy/warm-blazor.ts
 
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
 # deploy/start.sh prepares the volume as root, then runs the server as the "node" user.

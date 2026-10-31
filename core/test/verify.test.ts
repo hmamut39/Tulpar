@@ -221,10 +221,20 @@ describe("verify", () => {
     expect(c.details).toEqual(expect.arrayContaining(["– Slot (2:5): a placeholder the team fills", "– Close (2:6): an icon, drawn with the icon set"]));
   });
 
+  it("takes an instance's words in any order (a component arranges its own parts), but a missing word still fails", () => {
+    const two = { ...instance("2:1", "B", 0, "Email address"), children: [text("I2:1;1", "Email address", box(16, 11, 44, 18))] } as DesignNode;
+    const d = { ...design, root: { ...design.root, children: [two] } } as DesignTree;
+    const els = good().slice(0, 2);
+    els[1] = { ...els[1]!, text: "address Email" };
+    expect(verify({ ...input(els), design: d }).checks.find((c) => c.id === "text")!.status).toBe("pass");
+    els[1] = { ...els[1]!, text: "Email" };
+    expect(verify({ ...input(els), design: d }).checks.find((c) => c.id === "text")!.status).toBe("fail");
+  });
+
   it("takes a font's face name as its family: Plex SemiBold is Plex", () => {
     const els = good();
     els[1] = { ...els[1]!, fonts: ["Plex SemiBold"] };
-    els[2] = { ...els[2]!, fonts: ["Plex Bold Italic"] };
+    els[2] = { ...els[2]!, fonts: ["Plex 16pt Bold Italic"] };
     expect(status(verify(input(els)), "typeface")).toBe("pass");
     els[1] = { ...els[1]!, fonts: ["Plex Serif"] };
     expect(status(verify(input(els)), "typeface")).toBe("fail");

@@ -162,7 +162,7 @@ const option = (value, label, disabled) => `<option value="${esc(value)}"${disab
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const LANGUAGES = { typescript: "TypeScript", javascript: "JavaScript" };
 const STYLINGS = { css: "CSS", "css-modules": "CSS Modules", scss: "SCSS", less: "LESS", tailwind: "Tailwind CSS", "styled-components": "styled-components", emotion: "Emotion" };
-const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", flutter: "Flutter", "web-components": "Web Components" };
+const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor (C#)", "web-components": "Web Components" };
 
 async function start() {
   if (!key) return view("connect");
@@ -183,7 +183,7 @@ async function start() {
 }
 
 function fillProjects() {
-  const order = ["react", "vue", "angular", "svelte", "flutter", "web-components"];
+  const order = ["react", "vue", "angular", "svelte", "blazor", "flutter", "web-components"];
   const projects = [...config.projects].sort((a, b) => order.indexOf(a.adapter) - order.indexOf(b.adapter));
   $("project").innerHTML = projects.map((p) => option(p.id, `${FRAMEWORKS[p.adapter] ?? p.adapter} · ${p.label.split(" · ").slice(1).join(" · ") || p.label}`)).join("");
   fillOutputs();
@@ -193,7 +193,7 @@ function fillOutputs() {
   const project = config.projects.find((p) => p.id === $("project").value);
   const outputs = (config.outputs?.[project?.adapter] ?? []).filter((o) => !project?.stylings || project.stylings.includes(o.styling));
   const languages = [...new Set(outputs.map((o) => o.language))];
-  $("language").innerHTML = languages.length ? languages.map((l) => option(l, LANGUAGES[l] ?? l)).join("") : option("", project?.adapter === "flutter" ? "Dart" : "Its default");
+  $("language").innerHTML = languages.length ? languages.map((l) => option(l, LANGUAGES[l] ?? l)).join("") : option("", project?.adapter === "flutter" ? "Dart" : project?.adapter === "blazor" ? "C#" : "Its default");
   fillStyling();
 }
 

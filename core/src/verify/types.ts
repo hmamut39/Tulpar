@@ -87,6 +87,8 @@ export interface RenderParams extends ProjectParams {
   theme?: string;
   /** @font-face rules for the design's typefaces (files inlined): the sandbox cannot download them itself. */
   fontFaces?: string;
+  /** The families the design's text uses: a project's required font is only missed if the design asks for it. */
+  designFamilies?: string[];
 }
 
 /** One interactive element in one state, compared with itself at rest. */

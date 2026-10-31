@@ -67,10 +67,13 @@ export function accentHint(root: DesignNode, set: TokenSet, mode: string, max = 
 
 /**
  * The palette a colour token belongs to: "blue" for blue-9 (Radix), chakra-colors-blue-500,
- * p-blue-500 (PrimeNG) or mui-palette-info-main; undefined for greys, roles and other tokens.
+ * p-blue-500 (PrimeNG), mui-palette-info-main or mud-palette-info; undefined for greys, roles and other tokens.
  */
 export function familyOf(name: string): string | undefined {
   const n = name.toLowerCase();
+  // A palette's role with no step, and its shades: mud-palette-info, mud-palette-info-darken (MudBlazor).
+  const role = /(?:^|-)palette-(primary|secondary|tertiary|info|success|warning|error)(?:-darken|-lighten)?$/.exec(n);
+  if (role) return role[1]!;
   const m = /(?:^|-)(?:colou?rs?-|palette-)?([a-z]+)-(\d{1,3}|main)$/.exec(n);
   if (!m) return undefined;
   const family = m[1]!;
@@ -145,9 +148,11 @@ export function accentProp(props: { name: string; type?: { kind: string; values?
   for (const p of props) {
     if (!COLOUR_PROP.test(p.name) || p.type?.kind !== "enum" || !p.type.values?.length) continue;
     const values = p.type.values.map(String);
-    const family = accent.options.map((o) => o.family).find((f) => values.includes(f));
+    // As the API spells it: a palette "info" is MudBlazor's value "Info".
+    const family = accent.options.map((o) => values.find((v) => v.toLowerCase() === o.family)).find(Boolean);
     if (family) return { prop: p.name, value: family };
-    const roleValue = role && ROLE_SYNONYMS[role]!.find((r) => values.includes(r));
+    // As the API spells it: "info", or MudBlazor's "Info".
+    const roleValue = role && values.find((v) => ROLE_SYNONYMS[role]!.includes(v.toLowerCase()));
     if (roleValue) return { prop: p.name, value: roleValue };
   }
   return undefined;

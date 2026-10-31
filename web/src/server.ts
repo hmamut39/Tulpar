@@ -89,7 +89,7 @@ export function listProjects(repoRoot: string): ProjectInfo[] {
 
 function projectsIn(base: string): ProjectInfo[] {
   if (!existsSync(base)) return [];
-  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte", flutter: "Flutter" };
+  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor" };
   return readdirSync(base, { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(join(base, d.name, "tulpar.json")))
     .map((d) => {
@@ -100,7 +100,11 @@ function projectsIn(base: string): ProjectInfo[] {
       const library = cfg.adapter === "flutter" ? (cfg.flutter?.library as string | undefined) ?? "package:flutter/material.dart" : undefined;
       // A design system kept in the project's source: shadcn/ui when its CLI's components.json is there.
       const ownSource = !pkg && cfg[cfg.adapter]?.sources?.length ? (existsSync(join(base, d.name, "components.json")) ? "shadcn/ui" : "the project's components") : undefined;
-      const product = library ? (library === "package:flutter/material.dart" ? "Material 3" : library) : ownSource;
+      // Blazor's design system is a NuGet package, at the version the project's .csproj pins.
+      const nuget = cfg.adapter === "blazor" ? (cfg.blazor?.packages?.[0] as string | undefined) : undefined;
+      const csproj = nuget ? readdirSync(join(base, d.name)).find((f) => f.endsWith(".csproj")) : undefined;
+      const nugetVersion = csproj ? new RegExp(`Include="${nuget}"\\s+Version="([^"]+)"`).exec(readFileSync(join(base, d.name, csproj), "utf8"))?.[1] : undefined;
+      const product = library ? (library === "package:flutter/material.dart" ? "Material 3" : library) : nuget ? `${nuget}${nugetVersion ? `@${nugetVersion}` : ""}` : ownSource;
       const stylings = cfg[cfg.adapter]?.tailwind ? ["tailwind"] : undefined;
       return { id: d.name, dir: join(base, d.name), adapter: cfg.adapter, label: `${labels[cfg.adapter] ?? cfg.adapter}${pkg ? ` · ${pkg.name}@${pkg.version}` : product ? ` · ${product}` : ""}`, ...(stylings && { stylings }) };
     });

@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-31T14:50:37.128Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "blazor-mud-shot",
+      "status": "unchecked-remain",
+      "attempts": 3,
+      "inputTokens": 14096,
+      "outputTokens": 3404,
+      "seconds": 112,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}

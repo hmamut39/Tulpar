@@ -85,7 +85,7 @@ async function capture(page: Page, figmaId: string, clip: { x: number; y: number
     for (const node of [el, ...el.querySelectorAll<HTMLElement>("*")]) {
       const s = getComputedStyle(node);
       if (s.visibility === "hidden" || s.display === "none") continue;
-      for (const c of [s.backgroundColor, s.color, s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0 ? s.outlineColor : "", s.borderTopStyle !== "none" && parseFloat(s.borderTopWidth) > 0 ? s.borderTopColor : ""]) if (c && opaque(c)) colors.add(c);
+      for (const c of [s.backgroundColor, s.color, /* "auto" is the browser's own focus ring, in its own colour */ s.outlineStyle !== "none" && s.outlineStyle !== "auto" && parseFloat(s.outlineWidth) > 0 ? s.outlineColor : "", s.borderTopStyle !== "none" && parseFloat(s.borderTopWidth) > 0 ? s.borderTopColor : ""]) if (c && opaque(c)) colors.add(c);
       for (const m of s.boxShadow.matchAll(/rgba?\([^)]*\)/g)) if (opaque(m[0])) colors.add(m[0]);
     }
     return { box: { x: r.x, y: r.y, width: r.width, height: r.height }, colors: [...colors] };

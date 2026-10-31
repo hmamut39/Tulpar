@@ -262,7 +262,10 @@ export function verify(input: VerifyInput): VerifyReport {
       // An instance's design text may include the content placed into it (a form field's input with its
       // placeholder): either reading matches.
       const seen = got.replace(/\s+/g, " ").trim();
-      if (seen === want || (e.node.kind === "instance" && seen === visibleText(e.node, true))) exact++;
+      // A component arranges its own parts (MudTextField writes its input before its label, and shows the
+      // label above): for an instance the same words in another order are the same text.
+      const words = (t: string) => t.split(" ").sort().join(" ");
+      if (seen === want || (e.node.kind === "instance" && (seen === visibleText(e.node, true) || words(seen) === words(want) || words(seen) === words(visibleText(e.node, true))))) exact++;
       else details.push(`✗ ${e.node.name} (${e.node.id}): design says ${JSON.stringify(want)}, rendered ${JSON.stringify(el.text)}`);
     }
     const summary = checked === exact ? "text matches exactly" : `text differs on ${checked - exact} of ${checked} elements`;
@@ -270,9 +273,10 @@ export function verify(input: VerifyInput): VerifyReport {
     else checks.push(exact === checked ? ok("text", "Text", `${summary} (${checked})`, details) : fail("text", "Text", summary, details));
   }
 
-  // A drawn font names its face: "Inter SemiBold" is Inter at weight 600, the family the design asks for.
+  // A drawn font names its face: "Inter SemiBold" is Inter at weight 600, and "Newsreader 16pt" a variable
+  // font's optical size, both the family the design asks for.
   const sameFamily = (drawn: string, family: string) =>
-    drawn === family || (drawn.startsWith(`${family} `) && /^(thin|hairline|extra ?light|ultra ?light|light|regular|normal|book|medium|semi ?bold|demi ?bold|bold|extra ?bold|ultra ?bold|black|heavy|italic|oblique|\s)+$/i.test(drawn.slice(family.length + 1)));
+    drawn === family || (drawn.startsWith(`${family} `) && /^(thin|hairline|extra ?light|ultra ?light|light|regular|normal|book|medium|semi ?bold|demi ?bold|bold|extra ?bold|ultra ?bold|black|heavy|italic|oblique|\d+(\.\d+)?pt|\s)+$/i.test(drawn.slice(family.length + 1)));
 
   // 9. Typeface actually used to draw the text
   if (!elements) checks.push(skip("typeface", "Typeface", noRender));

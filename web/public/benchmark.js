@@ -3,7 +3,7 @@ import { initAccount } from "./account.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", flutter: "Flutter", "web-components": "Web Components" };
+const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor (C#)", "web-components": "Web Components" };
 const STATUS = { verified: ["pass", "Verified"], "unchecked-remain": ["skip", "No failures"], failed: ["fail", "Failed"] };
 const CHECKS = { components: "Components", colors: "Colours", type: "Type", spacing: "Spacing", layout: "Layout", text: "Text", typeface: "Typeface", tests: "Tests", visual: "Pixels", states: "States", build: "Build", render: "Render" };
 // Product names for known packages, as the generate page shows them.

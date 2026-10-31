@@ -35,9 +35,11 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
   const warnings: string[] = [];
   try {
     const blocked = new Set<string>();
+    // A page that cannot load from a file (WebAssembly) is served on localhost by its adapter: only that origin is open.
+    const served = /^http:\/\/127\.0\.0\.1:\d+\//.exec(params.artifact)?.[0];
     await context.route("**/*", (route) => {
       const url = route.request().url();
-      if (url.startsWith("file:") || url.startsWith("data:")) return route.continue();
+      if (url.startsWith("file:") || url.startsWith("data:") || (served && url.startsWith(served))) return route.continue();
       blocked.add(new URL(url).host);
       return route.abort();
     });
@@ -53,7 +55,7 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     await cdp.send("DOM.enable");
     await cdp.send("CSS.enable");
 
-    await page.goto(pathToFileURL(params.artifact).href, { waitUntil: "load" });
+    await page.goto(served ? params.artifact : pathToFileURL(params.artifact).href, { waitUntil: "load" });
     // The design's typefaces, fetched by Tulpar: the code may load them from the web, which is blocked here.
     if (params.fontFaces) await page.addStyleTag({ content: params.fontFaces });
     // An app always renders inside a theme; without one, theme variables are undefined.
@@ -190,7 +192,7 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     await markUndefinedTokens(page, elements);
     // Fonts the project requires but that drew none of the tagged text: text metrics are then untrustworthy.
     const used = new Set(elements.flatMap((e) => e.fonts));
-    const missing = (config.fonts ?? []).filter((f) => !used.has(f));
+    const missing = (config.fonts ?? []).filter((f) => !used.has(f) && (!params.designFamilies || params.designFamilies.includes(f)));
     if (missing.length && elements.some((e) => e.text)) warnings.push(`Required fonts drew no text: ${missing.join(", ")} (used: ${[...used].join(", ") || "none"}). Text sizes are untrustworthy.`);
     const png = (await page.locator(`#${FRAME_ID}`).screenshot({ type: "png" })).toString("base64");
     // Last: hovering, pressing and focusing changes the page.

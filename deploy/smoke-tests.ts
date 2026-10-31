@@ -94,6 +94,25 @@ for (const c of cases) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+// Blazor has no generated tests (they would run on the host): it must build and draw in the sandbox.
+{
+  const project = await loadProject(join(repo, "examples/blazor-mud"));
+  const dir = join(project.root, ".tulpar", "smoke");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "Smoke.razor"), `<MudButton data-figma-id="b" Variant="Variant.Filled" Style="text-transform: none">Smoke shows the button</MudButton>\n`);
+  try {
+    const drew = await withAdapter(project, async (host) => {
+      const built = await host.call("build", { ...project.params, entry: ".tulpar/smoke/Smoke.razor", frame: { width: 300, height: 80 } });
+      if (!built.ok) return built.log;
+      const r = await host.call("render", { ...project.params, artifact: built.artifact as string, entry: ".tulpar/smoke/Smoke.razor", width: 300, height: 80, scale: 1 });
+      return r.status === "ok" && r.elements.some((e) => e.component === "MudButton" && e.text === "Smoke shows the button") ? "" : r.status === "ok" ? "the button was not drawn" : r.reason;
+    });
+    if (drew) failed++;
+    console.log(`${drew ? "FAIL" : "ok  "} blazor: ${drew || "built and drew MudButton"}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 // Generated files are formatted in the image too (Prettier, and its Svelte plugin).
 const formatted = await formatFiles(repo, [
   { path: "A.tsx", content: "export default function A(){return <b>Go</b>}" },

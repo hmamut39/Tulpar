@@ -31,7 +31,7 @@ import {
   type Figma,
   type NormalizeContext,
 } from "@tulpar/core";
-import { designFontFaces } from "./fonts.ts";
+import { designFamilies, designFontFaces } from "./fonts.ts";
 import type { Project } from "./project.ts";
 
 /** Which Figma frame to use, and how it may be fetched. */
@@ -248,7 +248,7 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
   const build = caps.build ? await host.call("build", { ...project.params, entry, frame }) : undefined;
   const render =
     caps.render.supported && build?.ok && build.artifact
-      ? await host.call("render", { ...project.params, artifact: build.artifact, entry, ...frame, scale: 1, ...(theme && { theme }), ...(fontFaces && { fontFaces }) })
+      ? await host.call("render", { ...project.params, artifact: build.artifact, entry, ...frame, scale: 1, ...(theme && { theme }), ...(fontFaces && { fontFaces }), designFamilies: designFamilies(ctx.design.root) })
       : undefined;
   // The static scan needs no build, so it runs even when the build fails.
   const analysis = caps.staticProvenance ? await host.call("analyze", { ...project.params, entry }).catch(() => undefined) : undefined;

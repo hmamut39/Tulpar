@@ -15,6 +15,18 @@ const CACHE = process.env.TULPAR_FONT_CACHE ?? join(tmpdir(), "tulpar-fonts");
 // Families the render already has (shipped with Tulpar) or every browser has: nothing to fetch.
 const HAVE = new Set(["ibm plex sans", "ibm plex mono", "roboto", "inter", "open sans", "arial", "helvetica", "times new roman", "georgia", "courier new", "sf pro", "sf pro text", "sf pro display", "segoe ui"]);
 
+/** Every family the design's text uses. */
+export function designFamilies(root: DesignNode): string[] {
+  const out = new Set<string>();
+  const visit = (n: DesignNode) => {
+    if (!n.visible) return;
+    if (n.kind === "text" && n.style.fontFamily) out.add(n.style.fontFamily);
+    if ("children" in n) for (const c of n.children) visit(c);
+  };
+  visit(root);
+  return [...out];
+}
+
 /** Family → the weights and styles the design's text uses. */
 export function designFonts(root: DesignNode): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();

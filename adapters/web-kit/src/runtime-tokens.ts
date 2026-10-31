@@ -30,11 +30,12 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
   const context = await browser.newContext({ viewport: { width: 200, height: 200 } });
   const gaps: string[] = [];
   try {
-    await context.route("**/*", (route) => (/^(file|data):/.test(route.request().url()) ? route.continue() : route.abort()));
+    const served = /^http:\/\/127\.0\.0\.1:\d+\//.exec(artifact)?.[0];
+    await context.route("**/*", (route) => (/^(file|data):/.test(route.request().url()) || (served && route.request().url().startsWith(served)) ? route.continue() : route.abort()));
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(pathToFileURL(artifact).href, { waitUntil: "load" });
+    await page.goto(served ? artifact : pathToFileURL(artifact).href, { waitUntil: "load" });
     if (render.rootClass) await page.evaluate(({ id, c }) => document.getElementById(id)?.classList.add(c), { id: FRAME_ID, c: render.rootClass });
     // The probe renders nothing on purpose, so the framework's "rendered nothing" warning is not a gap.
     await framework.settle(page, FRAME_ID);

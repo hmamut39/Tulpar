@@ -15,3 +15,9 @@ out/
 .claude/settings.local.json
 .vscode-test/
 adapters/manifests.json
+
+# .NET build output.
+examples/blazor-mud/bin/
+examples/blazor-mud/obj/
+adapters/blazor/tool/bin/
+adapters/blazor/tool/obj/

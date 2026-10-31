@@ -7,3 +7,7 @@ out
 **/.tulpar
 **/.dart_tool
 **/build
+examples/blazor-mud/bin
+examples/blazor-mud/obj
+adapters/blazor/tool/bin
+adapters/blazor/tool/obj

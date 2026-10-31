@@ -1,0 +1,40 @@
+{
+  "adapter": "blazor",
+  "blazor": {
+    "packages": [
+      "MudBlazor"
+    ],
+    "tokens": {
+      "runtime": {
+        "prefix": "mud"
+      }
+    },
+    "harness": {
+      "usings": [
+        "MudBlazor",
+        "MudBlazor.Services"
+      ],
+      "services": [
+        "builder.Services.AddMudServices();"
+      ],
+      "host": "<MudThemeProvider /><MudPopoverProvider /><MudDialogProvider /><MudSnackbarProvider />",
+      "head": [
+        "<link href=\"_content/MudBlazor/MudBlazor.min.css\" rel=\"stylesheet\">"
+      ],
+      "scripts": [
+        "<script src=\"_content/MudBlazor/MudBlazor.min.js\"></script>"
+      ]
+    },
+    "roots": [
+      ".mud-input-control"
+    ],
+    "render": {
+      "baseFont": "Roboto, sans-serif"
+    },
+    "rules": [
+      "Spacing and layout come from MudBlazor: MudStack (Spacing), MudGrid and its utility classes (pa-4, mt-2, gap-4, d-flex, justify-space-between, align-center), which step by 4 px. Use them in Class=\"…\" rather than padding or margin in the stylesheet.",
+      "MudBlazor draws buttons and some labels in capitals by default (MudButton is text-transform: uppercase). The design's text must show exactly as designed: when it is not capitals, keep the case with Style=\"text-transform: none\" on that component.",
+      "MudCheckBox and the other selection controls fill the width of their parent unless told otherwise: put one in a MudStack Row=\"true\" or give it Class=\"d-inline-flex\" when the design's control is only as wide as its label."
+    ]
+  }
+}
