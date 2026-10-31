@@ -31,6 +31,15 @@ const LANGUAGES_LATER = "Java, Kotlin and Swift arrive with their frameworks.";
 const option = (value, label) => `<option value="${value}">${label}</option>`;
 // Shown so people see what is coming, never selectable: each language arrives with its UI framework.
 const LANGUAGES_SOON = `<optgroup label="Coming with their frameworks">${["Java · Vaadin", "Kotlin · Compose", "Swift · SwiftUI"].map((l) => `<option disabled>${l}</option>`).join("")}</optgroup>`;
+// Languages another framework writes: someone looking for C# looks here, so choosing one switches framework.
+const LANGUAGES_ELSEWHERE = [["blazor", "C# · Blazor"], ["leptos", "Rust · Leptos"], ["flutter", "Dart · Flutter"], ["web-components", "HTML · Web Components"], ["react", "TypeScript · React"]];
+const SWITCH = "framework:";
+function otherLanguages(adapter) {
+  const offered = [...$("framework").options].map((o) => o.value);
+  const writesTypeScript = (OUTPUTS[adapter] ?? []).some((o) => o.language === "typescript");
+  const others = LANGUAGES_ELSEWHERE.filter(([a]) => a !== adapter && offered.includes(a) && !(a === "react" && writesTypeScript));
+  return others.length ? `<optgroup label="Other languages">${others.map(([a, label]) => option(SWITCH + a, label)).join("")}</optgroup>` : "";
+}
 function fillOutputs() {
   const adapter = $("framework").value;
   const list = OUTPUTS[adapter] ?? [];
@@ -38,13 +47,13 @@ function fillOutputs() {
   // Never disabled: a greyed-out field reads as broken (on a phone, tapping it does nothing). One option says there is one way.
   if (!list.length) {
     const one = { "web-components": ["HTML · JavaScript", "CSS"], flutter: ["Dart", "Material theme"], blazor: ["C#", "Scoped CSS"], leptos: ["Rust", "CSS"] }[adapter] ?? ["The framework's default", "Its default"];
-    $("language").innerHTML = option("", one[0]) + LANGUAGES_SOON;
+    $("language").innerHTML = option("", one[0]) + otherLanguages(adapter) + LANGUAGES_SOON;
     $("styling").innerHTML = option("", one[1]);
     return;
   }
   const [savedLanguage, savedStyling] = (storage.get(OUTPUT_KEY + adapter) ?? "").split(":");
   const languages = [...new Set(list.map((o) => o.language))];
-  $("language").innerHTML = languages.map((l) => option(l, LANGUAGE_LABELS[l] ?? l)).join("") + LANGUAGES_SOON;
+  $("language").innerHTML = languages.map((l) => option(l, LANGUAGE_LABELS[l] ?? l)).join("") + otherLanguages(adapter) + LANGUAGES_SOON;
   if (languages.includes(savedLanguage)) $("language").value = savedLanguage;
   fillStyling(savedStyling);
 }
@@ -61,6 +70,11 @@ function fillStyling(preferred) {
 }
 const saveOutput = () => storage.set(OUTPUT_KEY + $("framework").value, `${$("language").value}:${$("styling").value}`);
 $("language").addEventListener("change", () => {
+  if ($("language").value.startsWith(SWITCH)) {
+    $("framework").value = $("language").value.slice(SWITCH.length);
+    $("framework").dispatchEvent(new Event("change"));
+    return;
+  }
   fillStyling();
   saveOutput();
 });
