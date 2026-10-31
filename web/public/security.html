@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security · Tulpar</title>
+<meta name="description" content="How to report a security problem to Tulpar, and how it protects your designs and your account.">
+<meta name="author" content="Mamuti Aishan (Hasan)">
+<meta name="creator" content="Mamuti Aishan (Hasan)">
+<link rel="canonical" href="https://tulparsi.com/security">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/style.css">
+<script src="/theme.js"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/">
+      <svg class="brand-mark" viewBox="0 0 64 64" role="img" aria-label="Tulpar, a rearing horse"><rect width="64" height="64" rx="16" fill="#4F46E5"/><g fill="#fff" transform="translate(6.5 3.5) scale(0.58)"><path d="M87 25 C88 28 86 30 83 30 L79 30 C75 29 71 27 69 24 C67 30 67 36 66 42 C66 44 65 45 64 46 C69 45 74 44 77 46 C79 47 79 50 77 52 L76 57 C77 59 76 61 74 61 C72 60 72 58 73 55 L74 51 C72 49 69 49 64 50 C57 53 50 56 42 58 C38 61 37 65 37 69 C36 74 33 77 33 81 L36 90 L38.5 95.5 L33 96 L31 91 L29 86 C27 83 25 80 25 77 C23 73 22 68 22 62 C22 56 25 51 30 48 C38 42 46 36 52 32 C58 28 62 20 64 14 C65 11 66 9 67 7 L67 2.5 L70.5 6.5 C75 11 81 17 87 25 Z"/> <path d="M67 42 C71 39 76 37 80 38 C82 39 82 42 81 44 L82 49 C83 51 82 53 80 52 C78 51 78 49 79 47 L78 43 C75 42 71 43 68 45 Z"/> <path d="M41 59 C43 65 44 71 42 77 L44.5 87 L48 94.5 L42.5 95 L40 89 L37.5 80 C36.5 75 37 69 38 63 Z"/> <path d="M67 8 C58 8 50 13 45 21 C41 27 36 30 30 31 C37 33 43 31 47 28 C44 34 39 38 34 40 C41 41 47 38 51 34 C50 39 47 42 44 45 C50 44 55 40 57 35 C60 27 63 17 67 8 Z"/> <path d="M28 50 C20 49 12 52 6 58 C4 60 2 61 0 62 C5 64 10 62 13 60 C9 66 5 70 1 73 C9 73 15 69 19 64 C21 60 24 56 28 54 Z"/> </g></svg>
+      <span>Tulpar</span>
+      <span class="badge">Beta</span>
+    </a>
+    <nav class="nav-links">
+      <a href="/">Generate</a>
+      <a href="/pricing" id="pricingLink">Pricing</a>
+      <div class="account" id="account" hidden>
+        <a class="btn-github" id="signIn" href="/auth/github" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+          Sign in<span class="btn-long">&nbsp;with GitHub</span>
+        </a>
+        <div class="me" id="me" hidden>
+          <span class="me-name" id="meName"></span>
+          <span class="me-left" id="meLeft"></span>
+          <button type="button" class="link-btn" id="upgradeBtn" hidden>Upgrade</button>
+          <button type="button" class="link-btn" id="billingBtn" hidden>Billing</button>
+          <button type="button" class="link-btn muted" id="signOut">Sign out</button>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="notice" id="notice" hidden><span id="noticeText"></span><button type="button" class="link-btn" id="noticeAction" hidden></button></div>
+
+<main class="about legal">
+  <p class="eyebrow">Security</p>
+  <h1>Security at Tulpar</h1>
+  <p class="lede">How to report a security problem, and how Tulpar protects your designs and your account. Last updated 31 October 2026.</p>
+
+  <section><h2>Report a vulnerability</h2>
+    <p>Write to <a href="mailto:hmamut39@gmail.com?subject=Tulpar%20security">hmamut39@gmail.com</a> with “Tulpar security” in the subject. Say what you found, how to reproduce it, and what it affects. Tulpar is built and run by one developer, who reads every report and fixes confirmed problems as a priority, and will tell you what happened with yours.</p>
+    <p>Please test only with your own account and data, don't access other people's data, and don't run tests that disrupt the service. Give us a reasonable time to fix a problem before making it public.</p></section>
+
+  <section><h2>Your designs and generated code</h2>
+    <ul>
+      <li>A screenshot or frame is held in memory while your run is shown, and deleted within one hour. Working files on disk are deleted when the run finishes.</li>
+      <li>Generated code is built and run only in a sandboxed browser with the network blocked.</li>
+      <li>To write the code, your design is sent to OpenAI's API with storage turned off. See the <a href="/privacy">Privacy Policy</a> for everyone who receives data.</li>
+    </ul></section>
+
+  <section><h2>Your account</h2>
+    <ul>
+      <li>Tulpar has no passwords: you sign in with GitHub. Session cookies are signed, HttpOnly and SameSite=Lax, and all traffic uses HTTPS.</li>
+      <li>Keys for the VS Code extension and the Figma plugin are shown once, and the server stores only their hash. Creating a new key replaces the old one, and you can revoke them all at <a href="/connect">tulparsi.com/connect</a>.</li>
+      <li>Your Figma token is used for your run only and never stored on our servers.</li>
+      <li>Card details go to Stripe and never reach Tulpar.</li>
+    </ul></section>
+
+  <section><h2>How it is built and shipped</h2>
+    <ul>
+      <li>Every release must pass an automated test suite, including tests inside the server image, before it deploys.</li>
+      <li>GitHub Dependabot watches dependencies for updates.</li>
+      <li>Tulpar is hosted on Fly.io in the United States.</li>
+    </ul></section>
+
+  <section><h2>Certifications</h2>
+    <p>Tulpar is not accredited to SOC 2, ISO 27001 or similar standards. If your organisation needs them, please write to us before you use it with confidential designs.</p></section>
+</main>
+
+<footer class="foot">Tulpar never says something is right unless it has checked. Where it can't check, it says so.<br><span class="credit">Created by <a href="/about">Mamuti Aishan (Hasan)</a> · <a href="/about">About</a> · <a href="/benchmark">Benchmark</a> · <a href="/pricing">Pricing</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/security">Security</a> · <a href="/refunds">Refunds</a></span></footer>
+<script type="module" src="/pricing.js"></script>
+</body>
+</html>

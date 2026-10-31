@@ -80,7 +80,7 @@ export interface ProjectInfo {
 
 const MAX_BODY = 12 * 1024 * 1024;
 /** Clean URLs for the site's pages. */
-const PAGES: Record<string, string> = { "/": "/index.html", "/benchmark": "/benchmark.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html", "/admin": "/admin.html", "/connect": "/connect.html" };
+const PAGES: Record<string, string> = { "/": "/index.html", "/benchmark": "/benchmark.html", "/security": "/security.html", "/pricing": "/pricing.html", "/about": "/about.html", "/terms": "/terms.html", "/privacy": "/privacy.html", "/refunds": "/refunds.html", "/admin": "/admin.html", "/connect": "/connect.html" };
 
 export function listProjects(repoRoot: string): ProjectInfo[] {
   // The built-in examples, then design systems added from the page (out/projects).
