@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-31T15:53:34.334Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "vue-elementplus-shot",
+      "status": "verified",
+      "attempts": 2,
+      "inputTokens": 10323,
+      "outputTokens": 6086,
+      "seconds": 114,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}

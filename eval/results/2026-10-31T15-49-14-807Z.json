@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-31T15:49:14.807Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "angular-primeng-shot",
+      "status": "verified",
+      "attempts": 3,
+      "inputTokens": 16447,
+      "outputTokens": 12563,
+      "seconds": 183,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true
+      }
+    }
+  ]
+}
