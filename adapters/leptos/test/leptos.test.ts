@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AdapterHost } from "@tulpar/core";
 import { buildErrors, componentName, dependencies } from "../src/build.ts";
-import { parseComponents, parseEnums, toComponent } from "../src/components.ts";
+import { crateSource, parseComponents, parseEnums, toComponent } from "../src/components.ts";
 import { cargoFound, forbidden } from "../src/sdk.ts";
 import { componentsWrittenOn } from "../src/verify.ts";
 
@@ -86,7 +86,8 @@ describe("Leptos build", () => {
 });
 
 const example = resolve(import.meta.dirname, "../../../examples/leptos-thaw");
-const ready = cargoFound() && existsSync(join(example, "Cargo.lock"));
+// A machine may have Rust without the example's crates fetched (GitHub's runners do): a build would fail offline.
+const ready = cargoFound() && existsSync(join(example, "Cargo.lock")) && !!crateSource(example, "thaw");
 
 describe.skipIf(!ready)("Leptos end to end, with the Rust toolchain", () => {
   it("builds a component, draws it in the sandbox, and refuses a forbidden one", async () => {
