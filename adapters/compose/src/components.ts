@@ -111,7 +111,21 @@ export function fullest(all: KotlinComponent[]): KotlinComponent[] {
   return [...best.values()];
 }
 
-export function indexComponents(root: string, library: { module: string; name: string; version: string }): ComponentIndex {
+type Library = { module: string; name: string; version: string };
+
+/** Where a build machine compiles, it also has the library's source. */
+export async function indexComponents(root: string, library: Library): Promise<ComponentIndex> {
+  const url = process.env.TULPAR_COMPOSE_BUILDER;
+  if (!url) return indexHere(root, library);
+  try {
+    const res = await fetch(`${url}/index`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ library }), signal: AbortSignal.timeout(180_000) });
+    return (await res.json()) as ComponentIndex;
+  } catch (err) {
+    return { adapter: "compose", package: { name: library.name, version: library.version }, components: [], gaps: [`The Kotlin build machine did not answer: ${(err as Error).message}`] };
+  }
+}
+
+export function indexHere(root: string, library: Library): ComponentIndex {
   const dir = join(root, ".tulpar", "compose", "sources", "commonMain", ...library.module.split("."));
   if (!existsSync(dir)) return { adapter: "compose", package: { name: library.name, version: library.version }, components: [], gaps: [`The source of ${library.name} was not found: run gradle tulparSources in the project.`] };
   const found = fullest(kotlinFiles(dir).flatMap((f) => parseComponents(readFileSync(f, "utf8"))));

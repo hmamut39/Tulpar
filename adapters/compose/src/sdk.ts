@@ -28,7 +28,8 @@ export function gradleBin(): string | undefined {
   return dir && join(dir, marker);
 }
 
-export const toolchainFound = (): boolean => !!javaHome() && !!gradleBin();
+/** This machine has the toolchain, or a build machine does. */
+export const toolchainFound = (): boolean => !!process.env.TULPAR_COMPOSE_BUILDER || (!!javaHome() && !!gradleBin());
 
 export interface Run {
   code: number | null;

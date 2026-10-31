@@ -1,14 +1,17 @@
 // Build: a small Compose app around the generated component, compiled to WebAssembly by the project's own Gradle
 // build, offline, for checking rather than shipping. Compiling runs nothing: the result runs only in the browser.
+// Where this machine has no toolchain, a build machine compiles (TULPAR_COMPOSE_BUILDER) and sends the page back.
 
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, relative } from "node:path";
 import type { BuildParams, BuildResult } from "@tulpar/core";
 import { FRAME_ID } from "@tulpar/web-kit";
 import { gradle, type Run } from "./sdk.ts";
 
 export const DISTRIBUTION_TASK = "wasmJsBrowserDevelopmentExecutableDistribution";
 const OUTPUT = join("build", "dist", "wasmJs", "developmentExecutable");
+
+export const builderUrl = (): string | undefined => process.env.TULPAR_COMPOSE_BUILDER || undefined;
 
 /** Kotlin reports "e: file:///…/Card.kt:12:5 Unresolved reference 'x'.": the file's name, line and message. */
 export function buildErrors(output: string): string {
@@ -50,14 +53,67 @@ fun main() {
 `;
 }
 
-/** Compiles the source folder and packages the page; shared with the theme's probe. */
-export async function compile(root: string, name: string, frame: { width: number; height: number }): Promise<BuildResult> {
+export interface RemoteSource {
+  name: string;
+  content: string;
+}
+
+export function writeSources(folder: string, sources: RemoteSource[]): void {
+  for (const s of sources) {
+    // Only Kotlin files, directly in the folder.
+    if (!/^[A-Za-z]\w*\.kt$/.test(s.name)) throw new Error(`not a source file name: ${s.name}`);
+    writeFileSync(join(folder, s.name), s.content);
+  }
+}
+
+/** Compiles the source folder on this machine; the page is in `dir`. */
+export async function compileHere(root: string, name: string): Promise<{ ok: true; log: string; dir: string } | { ok: false; log: string }> {
   const run = await gradle([DISTRIBUTION_TASK, "--offline", "--console=plain"], root);
   if (run.code !== 0) return { ok: false, log: failure(run) };
+  return { ok: true, log: `built ${name}`, dir: join(root, OUTPUT) };
+}
+
+/** Every file of a built page, for sending. */
+export function readSite(dir: string): { path: string; base64: string }[] {
+  const walk = (d: string): string[] => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
+  return walk(dir).map((f) => ({ path: relative(dir, f).replace(/\\/g, "/"), base64: readFileSync(f).toString("base64") }));
+}
+
+async function compileRemote(url: string, root: string, name: string, site: string): Promise<{ ok: boolean; log: string }> {
+  const src = sourceDir(root);
+  const sources = readdirSync(src).map((f) => ({ name: f, content: readFileSync(join(src, f), "utf8") }));
+  let answer: { ok: boolean; log: string; files?: { path: string; base64: string }[] };
+  try {
+    const res = await fetch(`${url}/compile`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, sources }), signal: AbortSignal.timeout(600_000) });
+    answer = (await res.json()) as typeof answer;
+  } catch (err) {
+    return { ok: false, log: `The Kotlin build machine did not answer: ${(err as Error).message}` };
+  }
+  if (!answer.ok) return { ok: false, log: answer.log };
+  for (const f of answer.files ?? []) {
+    const path = join(site, f.path);
+    // The build machine is ours, and a path out of the folder still has no business being written.
+    if (relative(site, path).startsWith("..")) return { ok: false, log: `The build machine sent an unexpected file: ${f.path}` };
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, Buffer.from(f.base64, "base64"));
+  }
+  return { ok: true, log: answer.log };
+}
+
+/** Compiles the source folder and packages the page; shared with the theme's probe. */
+export async function compile(root: string, name: string, frame: { width: number; height: number }): Promise<BuildResult> {
   const site = join(root, ".tulpar", "compose", "out", name);
   rmSync(site, { recursive: true, force: true });
   mkdirSync(site, { recursive: true });
-  cpSync(join(root, OUTPUT), site, { recursive: true });
+  const url = builderUrl();
+  if (url) {
+    const remote = await compileRemote(url, root, name, site);
+    if (!remote.ok) return { ok: false, log: remote.log };
+  } else {
+    const here = await compileHere(root, name);
+    if (!here.ok) return { ok: false, log: here.log };
+    cpSync(here.dir, site, { recursive: true });
+  }
   writeFileSync(
     join(site, "index.html"),
     `<!doctype html>
@@ -75,9 +131,11 @@ export async function compile(root: string, name: string, frame: { width: number
   return { ok: true, log: `built ${name}`, artifact: site };
 }
 
+const sourceDir = (root: string) => join(root, ".tulpar", "compose", "src");
+
 /** Empties the folder Gradle compiles beside the project's own sources. */
 export function sourceFolder(root: string): string {
-  const src = join(root, ".tulpar", "compose", "src");
+  const src = sourceDir(root);
   rmSync(src, { recursive: true, force: true });
   mkdirSync(src, { recursive: true });
   return src;
