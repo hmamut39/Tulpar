@@ -32,8 +32,8 @@ export async function runWidgetTests(root: string, testFile: string, timeoutMs =
   mkdirSync(run, { recursive: true });
   for (const f of readdirSync(from)) if (f.endsWith(".dart")) cpSync(join(from, f), join(run, f));
   try {
-    const browser = chromium.executablePath();
-    if (!existsSync(browser)) return { status: "unsupported", reason: "Playwright's Chromium is not installed (npx playwright install chromium)" };
+    const browser = testBrowser(chromium.executablePath());
+    if (!browser) return { status: "unsupported", reason: "Playwright's Chromium is not installed (npx playwright install chromium)" };
     const once = async () => {
       const result = await sdk("flutter", ["test", "--platform", "chrome", "--reporter", "json", `test/tulpar_run/${basename(testFile)}`], root, timeoutMs, { CHROME_EXECUTABLE: browser });
       return parse(result.stdout, result.code);
@@ -43,6 +43,21 @@ export async function runWidgetTests(root: string, testFile: string, timeoutMs =
   } finally {
     rmSync(run, { recursive: true, force: true });
   }
+}
+
+/** Playwright's full Chromium, or its headless shell of the same revision: the image installs only the shell. */
+export function testBrowser(full: string): string | undefined {
+  if (existsSync(full)) return full;
+  // <browsers>/chromium-1243/chrome-linux64/chrome -> <browsers>/chromium_headless_shell-1243/<folder>/<program>
+  const installed = dirname(dirname(full));
+  const shell = join(dirname(installed), basename(installed).replace("chromium-", "chromium_headless_shell-"));
+  if (!existsSync(shell)) return undefined;
+  for (const folder of readdirSync(shell)) {
+    for (const program of ["chrome-headless-shell", "headless_shell"]) {
+      if (existsSync(join(shell, folder, program))) return join(shell, folder, program);
+    }
+  }
+  return undefined;
 }
 
 const STALLED = "the test browser did not load the tests in time (flutter test was stopped)";

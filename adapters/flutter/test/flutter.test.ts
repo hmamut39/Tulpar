@@ -1,18 +1,37 @@
 // The Flutter adapter: widgets read with the Dart analyzer, the render measured through semantics,
 // and every value in the code checked. The end-to-end parts need the Flutter SDK and skip without it.
 
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AdapterHost } from "@tulpar/core";
 import { toComponent } from "../src/components.ts";
-import { parse, stalled } from "../src/tests.ts";
+import { parse, stalled, testBrowser } from "../src/tests.ts";
 import { flutterBin } from "../src/sdk.ts";
 import { buildErrors, widgetClass } from "../src/verify.ts";
 
 const main = resolve(import.meta.dirname, "../src/main.ts");
 const example = resolve(import.meta.dirname, "../../../examples/flutter-material");
 const sdk = !!flutterBin();
+
+describe("the browser widget tests run in", () => {
+  it("uses the full Chromium when installed, otherwise the headless shell of the same revision", () => {
+    const browsers = mkdtempSync(join(tmpdir(), "tulpar-browsers-"));
+    const full = join(browsers, "chromium-1243", "chrome-linux64", "chrome");
+    expect(testBrowser(full)).toBeUndefined();
+
+    const shell = join(browsers, "chromium_headless_shell-1243", "chrome-headless-shell-linux64", "chrome-headless-shell");
+    mkdirSync(join(shell, ".."), { recursive: true });
+    writeFileSync(shell, "");
+    expect(testBrowser(full)).toBe(shell);
+
+    mkdirSync(join(full, ".."), { recursive: true });
+    writeFileSync(full, "");
+    expect(testBrowser(full)).toBe(full);
+    rmSync(browsers, { recursive: true, force: true });
+  });
+});
 
 describe("the Flutter component model", () => {
   it("turns a widget's parameters into props, slots and events", () => {

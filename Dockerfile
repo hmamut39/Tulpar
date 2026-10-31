@@ -31,7 +31,7 @@ RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.lis
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node --parents core/package.json cli/package.json web/package.json mcp/package.json adapters/*/package.json ./
 RUN npm ci --omit=dev --ignore-scripts \
- && npx playwright install --with-deps chromium \
+ && npx playwright install --with-deps --only-shell chromium \
  && chown -R node:node /app/node_modules
 
 USER node
@@ -100,7 +100,7 @@ RUN node deploy/manifests.ts
 # Flutter's widget index and theme, read now: an idle machine restarts and would lose them.
 RUN node deploy/warm-flutter.ts
 # The Blazor example's packages, components and theme, fetched and read now: nothing downloads during a run.
-RUN (cd examples/blazor-mud && dotnet restore) && node deploy/warm-blazor.ts && rm -rf examples/blazor-mud/.tulpar/blazor/out
+RUN (cd examples/blazor-mud && dotnet restore) && node deploy/warm-blazor.ts && rm -rf examples/blazor-mud/.tulpar/blazor/out examples/blazor-mud/.tulpar/blazor/bin
 # The Leptos example's crates, compiled once: a run compiles only the generated component.
 RUN (cd examples/leptos-thaw && CARGO_HOME=/opt/rust/cargo RUSTUP_HOME=/opt/rust/rustup /opt/rust/cargo/bin/cargo fetch --locked) && node deploy/warm-leptos.ts \
  && rm -rf examples/leptos-thaw/.tulpar/leptos/out \
