@@ -13,7 +13,7 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-    TULPAR_FLUTTER_SDK=/opt/flutter TULPAR_DOTNET_ROOT=/opt/dotnet TULPAR_RUST_ROOT=/opt/rust DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+    TULPAR_FLUTTER_SDK=/opt/flutter TULPAR_DOTNET_ROOT=/opt/dotnet TULPAR_RUST_ROOT=/opt/rust TULPAR_COMPOSE_BUILDER=http://tulpar-compose-builder.flycast DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
     PATH=/opt/flutter/bin:/opt/dotnet:$PATH
 
 # System packages: git for Carbon's Code Connect files, and the typefaces design systems are drawn in.

@@ -45,12 +45,24 @@ createServer(async (req, res) => {
     }
     if (req.method === "POST" && req.url === "/compile") {
       const b = await body(req);
-      const result = await inTurn(async () => {
-        writeSources(sourceFolder(root), b.sources as RemoteSource[]);
-        const built = await compileHere(root, String(b.name));
-        return built.ok ? { ok: true, log: built.log, files: readSite(built.dir) } : { ok: false, log: built.log };
-      });
-      return await send(res, 200, result);
+      // Fly's network drops a request that stays silent for a minute, and a compile can take longer. Spaces before
+      // the JSON keep it talking, and JSON does not mind them.
+      res.writeHead(200, { "content-type": "application/json" });
+      const alive = setInterval(() => res.write(" "), 15_000);
+      try {
+        const result = await inTurn(async () => {
+          writeSources(sourceFolder(root), b.sources as RemoteSource[]);
+          const built = await compileHere(root, String(b.name));
+          return built.ok ? { ok: true, log: built.log, files: readSite(built.dir) } : { ok: false, log: built.log };
+        });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.end(JSON.stringify({ ok: false, log: (err as Error).message.split("
+")[0] }));
+      } finally {
+        clearInterval(alive);
+      }
+      return;
     }
     res.writeHead(404).end();
   } catch (err) {

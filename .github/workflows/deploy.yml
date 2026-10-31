@@ -64,7 +64,7 @@ jobs:
             sleep 6
           done
           [ -n "$ok" ] || { echo "the site is not answering"; exit 1; }
-          for a in react vue angular svelte web-components blazor leptos; do grep -q "\"adapter\":\"$a\"" config.json || { echo "no $a project on the live site"; exit 1; }; done
+          for a in react vue angular svelte web-components blazor leptos compose; do grep -q "\"adapter\":\"$a\"" config.json || { echo "no $a project on the live site"; exit 1; }; done
           curl -fs "$SITE/" | grep -q "<title>Tulpar</title>"
       - name: Roll back
         if: failure() && steps.smoke.outcome == 'failure' && steps.before.outputs.image != ''

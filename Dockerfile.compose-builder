@@ -4,9 +4,9 @@
 FROM node:24-bookworm-slim
 
 WORKDIR /app
-ENV NODE_ENV=production PORT=8080 TULPAR_JAVA_HOME=/opt/jdk TULPAR_GRADLE_HOME=/opt/gradle HOME=/home/node
+ENV NODE_ENV=production PORT=8080 JAVA_HOME=/opt/jdk TULPAR_JAVA_HOME=/opt/jdk TULPAR_GRADLE_HOME=/opt/gradle HOME=/home/node
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip libatomic1 \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /opt/jdk /opt/gradle && chown node:node /app /opt/jdk /opt/gradle
 
