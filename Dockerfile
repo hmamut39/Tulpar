@@ -39,7 +39,9 @@ USER node
 # The example projects (design systems the page offers), pinned by their lockfiles; only the manifests,
 # so editing an example's config reuses its installed packages. --include=dev: the test tools.
 COPY --chown=node:node --parents examples/*/package.json examples/*/package-lock.json ./
-RUN for d in examples/*/; do [ -f "$d/package-lock.json" ] || continue; (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done
+COPY --chown=node:node deploy/dedupe.mjs deploy/dedupe.mjs
+RUN for d in examples/*/; do [ -f "$d/package-lock.json" ] || continue; (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done \
+ && node deploy/dedupe.mjs examples
 
 # Flutter (Dart), for building and checking Flutter widgets: Google's release archive, its published
 # SHA-256 checked, the web target only. Generated Dart is compiled here and runs only in Chromium.
@@ -51,7 +53,8 @@ RUN curl -sSL -o /tmp/flutter.tar.xz "https://storage.googleapis.com/flutter_inf
  && git config --global --add safe.directory /opt/flutter \
  && flutter --disable-analytics && dart --disable-analytics \
  && flutter config --no-enable-android --no-enable-ios --no-enable-linux-desktop --no-enable-macos-desktop --no-enable-windows-desktop \
- && flutter precache --web
+ && flutter precache --web \
+ && rm -rf /opt/flutter/examples /opt/flutter/dev/integration_tests /opt/flutter/dev/benchmarks /opt/flutter/dev/devicelab /opt/flutter/bin/cache/downloads
 # The Flutter example's packages and Tulpar's analyzer programs, fetched now: nothing downloads during a run.
 COPY --chown=node:node --parents examples/flutter-material/pubspec.yaml examples/flutter-material/pubspec.lock adapters/flutter/tool/pubspec.yaml adapters/flutter/tool/pubspec.lock ./
 RUN (cd examples/flutter-material && flutter pub get) && (cd adapters/flutter/tool && dart pub get)
@@ -62,7 +65,8 @@ ARG DOTNET_VERSION=10.0.403
 ARG DOTNET_SHA512=b7b3d8461cf98b07d2552ce9199702fa3ad010ac2671a5f8cd5136f7534e50f6855ba7bbb02b11494563f1d04156276a31cda1103b900e5eecd0d9473dc7b9c5
 RUN curl -sSL -o /tmp/dotnet.tar.gz "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_VERSION}/dotnet-sdk-${DOTNET_VERSION}-linux-x64.tar.gz" \
  && echo "${DOTNET_SHA512}  /tmp/dotnet.tar.gz" | sha512sum -c - \
- && tar -xzf /tmp/dotnet.tar.gz -C /opt/dotnet && rm /tmp/dotnet.tar.gz
+ && tar -xzf /tmp/dotnet.tar.gz -C /opt/dotnet && rm /tmp/dotnet.tar.gz \
+ && rm -rf /opt/dotnet/sdk/*/FSharp /opt/dotnet/templates /opt/dotnet/sdk/*/Containers
 
 # Rust, for building and checking Leptos components: rustup and wasm-bindgen from their releases, their
 # published checksums checked. Generated Rust is compiled here (with no secrets in its environment) and
@@ -75,7 +79,7 @@ ARG WASM_BINDGEN_SHA256=9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc3
 RUN curl -sSL -o /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/x86_64-unknown-linux-gnu/rustup-init" \
  && echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum -c - && chmod +x /tmp/rustup-init \
  && CARGO_HOME=/opt/rust/cargo RUSTUP_HOME=/opt/rust/rustup /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain "${RUST_VERSION}" --target wasm32-unknown-unknown \
- && rm /tmp/rustup-init \
+ && rm -rf /tmp/rustup-init /opt/rust/rustup/toolchains/*/share/doc /opt/rust/rustup/toolchains/*/share/man \
  && curl -sSL -o /tmp/wb.tgz "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
  && echo "${WASM_BINDGEN_SHA256}  /tmp/wb.tgz" | sha256sum -c - \
  && tar -xzf /tmp/wb.tgz -C /tmp && cp "/tmp/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen" /opt/rust/cargo/bin/ && rm -rf /tmp/wb.tgz /tmp/wasm-bindgen-*
@@ -91,9 +95,11 @@ RUN node deploy/manifests.ts
 # Flutter's widget index and theme, read now: an idle machine restarts and would lose them.
 RUN node deploy/warm-flutter.ts
 # The Blazor example's packages, components and theme, fetched and read now: nothing downloads during a run.
-RUN (cd examples/blazor-mud && dotnet restore) && node deploy/warm-blazor.ts
+RUN (cd examples/blazor-mud && dotnet restore) && node deploy/warm-blazor.ts && rm -rf examples/blazor-mud/.tulpar/blazor/out
 # The Leptos example's crates, compiled once: a run compiles only the generated component.
-RUN (cd examples/leptos-thaw && CARGO_HOME=/opt/rust/cargo RUSTUP_HOME=/opt/rust/rustup /opt/rust/cargo/bin/cargo fetch --locked) && node deploy/warm-leptos.ts
+RUN (cd examples/leptos-thaw && CARGO_HOME=/opt/rust/cargo RUSTUP_HOME=/opt/rust/rustup /opt/rust/cargo/bin/cargo fetch --locked) && node deploy/warm-leptos.ts \
+ && rm -rf examples/leptos-thaw/.tulpar/leptos/out /opt/rust/cargo/registry/cache \
+ && rm -rf examples/leptos-thaw/.tulpar/leptos/target/*/debug/incremental examples/leptos-thaw/.tulpar/leptos/target/debug/incremental
 
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
 # deploy/start.sh prepares the volume as root, then runs the server as the "node" user.
