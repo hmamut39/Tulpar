@@ -95,7 +95,7 @@ jobs:
           curl -fs localhost:8080/healthz
           curl -fs localhost:8080/ -o page.html && grep -q "<title>Tulpar</title>" page.html
           curl -fs localhost:8080/api/config -o config.json && grep -q '"accessCodeRequired":true' config.json
-          for a in react vue angular svelte web-components flutter blazor; do grep -q "\"adapter\":\"$a\"" config.json || { echo "no $a project"; exit 1; }; done
+          for a in react vue angular svelte web-components flutter blazor leptos; do grep -q "\"adapter\":\"$a\"" config.json || { echo "no $a project"; exit 1; }; done
           # The languages and stylings each framework writes, read when the image was built.
           for a in react vue angular svelte; do grep -q "\"$a\":\[{\"language\"" config.json || { echo "no outputs for $a"; exit 1; }; done
           curl -fsI localhost:8080/ -o headers.txt && grep -qi "content-security-policy" headers.txt

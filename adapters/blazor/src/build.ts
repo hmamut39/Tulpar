@@ -38,7 +38,7 @@ export function buildErrors(output: string): string {
   const seen = new Set<string>();
   for (const line of output.split(/\r?\n/)) {
     const m = /^\s*(.*?)\((\d+),(\d+)\): error (\w+): (.*?)(?: \[.*\])?\s*$/.exec(line);
-    if (m) seen.add(`${basename(m[1]!)}:${m[2]}:${m[3]}: ${m[4]}: ${m[5]}`);
+    if (m) seen.add(`${m[1]!.split(/[\\/]/).pop()}:${m[2]}:${m[3]}: ${m[4]}: ${m[5]}`);
     else if (/\berror\b/i.test(line) && /: error /.test(line)) seen.add(line.trim().replace(/ \[.*\]\s*$/, ""));
   }
   return [...seen].slice(0, 12).join("\n");

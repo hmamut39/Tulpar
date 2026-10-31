@@ -94,21 +94,25 @@ for (const c of cases) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
-// Blazor has no generated tests (they would run on the host): it must build and draw in the sandbox.
-{
-  const project = await loadProject(join(repo, "examples/blazor-mud"));
+// Blazor and Leptos have no generated tests yet: each must build and draw in the sandbox.
+for (const c of [
+  { name: "blazor", project: "examples/blazor-mud", file: "Smoke.razor", component: "MudButton", source: `<MudButton data-figma-id="b" Variant="Variant.Filled" Style="text-transform: none">Smoke shows the button</MudButton>\n` },
+  { name: "leptos", project: "examples/leptos-thaw", file: "smoke.rs", component: "Button", source: `use leptos::prelude::*;\nuse thaw::*;\n\n#[component]\npub fn Smoke() -> impl IntoView {\n    view! { <Button attr:data-figma-id="b">"Smoke shows the button"</Button> }\n}\n` },
+]) {
+  const project = await loadProject(join(repo, c.project));
   const dir = join(project.root, ".tulpar", "smoke");
+  const entry = `.tulpar/smoke/${c.file}`;
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "Smoke.razor"), `<MudButton data-figma-id="b" Variant="Variant.Filled" Style="text-transform: none">Smoke shows the button</MudButton>\n`);
+  writeFileSync(join(dir, c.file), c.source);
   try {
-    const drew = await withAdapter(project, async (host) => {
-      const built = await host.call("build", { ...project.params, entry: ".tulpar/smoke/Smoke.razor", frame: { width: 300, height: 80 } });
+    const problem = await withAdapter(project, async (host) => {
+      const built = await host.call("build", { ...project.params, entry, frame: { width: 300, height: 80 } });
       if (!built.ok) return built.log;
-      const r = await host.call("render", { ...project.params, artifact: built.artifact as string, entry: ".tulpar/smoke/Smoke.razor", width: 300, height: 80, scale: 1 });
-      return r.status === "ok" && r.elements.some((e) => e.component === "MudButton" && e.text === "Smoke shows the button") ? "" : r.status === "ok" ? "the button was not drawn" : r.reason;
+      const r = await host.call("render", { ...project.params, artifact: built.artifact as string, entry, width: 300, height: 80, scale: 1 });
+      return r.status === "ok" && r.elements.some((e) => e.component === c.component && e.text === "Smoke shows the button") ? "" : r.status === "ok" ? "the button was not drawn" : r.reason;
     });
-    if (drew) failed++;
-    console.log(`${drew ? "FAIL" : "ok  "} blazor: ${drew || "built and drew MudButton"}`);
+    if (problem) failed++;
+    console.log(`${problem ? "FAIL" : "ok  "} ${c.name}: ${problem || `built and drew ${c.component}`}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

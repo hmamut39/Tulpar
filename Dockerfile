@@ -13,7 +13,7 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-    TULPAR_FLUTTER_SDK=/opt/flutter TULPAR_DOTNET_ROOT=/opt/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+    TULPAR_FLUTTER_SDK=/opt/flutter TULPAR_DOTNET_ROOT=/opt/dotnet TULPAR_RUST_ROOT=/opt/rust DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
     PATH=/opt/flutter/bin:/opt/dotnet:$PATH
 
 # System packages: git for Carbon's Code Connect files, and the typefaces design systems are drawn in.
@@ -22,10 +22,10 @@ ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
 # IBM Plex (Carbon), Roboto (Material UI), Inter and Open Sans (common in designs); all open licences.
 # (Debian ships IBM Plex in its contrib section, which the base image does not enable.)
 RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources \
- && apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl xz-utils unzip libicu72 \
+ && apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl xz-utils unzip libicu72 gcc libc6-dev \
       fonts-ibm-plex fonts-roboto fonts-inter fonts-open-sans \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /opt/flutter /opt/dotnet && chown node:node /app /opt/flutter /opt/dotnet
+ && mkdir -p /opt/flutter /opt/dotnet /opt/rust && chown node:node /app /opt/flutter /opt/dotnet /opt/rust
 
 # Tulpar's own dependencies: the manifests only, so a code change reuses this layer.
 COPY --chown=node:node package.json package-lock.json ./
@@ -64,6 +64,22 @@ RUN curl -sSL -o /tmp/dotnet.tar.gz "https://builds.dotnet.microsoft.com/dotnet/
  && echo "${DOTNET_SHA512}  /tmp/dotnet.tar.gz" | sha512sum -c - \
  && tar -xzf /tmp/dotnet.tar.gz -C /opt/dotnet && rm /tmp/dotnet.tar.gz
 
+# Rust, for building and checking Leptos components: rustup and wasm-bindgen from their releases, their
+# published checksums checked. Generated Rust is compiled here (with no secrets in its environment) and
+# runs only in Chromium, as WebAssembly. The example's crates are fetched now: a run compiles offline.
+ARG RUST_VERSION=1.99.1
+ARG RUSTUP_VERSION=1.29.2
+ARG RUSTUP_SHA256=5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4
+ARG WASM_BINDGEN_VERSION=0.2.130
+ARG WASM_BINDGEN_SHA256=9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306c3227f
+RUN curl -sSL -o /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/x86_64-unknown-linux-gnu/rustup-init" \
+ && echo "${RUSTUP_SHA256}  /tmp/rustup-init" | sha256sum -c - && chmod +x /tmp/rustup-init \
+ && CARGO_HOME=/opt/rust/cargo RUSTUP_HOME=/opt/rust/rustup /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain "${RUST_VERSION}" --target wasm32-unknown-unknown \
+ && rm /tmp/rustup-init \
+ && curl -sSL -o /tmp/wb.tgz "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+ && echo "${WASM_BINDGEN_SHA256}  /tmp/wb.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/wb.tgz -C /tmp && cp "/tmp/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen" /opt/rust/cargo/bin/ && rm -rf /tmp/wb.tgz /tmp/wasm-bindgen-*
+
 # Carbon's Code Connect files: the explicit Figma ↔ code links (public repository).
 RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/carbon-design-system/carbon.git .cache/repos/carbon \
  && git -C .cache/repos/carbon sparse-checkout set --no-cone '**/*.figma.ts' '**/*.figma.tsx'
@@ -76,6 +92,8 @@ RUN node deploy/manifests.ts
 RUN node deploy/warm-flutter.ts
 # The Blazor example's packages, components and theme, fetched and read now: nothing downloads during a run.
 RUN (cd examples/blazor-mud && dotnet restore) && node deploy/warm-blazor.ts
+# The Leptos example's crates, compiled once: a run compiles only the generated component.
+RUN (cd examples/leptos-thaw && CARGO_HOME=/opt/rust/cargo RUSTUP_HOME=/opt/rust/rustup /opt/rust/cargo/bin/cargo fetch --locked) && node deploy/warm-leptos.ts
 
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
 # deploy/start.sh prepares the volume as root, then runs the server as the "node" user.

@@ -3,35 +3,9 @@
 // A Blazor component leaves no trace on its DOM, so the source says which component each Figma id is on.
 
 import { readFileSync, existsSync } from "node:fs";
-import { createServer, type Server } from "node:http";
-import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { join } from "node:path";
 import type { AnalyzeResult, RenderParams, RenderResult, StyleFact } from "@tulpar/core";
-import { classify, declarations, render as renderPage, type FrameworkHooks, type RenderConfig } from "@tulpar/web-kit";
-
-const TYPES: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json", ".css": "text/css", ".dat": "application/octet-stream", ".woff2": "font/woff2", ".png": "image/png", ".svg": "image/svg+xml" };
-
-/** Serves a published app on localhost for the length of `fn`. */
-export async function serving<T>(site: string, fn: (url: string) => Promise<T>): Promise<T> {
-  const base = normalize(site);
-  const server: Server = createServer(async (req, res) => {
-    const path = decodeURIComponent((req.url ?? "/").split("?")[0]!);
-    const file = normalize(join(base, path === "/" ? "index.html" : path));
-    if (!file.startsWith(base)) return void res.writeHead(403).end();
-    try {
-      const body = await readFile(file);
-      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" }).end(body);
-    } catch {
-      res.writeHead(404).end();
-    }
-  });
-  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-  try {
-    return await fn(`http://127.0.0.1:${(server.address() as { port: number }).port}/`);
-  } finally {
-    await new Promise((r) => server.close(r));
-  }
-}
+import { classify, declarations, render as renderPage, serving, type FrameworkHooks, type RenderConfig } from "@tulpar/web-kit";
 
 /** Waits for the app to start and draw; `written` says which component each Figma id was written on. */
 export function blazorHooks(written: Record<string, string> = {}, roots: string[] = []): FrameworkHooks {

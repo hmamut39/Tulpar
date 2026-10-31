@@ -5,7 +5,7 @@ import { initAccount, refreshAllowance, showNotice, signedIn, upgrade } from "./
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
 const FRAMEWORK_KEY = "tulpar.framework";
-const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", "web-components": "Web Components", flutter: "Flutter", blazor: "Blazor (C#)" };
+const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", "web-components": "Web Components", flutter: "Flutter", blazor: "Blazor (C#)", leptos: "Leptos (Rust)" };
 // Framework → the {language, styling} combinations it writes, its default first: from the adapters
 // themselves (/api/config), so the lists are never more or less than what they write.
 let OUTPUTS = {};
@@ -23,20 +23,21 @@ const OUTPUT_HINTS = {
   "web-components": "Web Components are one HTML file: markup, a CSS style block and JavaScript modules.",
   flutter: "Flutter widgets are written in Dart, styled from your app's Material theme.",
   blazor: "Blazor components are written in C# and Razor, with a scoped stylesheet.",
+  leptos: "Leptos components are written in Rust, with a plain stylesheet.",
 };
 // A UI framework decides the language its components are written in, and a language arrives once its
 // components can really be built and checked.
-const LANGUAGES_LATER = "Java, Rust, Kotlin and Swift arrive with their frameworks.";
+const LANGUAGES_LATER = "Java, Kotlin and Swift arrive with their frameworks.";
 const option = (value, label) => `<option value="${value}">${label}</option>`;
 // Shown so people see what is coming, never selectable: each language arrives with its UI framework.
-const LANGUAGES_SOON = `<optgroup label="Coming with their frameworks">${["Java · Vaadin", "Rust · Leptos", "Kotlin · Compose", "Swift · SwiftUI"].map((l) => `<option disabled>${l}</option>`).join("")}</optgroup>`;
+const LANGUAGES_SOON = `<optgroup label="Coming with their frameworks">${["Java · Vaadin", "Kotlin · Compose", "Swift · SwiftUI"].map((l) => `<option disabled>${l}</option>`).join("")}</optgroup>`;
 function fillOutputs() {
   const adapter = $("framework").value;
   const list = OUTPUTS[adapter] ?? [];
   $("outputHint").textContent = `${OUTPUT_HINTS[adapter] ?? "Tulpar writes the files the way your codebase does."} ${LANGUAGES_LATER}`;
   // Never disabled: a greyed-out field reads as broken (on a phone, tapping it does nothing). One option says there is one way.
   if (!list.length) {
-    const one = { "web-components": ["HTML · JavaScript", "CSS"], flutter: ["Dart", "Material theme"], blazor: ["C#", "Scoped CSS"] }[adapter] ?? ["The framework's default", "Its default"];
+    const one = { "web-components": ["HTML · JavaScript", "CSS"], flutter: ["Dart", "Material theme"], blazor: ["C#", "Scoped CSS"], leptos: ["Rust", "CSS"] }[adapter] ?? ["The framework's default", "Its default"];
     $("language").innerHTML = option("", one[0]) + LANGUAGES_SOON;
     $("styling").innerHTML = option("", one[1]);
     return;
@@ -68,12 +69,12 @@ $("styling").addEventListener("change", saveOutput);
 // Shown so people know what is coming, but never selectable before an adapter exists for it.
 const COMING_SOON = ["SwiftUI (Swift)", "Jetpack Compose (Kotlin)"];
 // Most-used first; the page opens on the first one unless the visitor chose another before.
-const FRAMEWORK_ORDER = ["react", "vue", "angular", "svelte", "blazor", "flutter", "web-components"];
+const FRAMEWORK_ORDER = ["react", "vue", "angular", "svelte", "blazor", "flutter", "leptos", "web-components"];
 // Product names for known packages; anything else shows its package name.
 const PRODUCTS = {
   "@carbon/react": "Carbon (IBM)", "@carbon/web-components": "Carbon (IBM)", "carbon-components-angular": "Carbon (IBM)",
   "@mui/material": "Material UI (MUI)", "@chakra-ui/react": "Chakra UI", "@radix-ui/themes": "Radix Themes",
-  "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG", "element-plus": "Element Plus", "carbon-components-svelte": "Carbon (IBM)",
+  "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG", "element-plus": "Element Plus", thaw: "Thaw", "carbon-components-svelte": "Carbon (IBM)",
 };
 let projects = [];
 let current = null; // the job being shown
@@ -145,8 +146,8 @@ function fillProjects() {
 // The last option in the list: add any design system from npm (web frameworks: Flutter's packages live on pub.dev).
 const ADD = "__add__";
 function fillAddOption() {
-  // Flutter's packages live on pub.dev and Blazor's on NuGet.
-  if (["flutter", "blazor"].includes($("framework").value)) return;
+  // Flutter's packages live on pub.dev, Blazor's on NuGet and Leptos's on crates.io.
+  if (["flutter", "blazor", "leptos"].includes($("framework").value)) return;
   $("project").insertAdjacentHTML("beforeend", `<option value="${ADD}">+ Add from npm…</option>`);
 }
 $("project").addEventListener("change", () => {

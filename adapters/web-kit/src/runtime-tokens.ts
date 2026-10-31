@@ -16,6 +16,11 @@ export interface RuntimeTokenConfig {
   prefix?: string;
   /** Mode name → class that switches to it (set on <html> and the frame), e.g. { "dark": "p-dark" }. */
   modes?: Record<string, string>;
+  /**
+   * The element that holds the tokens, when it is not the page's root: Thaw's ConfigProvider writes them
+   * on .thaw-config-provider[data-thaw-id="…"]. Rules whose selector starts with this are read.
+   */
+  scope?: string;
 }
 
 let browser: Browser | undefined;
@@ -43,7 +48,7 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
 
     const prefix = config.prefix ? `--${config.prefix}-` : "--";
     const read = () =>
-      page.evaluate(({ id, prefix, rootClass }) => {
+      page.evaluate(({ id, prefix, rootClass, scope }) => {
         const scopes = new Set([":root", "html", ":host", ...(rootClass ? [`.${rootClass}`] : [])]);
         const names = new Set<string>();
         const visit = (rules: CSSRuleList) => {
@@ -51,7 +56,7 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
             if (rule instanceof CSSStyleRule) {
               // ":where(:root, :host)" (Chakra) and ":is(...)" wrap the same scopes.
               const selectors = rule.selectorText.replace(/:(where|is)\(([^()]*)\)/g, "$2").split(",");
-              if (!selectors.some((s) => scopes.has(s.trim()))) continue;
+              if (!selectors.some((s) => scopes.has(s.trim()) || (scope && s.trim().startsWith(scope)))) continue;
               for (let i = 0; i < rule.style.length; i++) {
                 const n = rule.style.item(i);
                 if (n.startsWith(prefix)) names.add(n);
@@ -75,9 +80,9 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
           }
         }
         // Computed on the frame: it sees :root and the root class alike, with var() already substituted.
-        const style = getComputedStyle(document.getElementById(id) ?? document.documentElement);
+        const style = getComputedStyle((scope && document.querySelector(scope)) || document.getElementById(id) || document.documentElement);
         return [...names].map((n) => [n, style.getPropertyValue(n).trim()] as const).filter(([, v]) => v !== "");
-      }, { id: FRAME_ID, prefix, rootClass: render.rootClass ?? "" });
+      }, { id: FRAME_ID, prefix, rootClass: render.rootClass ?? "", scope: config.scope ?? "" });
 
     const byMode = new Map<string, Map<string, string>>([["default", new Map(await read())]]);
     for (const [mode, cls] of Object.entries(config.modes ?? {})) {

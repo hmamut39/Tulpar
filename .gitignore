@@ -21,3 +21,6 @@ examples/blazor-mud/bin/
 examples/blazor-mud/obj/
 adapters/blazor/tool/bin/
 adapters/blazor/tool/obj/
+
+# Rust build output.
+examples/leptos-thaw/target/

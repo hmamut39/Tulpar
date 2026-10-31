@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-31T15:29:02.662Z",
+  "model": "gpt-6-astra",
+  "results": [
+    {
+      "id": "leptos-thaw-shot",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 11620,
+      "outputTokens": 6282,
+      "seconds": 183,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "visual": false,
+        "states": true
+      }
+    }
+  ]
+}

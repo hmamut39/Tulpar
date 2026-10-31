@@ -4,11 +4,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ProjectParams } from "@tulpar/core";
-import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
+import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, serving, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { build, type HarnessConfig } from "./build.ts";
 import { indexComponents } from "./components.ts";
 import { dotnetBin } from "./sdk.ts";
-import { analyze, blazorHooks, render, serving } from "./verify.ts";
+import { analyze, blazorHooks, render } from "./verify.ts";
 
 interface Config {
   /** The NuGet packages that are the design system, e.g. ["MudBlazor"]. */

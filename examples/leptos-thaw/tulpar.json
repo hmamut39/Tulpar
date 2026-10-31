@@ -1,0 +1,14 @@
+{
+  "adapter": "leptos",
+  "leptos": {
+    "crates": ["thaw"],
+    "tokens": {
+      "runtime": { "scope": ".thaw-config-provider" }
+    },
+    "harness": {
+      "uses": ["thaw"],
+      "provider": "ConfigProvider",
+      "font": { "family": "Segoe UI", "package": "@fontsource/open-sans", "file": "open-sans" }
+    }
+  }
+}

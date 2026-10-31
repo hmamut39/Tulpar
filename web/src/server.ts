@@ -89,7 +89,7 @@ export function listProjects(repoRoot: string): ProjectInfo[] {
 
 function projectsIn(base: string): ProjectInfo[] {
   if (!existsSync(base)) return [];
-  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor" };
+  const labels: Record<string, string> = { react: "React", "web-components": "Web Components", angular: "Angular", vue: "Vue", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor", leptos: "Leptos" };
   return readdirSync(base, { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(join(base, d.name, "tulpar.json")))
     .map((d) => {
@@ -104,7 +104,11 @@ function projectsIn(base: string): ProjectInfo[] {
       const nuget = cfg.adapter === "blazor" ? (cfg.blazor?.packages?.[0] as string | undefined) : undefined;
       const csproj = nuget ? readdirSync(join(base, d.name)).find((f) => f.endsWith(".csproj")) : undefined;
       const nugetVersion = csproj ? new RegExp(`Include="${nuget}"\\s+Version="([^"]+)"`).exec(readFileSync(join(base, d.name, csproj), "utf8"))?.[1] : undefined;
-      const product = library ? (library === "package:flutter/material.dart" ? "Material 3" : library) : nuget ? `${nuget}${nugetVersion ? `@${nugetVersion}` : ""}` : ownSource;
+      // Leptos's is a crate, at the version the project's Cargo.lock pins.
+      const crate = cfg.adapter === "leptos" ? (cfg.leptos?.crates?.[0] as string | undefined) : undefined;
+      const lock = crate ? join(base, d.name, "Cargo.lock") : undefined;
+      const crateVersion = lock && existsSync(lock) ? new RegExp(`name = "${crate}"\\s+version = "([^"]+)"`).exec(readFileSync(lock, "utf8"))?.[1] : undefined;
+      const product = library ? (library === "package:flutter/material.dart" ? "Material 3" : library) : nuget ? `${nuget}${nugetVersion ? `@${nugetVersion}` : ""}` : crate ? `${crate}${crateVersion ? `@${crateVersion}` : ""}` : ownSource;
       const stylings = cfg[cfg.adapter]?.tailwind ? ["tailwind"] : undefined;
       return { id: d.name, dir: join(base, d.name), adapter: cfg.adapter, label: `${labels[cfg.adapter] ?? cfg.adapter}${pkg ? ` · ${pkg.name}@${pkg.version}` : product ? ` · ${product}` : ""}`, ...(stylings && { stylings }) };
     });

@@ -19,4 +19,4 @@ SignInCard.razor.css   Razor scoped CSS for its own layout
 
 The .NET SDK is in the server image, its published SHA-512 checked. Locally, install it and set `TULPAR_DOTNET_ROOT` (or put `dotnet` on the PATH), then run `dotnet restore` in the example.
 
-**Next languages**, in the same way, each when it can really be built and checked: Java (Vaadin), Rust (Leptos), Kotlin (Compose). SwiftUI needs a Mac to build on.
+**Next languages:** see `docs/19-leptos.md`. SwiftUI needs a Mac to build on.
