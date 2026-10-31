@@ -120,7 +120,8 @@ jobs:
           for f in "IBM Plex Sans" "Roboto" "Inter" "Open Sans"; do docker exec tulpar-smoke fc-list : family | grep -q "$f" || { echo "font missing: $f"; exit 1; }; done
       - name: Generated tests run in the image, for every framework
         run: |
-          docker exec -u node -w /app tulpar-smoke node deploy/smoke-tests.ts
+          # With the server's own environment: docker exec sets HOME by itself, the server's start script may not.
+          docker exec -u node -w /app tulpar-smoke xargs -0 -a /proc/1/environ sh -c 'exec env -i "$@" node deploy/smoke-tests.ts' _
           echo "Memory peak: $(($(docker exec tulpar-smoke cat /sys/fs/cgroup/memory.peak) / 1048576)) MiB, file cache included"
           docker exec tulpar-smoke grep oom_kill /sys/fs/cgroup/memory.events
       - if: failure()

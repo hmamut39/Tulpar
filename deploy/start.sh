@@ -8,4 +8,6 @@ mkdir -p data/figma data/out
 # (dash, the image's sh, treats -nt as false when the target is missing, so check that first.)
 if [ ! -f data/out/library.json ] || [ deploy/seed/library.json -nt data/out/library.json ]; then cp deploy/seed/library.json data/out/library.json; fi
 chown -R node:node data
+# setpriv changes the user, not HOME: .NET, NuGet and Flutter's packages all look there.
+export HOME=/home/node
 exec setpriv --reuid=node --regid=node --init-groups node web/src/server.ts
