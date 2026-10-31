@@ -99,7 +99,7 @@ RUN node deploy/warm-flutter.ts
 RUN (cd examples/blazor-mud && dotnet restore) && node deploy/warm-blazor.ts && rm -rf examples/blazor-mud/.tulpar/blazor/out
 # The Leptos example's crates, compiled once: a run compiles only the generated component.
 RUN (cd examples/leptos-thaw && CARGO_HOME=/opt/rust/cargo RUSTUP_HOME=/opt/rust/rustup /opt/rust/cargo/bin/cargo fetch --locked) && node deploy/warm-leptos.ts \
- && rm -rf examples/leptos-thaw/.tulpar/leptos/out /opt/rust/cargo/registry/cache \
+ && rm -rf examples/leptos-thaw/.tulpar/leptos/out \
  && rm -rf examples/leptos-thaw/.tulpar/leptos/target/*/debug/incremental examples/leptos-thaw/.tulpar/leptos/target/debug/incremental
 
 # Figma data and outputs persist in a volume; the app expects them at .cache/figma and out/.
