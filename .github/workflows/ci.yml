@@ -92,6 +92,12 @@ jobs:
           echo "Image: $((size / 1048576)) MiB uncompressed (the limit is 8192 MiB)"
           docker history --human --format '{{.Size}}  {{.CreatedBy}}' tulpar:ci | sort -hr | cut -c1-150 | head -15
           [ "$size" -lt 8053063680 ] || { echo "::error::The image is too big for Fly"; exit 1; }
+          # Docker's figure was 7335 MiB when Fly refused an image for space. What matters is the disk: whole
+          # blocks, and hard links counted as copies in case they unpack as copies. 8 GiB less ext4's overhead.
+          disk=$(docker run --rm --entrypoint sh tulpar:ci -c 'du -sxlm / | cut -f1')
+          files=$(docker run --rm --entrypoint sh tulpar:ci -c 'find / -xdev | wc -l')
+          echo "On disk: $disk MiB, $files files"
+          [ "$disk" -lt 7400 ] || { echo "::error::The image is too big for Fly's disk"; exit 1; }
       - name: Refuses to start in production without access codes
         run: |
           if docker run --rm -e NODE_ENV=production tulpar:ci; then echo "started without access codes"; exit 1; fi

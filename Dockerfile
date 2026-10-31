@@ -38,9 +38,12 @@ USER node
 
 # The example projects (design systems the page offers), pinned by their lockfiles; only the manifests,
 # so editing an example's config reuses its installed packages. --include=dev: the test tools.
+# Left out: source maps, and the Japanese and Korean Plex webfonts (167 MiB per Carbon example), which nothing loads.
 COPY --chown=node:node --parents examples/*/package.json examples/*/package-lock.json ./
 COPY --chown=node:node deploy/dedupe.mjs deploy/dedupe.mjs
 RUN for d in examples/*/; do [ -f "$d/package-lock.json" ] || continue; (cd "$d" && npm ci --no-workspaces --ignore-scripts --include=dev --no-audit --no-fund); done \
+ && find examples -type f -name '*.map' -path '*/node_modules/*' -delete \
+ && rm -rf examples/*/node_modules/@ibm/plex/IBM-Plex-Sans-JP examples/*/node_modules/@ibm/plex/IBM-Plex-Sans-KR \
  && node deploy/dedupe.mjs examples
 
 # Flutter (Dart), for building and checking Flutter widgets: Google's release archive, its published
@@ -55,7 +58,8 @@ RUN curl -sSL -o /tmp/flutter.tar.xz "https://storage.googleapis.com/flutter_inf
  && flutter config --no-enable-android --no-enable-ios --no-enable-linux-desktop --no-enable-macos-desktop --no-enable-windows-desktop \
  && flutter precache --web \
  && rm -rf /opt/flutter/examples /opt/flutter/dev/integration_tests /opt/flutter/dev/benchmarks /opt/flutter/dev/devicelab /opt/flutter/bin/cache/downloads \
- && rm -rf /opt/flutter/bin/cache/artifacts/engine/android-* /opt/flutter/bin/cache/artifacts/engine/linux-x64-profile /opt/flutter/bin/cache/artifacts/engine/linux-x64-release
+ && rm -rf /opt/flutter/bin/cache/artifacts/engine/android-* /opt/flutter/bin/cache/artifacts/engine/linux-x64-profile /opt/flutter/bin/cache/artifacts/engine/linux-x64-release \
+ && rm -rf /opt/flutter/.git/objects/pack/*
 # The Flutter example's packages and Tulpar's analyzer programs, fetched now: nothing downloads during a run.
 COPY --chown=node:node --parents examples/flutter-material/pubspec.yaml examples/flutter-material/pubspec.lock adapters/flutter/tool/pubspec.yaml adapters/flutter/tool/pubspec.lock ./
 RUN (cd examples/flutter-material && flutter pub get) && (cd adapters/flutter/tool && dart pub get)
