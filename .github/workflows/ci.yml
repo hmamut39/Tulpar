@@ -105,7 +105,8 @@ jobs:
       - name: Serves the page, the health check and every framework
         run: |
           set -x
-          docker run -d --name tulpar-smoke -p 8080:8080 -e TULPAR_ACCESS_CODES=ci-code tulpar:ci
+          # The live machine's limits: a build that needs more would fail there, so it must fail here.
+          docker run -d --name tulpar-smoke --memory=2g --memory-swap=2g --cpus=2 -p 8080:8080 -e TULPAR_ACCESS_CODES=ci-code tulpar:ci
           for i in $(seq 1 30); do curl -fs localhost:8080/healthz && break; sleep 2; done
           curl -fs localhost:8080/healthz
           curl -fs localhost:8080/ -o page.html && grep -q "<title>Tulpar</title>" page.html
@@ -118,7 +119,10 @@ jobs:
           # The typefaces renders need (the network is blocked, so web fonts never load).
           for f in "IBM Plex Sans" "Roboto" "Inter" "Open Sans"; do docker exec tulpar-smoke fc-list : family | grep -q "$f" || { echo "font missing: $f"; exit 1; }; done
       - name: Generated tests run in the image, for every framework
-        run: docker exec -u node -w /app tulpar-smoke node deploy/smoke-tests.ts
+        run: |
+          docker exec -u node -w /app tulpar-smoke node deploy/smoke-tests.ts
+          echo "Memory peak: $(($(docker exec tulpar-smoke cat /sys/fs/cgroup/memory.peak) / 1048576)) MiB, file cache included"
+          docker exec tulpar-smoke grep oom_kill /sys/fs/cgroup/memory.events
       - if: failure()
         run: docker logs tulpar-smoke || true
       # main only: the image that passed is the one that ships.

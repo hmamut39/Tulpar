@@ -104,6 +104,7 @@ for (const c of [
   const entry = `.tulpar/smoke/${c.file}`;
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, c.file), c.source);
+  const started = Date.now();
   try {
     const problem = await withAdapter(project, async (host) => {
       const built = await host.call("build", { ...project.params, entry, frame: { width: 300, height: 80 } });
@@ -112,7 +113,7 @@ for (const c of [
       return r.status === "ok" && r.elements.some((e) => e.component === c.component && e.text === "Smoke shows the button") ? "" : r.status === "ok" ? "the button was not drawn" : r.reason;
     });
     if (problem) failed++;
-    console.log(`${problem ? "FAIL" : "ok  "} ${c.name}: ${problem || `built and drew ${c.component}`}`);
+    console.log(`${problem ? "FAIL" : "ok  "} ${c.name}: ${problem || `built and drew ${c.component} in ${Math.round((Date.now() - started) / 1000)} s`}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
