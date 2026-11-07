@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AdapterHost } from "@tulpar/core";
 import { parseType, tagsOf, toComponents, type JavaType } from "../src/components.ts";
-import { compileErrors, harness, inPackage } from "../src/runner.ts";
+import { compileErrors, harness, inPackage, junitResults } from "../src/runner.ts";
 import { scan } from "../src/verify.ts";
 
 const button = `package com.vaadin.flow.component.button;
@@ -75,6 +75,11 @@ describe("the view, compiled", () => {
     expect(compileErrors(out)).toBe("Card.java:12: cannot find symbol (symbol:   class Missing)");
   });
 
+  it("reads JUnit's report: each test, and a failure's message", () => {
+    const xml = '<testsuite><testcase name="showsTheHeading()" classname="a.CardTest" time="0.1"/><testcase name="pays()" classname="a.CardTest" time="0.2">\n<failure message="expected: &lt;Pay&gt; but was: &lt;Buy&gt;" type="AssertionFailedError">stack</failure>\n</testcase></testsuite>';
+    expect(junitResults(xml)).toEqual({ status: "ran", runner: "JUnit 6 · Vaadin Browserless", tests: [{ name: "showsTheHeading", status: "passed" }, { name: "pays", status: "failed", error: "expected: <Pay> but was: <Buy>" }] });
+  });
+
   it("shows the view at the frame's size", () => {
     const text = harness("SignInCard", { width: 360, height: 200 });
     expect(text).toContain("new SignInCard()");
@@ -129,6 +134,32 @@ public class TestView extends VerticalLayout {
 }
 `,
       );
+      writeFileSync(
+        join(dir, "TestViewTest.java"),
+        `import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.vaadin.browserless.BrowserlessTest;
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import org.junit.jupiter.api.Test;
+
+class TestViewTest extends BrowserlessTest {
+    @Test
+    void showsContinue() {
+        TestView view = new TestView();
+        UI.getCurrent().add(view);
+        assertEquals("Continue", $(Button.class, view).single().getText());
+    }
+
+    @Test
+    void wrongOnPurpose() {
+        TestView view = new TestView();
+        UI.getCurrent().add(view);
+        assertEquals("Stop", $(Button.class, view).single().getText());
+    }
+}
+`,
+      );
       const entry = ".tulpar/test-view/TestView.java";
       const built = await host.call("build", { ...params, entry, frame: { width: 300, height: 120 } });
       expect(built.ok, built.log).toBe(true);
@@ -136,6 +167,9 @@ public class TestView extends VerticalLayout {
       expect(r.status).toBe("ok");
       if (r.status !== "ok") return;
       expect(r.elements.find((e) => e.figmaId === "go")).toMatchObject({ component: "Button", text: "Continue", defined: true });
+      // Its tests ran on the runner after it was drawn: a passing one and a failing one, each reported.
+      const tests = await host.call("test", { ...params, entry: ".tulpar/test-view/TestViewTest.java" });
+      expect(tests).toMatchObject({ status: "ran", tests: [{ name: "showsContinue", status: "passed" }, { name: "wrongOnPurpose", status: "failed" }] });
     } finally {
       await host.stop();
     }

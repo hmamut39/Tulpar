@@ -4,10 +4,10 @@
 // machine started afresh for every check (deploy/java-runner.ts). It is never run on the main server.
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { delimiter, join } from "node:path";
-import type { RenderResult } from "@tulpar/core";
+import type { RenderResult, TestRunResult } from "@tulpar/core";
 import { FRAME_ID, probeTokens, render as renderPage, type FrameworkHooks, type RuntimeTokenConfig } from "@tulpar/web-kit";
 
 export interface Source {
@@ -188,19 +188,66 @@ export function vaadinHooks(tags: Record<string, string>): FrameworkHooks {
   };
 }
 
-/** One check: compile, start, draw, stop. */
-export async function check(o: RunnerOptions, input: { sources: Source[]; view: string; frame: { width: number; height: number }; scale: number; tags: Record<string, string> }): Promise<{ ok: false; log: string } | { ok: true; render: RenderResult }> {
+const unescape = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+
+/** JUnit's XML report: each test case, and the first line of a failure's message. */
+export function junitResults(xml: string): TestRunResult & { status: "ran" } {
+  const tests: { name: string; status: "passed" | "failed" | "skipped"; error?: string }[] = [];
+  for (const m of xml.matchAll(/<testcase\s+name="([^"]*)"[^>]*?(\/>|>([\s\S]*?)<\/testcase>)/g)) {
+    const body = m[3] ?? "";
+    const failure = /<(failure|error)\s+(?:message="([^"]*)")?/.exec(body);
+    tests.push({ name: unescape(m[1]!).replace(/\(\)$/, ""), status: failure ? "failed" : /<skipped/.test(body) ? "skipped" : "passed", ...(failure && { error: unescape(failure[2] ?? failure[1]!).split("\n")[0]!.slice(0, 300) }) });
+  }
+  return { status: "ran", runner: "JUnit 6 · Vaadin Browserless", tests };
+}
+
+/** Compiles the view's tests against the compiled view and runs them, as the runner's unprivileged user. */
+export async function runTests(o: RunnerOptions, classes: string, tests: Source[], job: string): Promise<TestRunResult> {
+  const runner = "JUnit 6 · Vaadin Browserless";
+  const dir = join(o.root, ".tulpar", "jobs", job);
+  const src = join(dir, "test-src");
+  const out = join(dir, "test-classes");
+  // Written by the tests' own process, which runs as the unprivileged user: a folder it may write to.
+  const reports = join(dir, "reports");
+  mkdirSync(reports, { recursive: true });
+  chmodSync(reports, 0o777);
+  mkdirSync(src, { recursive: true });
+  mkdirSync(out, { recursive: true });
+  const files: string[] = [];
+  for (const t of tests) {
+    if (!/^[A-Z]\w*Test\.java$/.test(t.name)) return { status: "ran", runner, tests: [], fileError: `not a test file name: ${t.name}` };
+    writeFileSync(join(src, t.name), inPackage(t.content));
+    files.push(join(src, t.name));
+  }
+  const cp = [out, classes, join(o.root, "target", "classes"), readFileSync(join(o.root, "target", "cp-test.txt"), "utf8").trim()].join(delimiter);
+  const compiled = await run(java(o, "javac"), ["-proc:none", "-encoding", "UTF-8", "-nowarn", "-d", out, "-cp", cp, ...files], dir, bareEnv(o), 180_000);
+  if (compiled.code !== 0) return { status: "ran", runner, tests: [], fileError: compileErrors(compiled.out) || compiled.out.slice(-800) };
+  const ran = await run(java(o, "java"), ["-Xmx512m", "-cp", cp, "org.junit.platform.console.ConsoleLauncher", "execute", `--select-package=${PACKAGE}`, "--details=none", "--disable-banner", `--reports-dir=${reports}`], o.root, bareEnv(o), 180_000, o); // from the project, as Vaadin expects
+  let xml: string;
+  try {
+    xml = readFileSync(join(reports, "TEST-junit-jupiter.xml"), "utf8");
+  } catch {
+    return { status: "failed", reason: `the tests did not run: ${ran.out.split(/\r?\n/).filter((l) => /Exception|Error/.test(l)).slice(0, 2).join(" ").slice(0, 400) || `exit ${ran.code}`}` };
+  }
+  const result = junitResults(xml);
+  return result.tests.length ? result : { ...result, fileError: "the test file declares no tests" };
+}
+
+/** One check: compile, start, draw, stop; then the view's own tests, when it has them. */
+export async function check(o: RunnerOptions, input: { sources: Source[]; tests?: Source[]; view: string; frame: { width: number; height: number }; scale: number; tags: Record<string, string> }): Promise<{ ok: false; log: string } | { ok: true; render: RenderResult; tests?: TestRunResult }> {
   const job = `job-${Date.now()}`;
   const compiled = await compile(o, input.sources, input.view, input.frame, job);
   if (!compiled.ok) return compiled;
   const started = await start(o, compiled.classes);
   if ("log" in started) return { ok: false, log: started.log };
+  let render: RenderResult;
   try {
-    const render = await renderPage({ artifact: started.url, entry: `${input.view}.java`, width: input.frame.width, height: input.frame.height, scale: input.scale } as never, {}, "aura", vaadinHooks(input.tags));
-    return { ok: true, render };
+    render = await renderPage({ artifact: started.url, entry: `${input.view}.java`, width: input.frame.width, height: input.frame.height, scale: input.scale } as never, {}, "aura", vaadinHooks(input.tags));
   } finally {
     started.app.kill("SIGKILL");
   }
+  const tests = input.tests?.length ? await runTests(o, compiled.classes, input.tests, job) : undefined;
+  return { ok: true, render, ...(tests && { tests }) };
 }
 
 /** The theme's variables, read from an empty view. */

@@ -4,9 +4,9 @@
 // (deploy/java-runner.ts, TULPAR_JAVA_RUNNER). Reading the source for hard-coded values happens here.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams, type RenderResult, type TokenSet } from "@tulpar/core";
+import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams, type RenderResult, type TestRunResult, type TokenSet } from "@tulpar/core";
 import { mergeTokens, readTokens, type TokenConfig } from "@tulpar/web-kit";
 import { analyze } from "./verify.ts";
 
@@ -47,7 +47,7 @@ serve({
       render: runner ? { supported: true, hostOS: ["linux", "windows", "macos"] } : { supported: false, hostOS: [], reason: "no Java runner is configured (TULPAR_JAVA_RUNNER)" },
       runtimeStyleProvenance: true,
       staticProvenance: true,
-      tests: false,
+      tests: !!runner,
       forceStates: runner ? ["hover", "pressed", "focus"] : [],
       themes: false,
     },
@@ -79,13 +79,19 @@ serve({
     const { root, entry, frame } = params;
     const from = dirname(join(root, entry));
     if (!existsSync(join(root, entry))) return { ok: false, log: `${entry} was not written.` };
-    const sources = readdirSync(from).filter((f) => f.endsWith(".java")).map((f) => ({ name: f, content: readFileSync(join(from, f), "utf8") }));
+    // The view's tests (CardTest.java) are compiled and run after it is drawn, never with it.
+    const java = readdirSync(from).filter((f) => f.endsWith(".java")).map((f) => ({ name: f, content: readFileSync(join(from, f), "utf8") }));
+    const isTest = (f: { name: string }) => /Test\.java$/.test(f.name);
+    const sources = java.filter((f) => !isTest(f));
+    const tests = java.filter(isTest);
     const view = basename(entry, ".java");
-    const answer = await ask<{ ok: boolean; log: string; render?: RenderResult }>("/check", { sources, view, frame, scale: 1, tags: (await indexed()).tags }, 600_000).catch((err: Error) => ({ ok: false, log: `The Java runner did not answer: ${err.message}` }) as { ok: boolean; log: string; render?: RenderResult });
+    const answer = await ask<{ ok: boolean; log: string; render?: RenderResult; tests?: TestRunResult }>("/check", { sources, tests, view, frame, scale: 1, tags: (await indexed()).tags }, 600_000).catch((err: Error) => ({ ok: false, log: `The Java runner did not answer: ${err.message}` }) as { ok: boolean; log: string; render?: RenderResult; tests?: TestRunResult });
     if (!answer.ok || !answer.render) return { ok: false, log: answer.log };
     const out = join(root, ".tulpar", "vaadin", "out", view);
     mkdirSync(out, { recursive: true });
     writeFileSync(join(out, "render.json"), JSON.stringify(answer.render));
+    if (answer.tests) writeFileSync(join(out, "tests.json"), JSON.stringify(answer.tests));
+    else rmSync(join(out, "tests.json"), { force: true });
     return { ok: true, log: `built ${view}`, artifact: out };
   },
 
@@ -97,10 +103,20 @@ serve({
 
   analyze: (params) => analyze(params.root, params.entry, PREFIX),
 
+  // The runner ran them when it drew the view: CardTest.java is Card's.
+  test: (params) => {
+    const file = join(params.root, ".tulpar", "vaadin", "out", basename(params.entry, ".java").replace(/Test$/, ""), "tests.json");
+    if (!existsSync(file)) return { status: "failed", reason: "the tests did not run: the view did not build" } as TestRunResult;
+    return JSON.parse(readFileSync(file, "utf8")) as TestRunResult;
+  },
+
   conventions: (params) => ({
     language: "Java",
     framework: "Vaadin with its Aura theme",
-    files: [{ path: "{name}.java", role: "component", description: "The view: public class {name} extends a layout (VerticalLayout, HorizontalLayout or Div), built in its no-argument constructor; it renders the whole design." }],
+    files: [
+      { path: "{name}.java", role: "component", description: "The view: public class {name} extends a layout (VerticalLayout, HorizontalLayout or Div), built in its no-argument constructor; it renders the whole design." },
+      { path: "{name}Test.java", role: "test", description: "Its tests (JUnit 6 with Vaadin Browserless Testing): class {name}Test extends BrowserlessTest; each test creates the view, adds it with UI.getCurrent().add(view), finds components inside it with $(Button.class, view) and drives them with test(button).click()." },
+    ],
     entry: "{name}.java",
     rules: [
       "Use Vaadin's components for every mapped instance (Button, TextField, PasswordField, Checkbox, Card, H2, Paragraph, Span…), set by their setters and constructors as the mapping gives. Never rebuild one from Div and click listeners.",
@@ -108,6 +124,7 @@ serve({
       "A button's look is a theme variant: button.addThemeVariants(ButtonVariant.PRIMARY). Do not style a component's colours or type yourself.",
       'Colours, type and spacing come from the theme. Where the view sets a style itself (getStyle().set("gap", …), setPadding, setSpacing), use the theme\'s CSS variables, e.g. getStyle().set("gap", "var(--vaadin-gap-m)"). Never a bare colour, px font size or px spacing.',
       "Do not give the root a fixed size from the frame: setWidthFull() and the content's own height.",
+      "In {name}Test.java: import static org.junit.jupiter.api.Assertions.*, com.vaadin.browserless.BrowserlessTest, org.junit.jupiter.api.Test, com.vaadin.flow.component.UI and the components you query. Find by what a person sees: $(H2.class, view).withText(\"Order summary\").single(), $(Button.class, view).withText(\"Pay\").single(); read a field's label with getLabel(). Assert visible text with getText(), trimmed. No @Route, no navigate(): add the view to the UI yourself.",
       "Import every class you use (com.vaadin.flow.component.button.Button, com.vaadin.flow.component.textfield.TextField, com.vaadin.flow.component.orderedlayout.VerticalLayout, com.vaadin.flow.component.html.H2…). Only Vaadin and java.*: no other libraries, no package line (Tulpar adds it), no @Route, no files, network, threads or reflection.",
       ...(config(params).rules ?? []),
     ],

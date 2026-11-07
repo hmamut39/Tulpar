@@ -42,6 +42,7 @@ COPY examples/vaadin-aura examples/vaadin-aura
 RUN cd examples/vaadin-aura \
  && /opt/maven/bin/mvn -q -B package -DskipTests \
  && /opt/maven/bin/mvn -q -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -Dmdep.includeScope=runtime \
+ && /opt/maven/bin/mvn -q -B dependency:build-classpath -Dmdep.outputFile=target/cp-test.txt -Dmdep.includeScope=test \
  && /opt/maven/bin/mvn -q -B dependency:unpack-dependencies -Dclassifier=sources -DincludeGroupIds=com.vaadin -DoutputDirectory=.tulpar/sources -Dmdep.failOnMissingClassifierArtifact=false "-Dmdep.includes=com/vaadin/flow/component/**/*.java" \
  && chmod -R a+rX /opt/m2 /opt/jdk /app/examples/vaadin-aura
 

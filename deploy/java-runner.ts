@@ -62,7 +62,7 @@ const server = createServer(async (req, res) => {
     try {
       result =
         req.url === "/check"
-          ? await check(options, { sources: b.sources as Source[], view: String(b.view), frame: b.frame as { width: number; height: number }, scale: Number(b.scale ?? 1), tags: (b.tags ?? {}) as Record<string, string> })
+          ? await check(options, { sources: b.sources as Source[], ...(Array.isArray(b.tests) && { tests: b.tests as Source[] }), view: String(b.view), frame: b.frame as { width: number; height: number }, scale: Number(b.scale ?? 1), tags: (b.tags ?? {}) as Record<string, string> })
           : { ok: true, tokens: await tokens(options, (b.runtime ?? {}) as never) };
     } catch (err) {
       result = { ok: false, log: (err as Error).message.split("\n")[0] };
