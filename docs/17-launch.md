@@ -27,7 +27,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 >
 > Tulpar does two things differently:
 >
-> 1. **It writes with your design system.** It reads your component library (its real props) and your tokens, and uses them. React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#) and Leptos (Rust), in your language and styling (TypeScript or JavaScript; CSS, SCSS, LESS, Tailwind, CSS Modules, styled-components, Emotion).
+> 1. **It writes with your design system.** It reads your component library (its real props) and your tokens, and uses them. React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Jetpack Compose (Kotlin) and Vaadin (Java), in your language and styling (TypeScript or JavaScript; CSS, SCSS, LESS, Tailwind, CSS Modules, styled-components, Emotion).
 > 2. **It checks before you see it.** Every result is built, rendered in a sandboxed browser and compared with the design: the right components, colours and spacing from tokens, layout, text, typeface, the generated tests, pixels, and hover, pressed and focus states. Failures go back to the model to repair. If something still fails or can't be checked, the result says so plainly.
 >
 > The benchmark is public, failures included: tulparsi.com/benchmark
@@ -54,7 +54,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 
 > Tulpar turns a Figma frame or a screenshot into a component written with your team's design system, and then checks it before you see it.
 >
-> The generation part is a model with a detailed brief: your library's real component APIs (read from its TypeScript types, Vue/Svelte/Angular sources, Dart analyzer output, .NET assemblies or Rust source), your tokens, and how your codebase already uses the components. Most of the work is the checking:
+> The generation part is a model with a detailed brief: your library's real component APIs (read from its TypeScript types, Vue/Svelte/Angular sources, Dart analyzer output, .NET assemblies, or Rust, Kotlin and Java source), your tokens, and how your codebase already uses the components. Most of the work is the checking:
 >
 > - It builds the files and renders them in headless Chromium with the network blocked.
 > - It identifies which design-system component each element really is (by identity, not by name), so a hand-made `<button>` fails.
@@ -66,7 +66,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 >
 > The benchmark is public, failures included: https://tulparsi.com/benchmark
 >
-> Adapters: React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust). Built-in examples: Carbon, MUI, Chakra, Radix, shadcn/ui, PrimeNG, Element Plus, Shoelace, Material 3, MudBlazor and Thaw, or any design system on npm.
+> Adapters: React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Jetpack Compose (Kotlin), Vaadin (Java). Built-in examples: Carbon, MUI, Chakra, Radix, shadcn/ui, PrimeNG, Element Plus, Shoelace, Material 3, MudBlazor, Thaw and Vaadin,  or any design system on npm.
 >
 > Free trial with no card: https://tulparsi.com. I'm the only developer. I'd especially like to hear about design systems it handles badly.
 
@@ -89,7 +89,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 >
 > The benchmark is public, failures included: tulparsi.com/benchmark
 >
-> React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#) and Leptos (Rust), with Carbon, MUI, shadcn/ui, Radix, PrimeNG, Element Plus, MudBlazor and more. On the web, in VS Code, in Figma, and for AI coding assistants through MCP.
+> React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Kotlin and Java, with Carbon, MUI, shadcn/ui, Radix, PrimeNG, Element Plus, MudBlazor and more. On the web, in VS Code, in Figma, and for AI coding assistants through MCP.
 >
 > Free trial, no card: tulparsi.com
 >
