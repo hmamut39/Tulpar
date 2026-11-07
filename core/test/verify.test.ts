@@ -240,7 +240,11 @@ describe("verify", () => {
     // A text far too narrow is a type style of the wrong size: the repair is told the design's.
     const sized = { ...heading, style: { ...(heading as Extract<DesignNode, { kind: "text" }>).style, fontSize: 20, fontWeight: 600 } } as DesignNode;
     const details = verify({ ...input([el("3:1", "span", box(16, 16, 121, 18), "Heirloom tomato", { fonts: ["Roboto"] })]), design: { ...d, root: { ...d.root, children: [sized] } } as DesignTree }).checks.find((c) => c.id === "layout")!.details;
-    expect(details.join()).toContain("width 160 → 121 (-39) (tolerance ±3, width ±19.2) — the design's text is 20px, weight 600: use the type style of that size");
+    expect(details.join()).toContain("width 160 → 121 (-39) (tolerance ±3, width ±19.2, up and down ±6) — the design's text is 20px, weight 600: use the type style of that size");
+    // Another typeface sits its lines a few pixels lower or higher: within a share of the font size, not beyond.
+    const placed = (y: number) => verify({ ...input([el("3:1", "span", box(16, y, 160, 18), "Heirloom tomato", { fonts: ["Roboto"] })]), design: { ...d, root: { ...d.root, children: [sized] } } as DesignTree }).checks.find((c) => c.id === "layout")!.status;
+    expect(placed(21)).toBe("pass");
+    expect(placed(26)).toBe("fail");
   });
 
   it("does not count a kit's placeholders or icons as components missing a mapping", () => {

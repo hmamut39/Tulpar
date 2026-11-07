@@ -205,15 +205,17 @@ export function verify(input: VerifyInput): VerifyReport {
       const designFamilies = e.node.kind === "text" ? fontFamilies(e.node) : [];
       const otherFont = designFamilies.length > 0 && el.fonts.length > 0 && !designFamilies.every((f) => el.fonts.some((d) => sameFamily(d, f)));
       const wt = e.node.kind === "text" && fromScreenshot ? Math.max(t, 0.35 * e.node.box!.width) : otherFont ? Math.max(t, 0.12 * e.node.box!.width) : t;
+      // Another typeface also sits its lines differently (its ascent and line height): a share of the font size, up and down.
+      const ht = otherFont && e.node.kind === "text" && e.node.style.fontSize ? Math.max(t, 0.3 * e.node.style.fontSize) : t;
       // The element's box, or what it draws: a design box measured from pixels (a screenshot, or
       // auto-width text) matches the drawn extent, while a block-level element fills its row.
-      const diffs = boxDiffs(e.node.box!, el.box, t, wt);
-      if (diffs.length && el.drawnBox && !boxDiffs(e.node.box!, el.drawnBox, t, wt).length) diffs.length = 0;
+      const diffs = boxDiffs(e.node.box!, el.box, t, wt, ht);
+      if (diffs.length && el.drawnBox && !boxDiffs(e.node.box!, el.drawnBox, t, wt, ht).length) diffs.length = 0;
       if (!el.visible) details.push(`✗ ${e.node.name} (${e.node.id}): visible in the design, not visible in the render`);
       else if (diffs.length) {
         // A text of the wrong width is usually a type style of the wrong size: say which size the design's is.
         const style = e.node.kind === "text" && diffs.some((d) => d.startsWith("width")) && e.node.style.fontSize ? ` — the design's text is ${e.node.style.fontSize}px${e.node.style.fontWeight ? `, weight ${e.node.style.fontWeight}` : ""}: use the type style of that size` : "";
-        details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t}${wt !== t ? `, width ±${round(wt)}` : ""})${style}`);
+        details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t}${wt !== t ? `, width ±${round(wt)}` : ""}${ht !== t ? `, up and down ±${round(ht)}` : ""})${style}`);
       }
       else within++;
     }
@@ -622,11 +624,11 @@ function sameFamily(drawn: string, family: string): boolean {
   return drawn === family || (drawn.startsWith(`${family} `) && /^(thin|hairline|extra ?light|ultra ?light|light|regular|normal|book|medium|semi ?bold|demi ?bold|bold|extra ?bold|ultra ?bold|black|heavy|italic|oblique|\d+(\.\d+)?pt|\s)+$/i.test(drawn.slice(family.length + 1)));
 }
 
-function boxDiffs(want: Box, got: Box, tolerance: number, widthTolerance = tolerance): string[] {
+function boxDiffs(want: Box, got: Box, tolerance: number, widthTolerance = tolerance, verticalTolerance = tolerance): string[] {
   const out: string[] = [];
   for (const k of ["x", "y", "width", "height"] as const) {
     const d = got[k] - want[k];
-    if (Math.abs(d) > (k === "width" ? widthTolerance : tolerance) + 1e-6) out.push(`${k} ${round(want[k])} → ${round(got[k])} (${d > 0 ? "+" : ""}${round(d)})`);
+    if (Math.abs(d) > (k === "width" ? widthTolerance : k === "y" || k === "height" ? verticalTolerance : tolerance) + 1e-6) out.push(`${k} ${round(want[k])} → ${round(got[k])} (${d > 0 ? "+" : ""}${round(d)})`);
   }
   return out;
 }
