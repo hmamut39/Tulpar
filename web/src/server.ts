@@ -592,16 +592,17 @@ function benchmark(repoRoot: string, projects: ProjectInfo[]): unknown {
   if (benchmarkCache) return benchmarkCache;
   const dir = join(repoRoot, "eval", "results");
   const cases = existsSync(join(repoRoot, "eval", "cases.json")) ? (JSON.parse(readFileSync(join(repoRoot, "eval", "cases.json"), "utf8")) as { cases: { id: string; project: string; frame?: string; image?: string; output?: { language?: string; styling?: string } }[] }).cases : [];
-  const latest = new Map<string, { at: string; model: string; result: { status: string; attempts: number; seconds: number; checks: Record<string, boolean> } }>();
+  type Run = { status: string; attempts: number; seconds: number; checks: Record<string, boolean>; inputTokens?: number; outputTokens?: number };
+  const latest = new Map<string, { at: string; model: string; result: Run }>();
   for (const file of existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")).sort() : []) {
-    const run = JSON.parse(readFileSync(join(dir, file), "utf8")) as { at: string; model: string; results?: { id: string; status: string; attempts: number; seconds: number; checks: Record<string, boolean> }[] };
+    const run = JSON.parse(readFileSync(join(dir, file), "utf8")) as { at: string; model: string; results?: (Run & { id: string })[] };
     for (const r of run.results ?? []) latest.set(r.id, { at: run.at, model: run.model, result: r });
   }
   const rows = cases.flatMap((c) => {
     const run = latest.get(c.id);
     if (!run) return [];
     const project = projects.find((p) => p.dir.replace(/\\/g, "/").endsWith(c.project));
-    return [{ id: c.id, adapter: project?.adapter ?? c.project.split("/").pop(), designSystem: project?.label.split(" · ").slice(1).join(" · ") ?? c.project, input: c.frame ? "figma" : "screenshot", styling: c.output?.styling ?? "default", at: run.at, model: run.model.replace(/^openai:/, ""), status: run.result.status, attempts: run.result.attempts, seconds: run.result.seconds, checks: run.result.checks }];
+    return [{ id: c.id, adapter: project?.adapter ?? c.project.split("/").pop(), designSystem: project?.label.split(" · ").slice(1).join(" · ") ?? c.project, input: c.frame ? "figma" : "screenshot", styling: c.output?.styling ?? "default", at: run.at, model: run.model.replace(/^openai:/, ""), status: run.result.status, attempts: run.result.attempts, seconds: run.result.seconds, tokens: (run.result.inputTokens ?? 0) + (run.result.outputTokens ?? 0), checks: run.result.checks }];
   });
   benchmarkCache = { cases: rows, updated: rows.map((r) => r.at).sort().at(-1) ?? null };
   return benchmarkCache;
