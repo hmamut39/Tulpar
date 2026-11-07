@@ -123,7 +123,7 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
     const response = await (drafting ? options.draftLlm! : options.llm).complete({
       instructions: instructions(brief),
       text: previous
-        ? repairText(brief, previous, looked ? (options.image ? "The second image is your previous attempt as it rendered; the first is the design. Compare them." : "The image is your previous attempt as it rendered.") : undefined, counts, change?.request)
+        ? repairText(brief, previous, looked ? (options.image ? "The second image is your previous attempt as it rendered; the first is the design. Compare them." : "The image is your previous attempt as it rendered.") : undefined, counts, change?.request, attempts)
         : change
           ? changeText(brief, change)
           : briefText(brief),
@@ -270,17 +270,27 @@ function changeText(b: Brief, change: { files: GeneratedFile[]; request: string 
   ].join("\n");
 }
 
-function repairText(b: Brief, previous: Attempt, picture?: string, counts: (c: VerifyReport["checks"][number]) => boolean = (c) => c.status === "fail", request?: string): string {
+function repairText(b: Brief, previous: Attempt, picture?: string, counts: (c: VerifyReport["checks"][number]) => boolean = (c) => c.status === "fail", request?: string, all: Attempt[] = []): string {
   const failures = [
     ...previous.rejected,
     ...(previous.report?.checks.filter(counts).flatMap((c) => [`${c.title}: ${c.summary}`, ...c.details.filter((d) => d.startsWith("✗")).map((d) => `  ${d}`)]) ?? []),
   ];
+  // The other attempts and how they ended: a repair that repeats what already failed does not converge.
+  const others = all
+    .map((a, i) => ({ a, n: i + 1 }))
+    .filter(({ a }) => a !== previous)
+    .slice(-3)
+    .map(({ a, n }) => {
+      const failed = [...a.rejected, ...(a.report?.checks.filter(counts).map((c) => `${c.title}: ${c.summary}`) ?? [])];
+      return `- Attempt ${n}: ${failed.length ? failed.join("; ") : "no check failed"}`;
+    });
   return [
     briefText(b),
     ``,
     ...(request ? [`THE TEAM ASKED FOR THIS CHANGE, which your previous files make; keep it, it outranks the design:`, request, ``] : []),
     `YOUR PREVIOUS ATTEMPT FAILED THESE CHECKS — fix every one, change nothing else:`,
     ...failures.map((f) => `- ${f}`),
+    ...(others.length ? [``, `OTHER ATTEMPTS ALSO FAILED — the same fix again will fail the same way; when a failure repeats, change the approach (another component, layout or token):`, ...others] : []),
     ...(picture ? [``, picture] : []),
     ``,
     `YOUR PREVIOUS FILES`,

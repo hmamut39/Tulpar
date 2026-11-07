@@ -63,6 +63,12 @@ describe("repairs start from the best attempt so far", () => {
     // The fourth request repairs the second attempt (one failure), not the third (three).
     expect(llm.requests[3]!.text).toContain("// second");
     expect(llm.requests[3]!.text).not.toContain("// third");
+    // It is told how the others ended, so it does not repeat them; the first repair had no others yet.
+    expect(llm.requests[3]!.text).toContain("OTHER ATTEMPTS ALSO FAILED");
+    expect(llm.requests[3]!.text).toContain("- Attempt 3: layout: layout failed; colors: colors failed; spacing: spacing failed");
+    expect(llm.requests[3]!.text).toContain("- Attempt 1: layout: layout failed; colors: colors failed");
+    expect(llm.requests[3]!.text).not.toContain("- Attempt 2:");
+    expect(llm.requests[1]!.text).not.toContain("OTHER ATTEMPTS");
   });
 });
 
