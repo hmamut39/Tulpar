@@ -215,12 +215,15 @@ describe("verify", () => {
   it("says when the design system's theme, not the code, draws another typeface", () => {
     const roboto = good().map((e) => ({ ...e, fonts: e.fonts.length ? ["Roboto"] : e.fonts }));
     const r = verify(input(roboto));
-    expect(status(r, "typeface")).toBe("fail");
+    // Like a design colour with no token: the design's fit, said, not the code's failure.
+    expect(status(r, "typeface")).toBe("pass");
+    expect(r.checks.find((c) => c.id === "typeface")!.summary).toBe("typeface from the theme on 3/3 elements: the design's Plex is not this design system's font (see the note)");
     expect(r.designNote).toContain("The design is set in Plex");
     expect(r.designNote).toContain("draws text in Roboto, and the code rightly sets no font of its own. To match, set the theme's font to Plex.");
     // The code chose the font itself: that is the code's to fix, not the theme's.
     const set = verify({ ...input(roboto), analysis: { componentsUsed: [], literals: [{ property: "fontFamily", written: "Roboto", source: "literal" }] } });
     expect(set.designNote ?? "").not.toContain("draws text in Roboto");
+    expect(status(set, "typeface")).toBe("fail");
     expect(verify(input(good())).designNote ?? "").not.toContain("The design is set in");
   });
 

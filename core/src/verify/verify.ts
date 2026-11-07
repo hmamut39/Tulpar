@@ -304,7 +304,16 @@ export function verify(input: VerifyInput): VerifyReport {
     const byClass = texts.every((e) => !fontFamilies(e.node).length);
     const summary = `typeface${byClass ? " class" : ""} as designed on ${right}/${checked} elements`;
     const designNamesFonts = texts.some((e) => fontFamilies(e.node).length > 0 || fontClasses(e.node).length > 0);
+    // Every miss drawn in one typeface the code never set: the design system's theme decides, and the design names a
+    // font this design system does not use. Like a design colour with no token, that is the design's fit, set aside
+    // and said (see the note), not the code's failure. A font the code sets itself is still judged.
+    const missed = texts.filter((e) => fontFamilies(e.node).length && byId.get(e.node.id)?.fonts.length && !fontFamilies(e.node).every((f) => byId.get(e.node.id)!.fonts.some((d) => sameFamily(d, f))));
+    const themeFamilies = [...new Set(missed.flatMap((e) => byId.get(e.node.id)!.fonts.map((f) => f.split(" ")[0]!)))];
+    const codeSetsFont = facts.some((f) => f.property === "fontFamily" && f.source === "literal");
+    // All of it: text partly in the design's font and partly not was changed somewhere, which is the code's doing.
+    const themeDecides = right === 0 && missed.length === checked && themeFamilies.length === 1 && !codeSetsFont;
     if (!checked) checks.push(skip("typeface", "Typeface", designNamesFonts ? "the renderer did not report which fonts drew the text" : "the design does not name a font family (e.g. it was read from a screenshot)"));
+    else if (themeDecides) checks.push(ok("typeface", "Typeface", `typeface from the theme on ${checked - right}/${checked} elements: the design's ${[...new Set(missed.flatMap((e) => fontFamilies(e.node)))].join(", ")} is not this design system's font (see the note)`, details.map((d) => d.replace(/^✗/, "–"))));
     else checks.push(right === checked ? ok("typeface", "Typeface", summary, details) : fail("typeface", "Typeface", summary, details));
   }
 
