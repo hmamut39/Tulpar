@@ -1,0 +1,33 @@
+# Trying the SwiftUI render on a Mac: builds examples/swiftui-ios and draws its view in the iPhone simulator.
+# Started by hand only; it uses no secrets.
+name: Swift probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tools
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available | grep -E "iPhone" | head -5
+      - name: Draw the view in the simulator
+        working-directory: examples/swiftui-ios
+        run: |
+          start=$(date +%s)
+          device=$(xcrun simctl list devices available | grep -oE "iPhone [0-9]+( Pro)?" | head -1)
+          echo "Device: $device"
+          TEST_RUNNER_TULPAR_OUT=/tmp/tulpar-out xcodebuild test -scheme TulparSwiftUI -destination "platform=iOS Simulator,name=$device" -quiet 2>&1 | tail -30
+          echo "Seconds: $(( $(date +%s) - start ))"
+          ls -la /tmp/tulpar-out || true
+          cat /tmp/tulpar-out/render.json || true
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: swift-render
+          path: /tmp/tulpar-out
+          if-no-files-found: warn
