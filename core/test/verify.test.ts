@@ -237,6 +237,10 @@ describe("verify", () => {
     expect(layout(["Plex"], box(16, 16, 149, 18))).toBe("fail");
     // Another typeface does not excuse a text in the wrong place.
     expect(layout(["IBM Plex Sans"], box(40, 16, 149, 18))).toBe("fail");
+    // A text far too narrow is a type style of the wrong size: the repair is told the design's.
+    const sized = { ...heading, style: { ...(heading as Extract<DesignNode, { kind: "text" }>).style, fontSize: 20, fontWeight: 600 } } as DesignNode;
+    const details = verify({ ...input([el("3:1", "span", box(16, 16, 121, 18), "Heirloom tomato", { fonts: ["Roboto"] })]), design: { ...d, root: { ...d.root, children: [sized] } } as DesignTree }).checks.find((c) => c.id === "layout")!.details;
+    expect(details.join()).toContain("width 160 → 121 (-39) (tolerance ±3, width ±19.2) — the design's text is 20px, weight 600: use the type style of that size");
   });
 
   it("does not count a kit's placeholders or icons as components missing a mapping", () => {

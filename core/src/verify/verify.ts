@@ -210,7 +210,11 @@ export function verify(input: VerifyInput): VerifyReport {
       const diffs = boxDiffs(e.node.box!, el.box, t, wt);
       if (diffs.length && el.drawnBox && !boxDiffs(e.node.box!, el.drawnBox, t, wt).length) diffs.length = 0;
       if (!el.visible) details.push(`✗ ${e.node.name} (${e.node.id}): visible in the design, not visible in the render`);
-      else if (diffs.length) details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t})`);
+      else if (diffs.length) {
+        // A text of the wrong width is usually a type style of the wrong size: say which size the design's is.
+        const style = e.node.kind === "text" && diffs.some((d) => d.startsWith("width")) && e.node.style.fontSize ? ` — the design's text is ${e.node.style.fontSize}px${e.node.style.fontWeight ? `, weight ${e.node.style.fontWeight}` : ""}: use the type style of that size` : "";
+        details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t}${wt !== t ? `, width ±${round(wt)}` : ""})${style}`);
+      }
       else within++;
     }
     const untagged = placed.filter((e) => !byId.has(e.node.id)).length;
