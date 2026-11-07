@@ -1,5 +1,5 @@
-# Trying the SwiftUI render on a Mac: builds examples/swiftui-ios and draws its view in the iPhone simulator.
-# Started by hand only; it uses no secrets.
+# Trying the SwiftUI render on a Mac: generates the host app (XcodeGen), and a UI test draws the view in the iPhone
+# simulator and reads what it drew. Started by hand only; it uses no secrets.
 name: Swift probe
 on:
   workflow_dispatch:
@@ -14,18 +14,18 @@ jobs:
       - name: Tools
         run: |
           xcodebuild -version
-          xcrun simctl list devices available | grep -E "iPhone" | head -5
+          brew install xcodegen
       - name: Draw the view in the simulator
         working-directory: examples/swiftui-ios
         run: |
           set -o pipefail
           start=$(date +%s)
+          xcodegen generate
           device=$(xcrun simctl list devices available | grep -oE "iPhone [0-9]+( Pro)?" | head -1)
           echo "Device: $device"
-          TEST_RUNNER_TULPAR_OUT=/tmp/tulpar-out xcodebuild test -scheme TulparSwiftUI-Package -destination "platform=iOS Simulator,name=$device" -quiet 2>&1 | tail -30
+          TEST_RUNNER_TULPAR_OUT=/tmp/tulpar-out xcodebuild test -project TulparHost.xcodeproj -scheme TulparHost -destination "platform=iOS Simulator,name=$device" -quiet 2>&1 | tail -30
           echo "Seconds: $(( $(date +%s) - start ))"
-          ls -la /tmp/tulpar-out || true
-          cat /tmp/tulpar-out/render.json || true
+          cat /tmp/tulpar-out/render.json
       - uses: actions/upload-artifact@v5
         if: always()
         with:

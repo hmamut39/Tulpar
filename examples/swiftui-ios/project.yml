@@ -1,0 +1,36 @@
+# The app Tulpar checks generated SwiftUI views in (XcodeGen): a host app that shows the view at the Figma frame's size
+# at the top left of the screen, and a UI test that reads every element with an accessibilityIdentifier and takes a
+# screenshot. Generate with: xcodegen generate
+name: TulparHost
+options:
+  bundleIdPrefix: com.tulparsi
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGNING_ALLOWED: "NO"
+targets:
+  TulparHost:
+    type: application
+    platform: iOS
+    sources: [Host, Sources/Generated]
+    info:
+      path: Host/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UIStatusBarHidden: true
+  RenderUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [RenderUITests]
+    dependencies:
+      - target: TulparHost
+schemes:
+  TulparHost:
+    build:
+      targets:
+        TulparHost: all
+        RenderUITests: [test]
+    test:
+      targets: [RenderUITests]
