@@ -27,6 +27,8 @@ Then ask your assistant, for example: *"Use Tulpar to generate CheckoutCard for 
 
 A generation takes 30–120 seconds (building, rendering and running tests). If your client times tools out sooner, raise its MCP tool timeout.
 
+**Tulpar as the check before "done".** Whoever writes the UI — your agent from Figma's own MCP, a teammate, or Tulpar — `tulpar_check` reviews the changed files and `tulpar_verify` draws the component and compares it with the frame. The skill in [skills/tulpar/SKILL.md](../skills/tulpar/SKILL.md) tells an agent to call them after every UI change and to fix what they report before saying the work is done. In Claude Code, copy that folder to `.claude/skills/tulpar/` (or `~/.claude/skills/tulpar/`).
+
 **Tested:**
 - a real MCP client over an in-memory transport: tool list, projects, input errors, a full generation with the generated tests run, the no-overwrite rule, and verification;
 - a separate stdio process, exactly as editors start it: a full Angular verification, spec included.

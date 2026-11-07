@@ -75,7 +75,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     "tulpar_projects",
     {
       title: "List Tulpar projects",
-      description: "The design systems and frameworks Tulpar can generate for: each project pairs a component library with a framework (React, Vue, Angular, Svelte or Web Components). Use a project's id in tulpar_generate and tulpar_verify.",
+      description: "The design systems and frameworks Tulpar works with: each project pairs a component library with a framework (React, Vue, Angular, Svelte, Web Components, Flutter, Blazor in C#, Leptos in Rust, Jetpack Compose in Kotlin, Vaadin in Java). Call it first to find the project id for tulpar_generate, tulpar_verify and tulpar_check.",
       inputSchema: z.object({}),
       outputSchema: z.object({ projects: z.array(z.object({ id: z.string(), adapter: z.string(), dir: z.string() })) }),
     },
@@ -90,7 +90,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     {
       title: "Generate a verified component from Figma or a screenshot",
       description:
-        "Writes a UI component with the project's own design-system components and tokens, from a Figma frame link and/or a screenshot. Tulpar builds and renders it, checks it against the design (components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, its generated tests, pixels when a screenshot is given), and repairs failures. Returns the files and the verification report. Takes 30–120 seconds.",
+        "Use when asked to build UI from a Figma frame or a screenshot. Writes the component with the project's own design-system components and tokens. Tulpar builds and renders it, checks it against the design (components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, its generated tests, pixels when a screenshot is given), and repairs failures. Returns the files and the verification report. Takes 30–120 seconds.",
       inputSchema: z.object({
         project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
         name: z.string().describe("PascalCase component name, e.g. CheckoutCard"),
@@ -167,7 +167,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     "tulpar_verify",
     {
       title: "Verify a component against a Figma frame",
-      description: "Builds and renders an existing implementation inside a Tulpar project, and checks it against a Figma frame: design-system components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, and its tests when given. Reports pass, fail or not-checked for each.",
+      description: "Call after you write or change UI code that implements a Figma frame — including code written from Figma's own MCP or by another agent — and before you say it is done. Builds and renders the implementation inside a Tulpar project and checks it against the frame: design-system components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, and its tests when given. Reports pass, fail or not-checked for each, with what to fix; fix and call again until it passes.",
       inputSchema: z.object({
         project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
         entry: z.string().describe("The implementation's entry file, relative to the project (e.g. src/Card.tsx)"),
@@ -191,7 +191,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     "tulpar_check",
     {
       title: "Check code against the design system",
-      description: "Reviews component files in a Tulpar project, whoever wrote them, with no model and no design: hard-coded colours, type and spacing that should be design tokens, and var(--…) tokens the design system does not have. Use it on code you just wrote. Each finding has its file and line.",
+      description: "Call after every change to component files, even without a Figma frame: a fast review with no model and no design. Finds hard-coded colours, type and spacing that should be design tokens, and var(--…) tokens the design system does not have, in code anyone wrote. Each finding has its file and line; fix them before you say the change is done.",
       inputSchema: z.object({
         project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
         files: z.array(z.string()).describe("Component files (or their stylesheets) to check, absolute or relative to the project"),
