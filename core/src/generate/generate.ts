@@ -145,6 +145,12 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
       else files.push({ path, content: f.content });
     }
     for (const e of expected) if (!files.some((f) => f.path === e)) rejected.push(`Missing file "${e}".`);
+    // The app's theme styles the component: one the component makes for itself hard-codes its fonts, sizes and colours.
+    for (const f of files) {
+      if (f.path === testPath) continue;
+      const theme = /\b(createTheme|extendTheme|createSystem)\s*\(|<ThemeProvider\b/.exec(f.content.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ""));
+      if (theme) rejected.push(`${f.path} makes its own theme (${theme[1] ?? "ThemeProvider"}): the app's theme already styles the component; remove it and use the theme's variants and tokens.`);
+    }
     // A repair fixes the code, never the tests out of the way: fewer tests or assertions than the attempt
     // it repairs hide what failed. (A change may drop what it asks to drop; its own repairs may not.)
     if (previous && testPath) {

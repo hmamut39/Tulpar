@@ -16,7 +16,9 @@
       }
     },
     "render": {
-      "stylesheets": [],
+      "stylesheets": [
+        "app.css"
+      ],
       "setup": "tulpar.setup.ts"
     }
   }

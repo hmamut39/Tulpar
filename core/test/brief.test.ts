@@ -72,6 +72,18 @@ describe("repairs start from the best attempt so far", () => {
   });
 });
 
+describe("a component that makes its own theme", () => {
+  it("is sent back: the app's theme styles it", async () => {
+    const files = (body: string) => ({ files: [{ path: "Footer.tsx", content: body }], notes: "" });
+    const pass = { frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: "pass", headline: "", checks: [], warnings: [] } as unknown as VerifyReport;
+    const llm = new ScriptedLlm([files('const t = createTheme({ typography: { fontFamily: "Arial" } });\nexport default () => <ThemeProvider theme={t} />;'), files("export default () => null;")]);
+    const result = await generate({ llm, name: "Footer", design, mapping: new Map([["B", "Button"]]), index, conventions, maxAttempts: 2, verify: async () => pass });
+    expect(result.attempts[0]!.rejected.join()).toContain("Footer.tsx makes its own theme (createTheme)");
+    expect(llm.requests[1]!.text).toContain("makes its own theme");
+    expect(result.attempts[1]!.rejected).toEqual([]);
+  });
+});
+
 describe("several first drafts", () => {
   it("verifies each draft independently, then repairs the best one", async () => {
     const files = (body: string) => ({ files: [{ path: "Footer.tsx", content: body }], notes: "" });

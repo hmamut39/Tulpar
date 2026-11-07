@@ -225,6 +225,9 @@ describe("verify", () => {
     expect(set.designNote ?? "").not.toContain("draws text in Roboto");
     expect(status(set, "typeface")).toBe("fail");
     expect(verify(input(good())).designNote ?? "").not.toContain("The design is set in");
+    // A serif for a sans-serif design is the browser's fallback: no font was set at all, which is no theme's choice.
+    const fallback = good().map((e) => ({ ...e, fonts: e.fonts.length ? ["Liberation Serif"] : e.fonts }));
+    expect(status(verify(input(fallback)), "typeface")).toBe("fail");
   });
 
   it("gives a text's width some slack when it is drawn in another typeface, but not its place", () => {

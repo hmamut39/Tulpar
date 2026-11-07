@@ -1,0 +1,5 @@
+/* The app's global style, as a PrimeNG app has one: PrimeNG's themes style its components and inherit the page's
+   font, so the app sets it. Inter is the face PrimeNG's own templates use. */
+body {
+  font-family: Inter, system-ui, sans-serif;
+}

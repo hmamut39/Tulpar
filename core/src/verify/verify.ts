@@ -322,7 +322,10 @@ export function verify(input: VerifyInput): VerifyReport {
     const themeFamilies = [...new Set(missed.flatMap((e) => byId.get(e.node.id)!.fonts.map((f) => f.split(" ")[0]!)))];
     const codeSetsFont = facts.some((f) => f.property === "fontFamily" && f.source === "literal");
     // All of it: text partly in the design's font and partly not was changed somewhere, which is the code's doing.
-    const themeDecides = right === 0 && missed.length === checked && themeFamilies.length === 1 && !codeSetsFont;
+    // And a typeface of the design's kind: a serif drawn for a sans-serif design is the browser's fallback (nothing
+    // set a font at all), not a theme's choice.
+    const sameKind = missed.every((e) => fontFamilies(e.node).every((f) => byId.get(e.node.id)!.fonts.every((d) => fontClass(d) === fontClass(f))));
+    const themeDecides = right === 0 && missed.length === checked && themeFamilies.length === 1 && !codeSetsFont && sameKind;
     if (!checked) checks.push(skip("typeface", "Typeface", designNamesFonts ? "the renderer did not report which fonts drew the text" : "the design does not name a font family (e.g. it was read from a screenshot)"));
     else if (themeDecides) checks.push(ok("typeface", "Typeface", `typeface from the theme on ${checked - right}/${checked} elements: the design's ${[...new Set(missed.flatMap((e) => fontFamilies(e.node)))].join(", ")} is not this design system's font (see the note)`, details.map((d) => d.replace(/^✗/, "–"))));
     else checks.push(right === checked ? ok("typeface", "Typeface", summary, details) : fail("typeface", "Typeface", summary, details));
