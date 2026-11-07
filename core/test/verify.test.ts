@@ -245,6 +245,10 @@ describe("verify", () => {
     const placed = (y: number) => verify({ ...input([el("3:1", "span", box(16, y, 160, 18), "Heirloom tomato", { fonts: ["Roboto"] })]), design: { ...d, root: { ...d.root, children: [sized] } } as DesignTree }).checks.find((c) => c.id === "layout")!.status;
     expect(placed(21)).toBe("pass");
     expect(placed(26)).toBe("fail");
+    // A canvas renderer cannot name the font: with no font set by the code, the theme's drew it, and it gets the same slack.
+    const canvas = (literals: VerifyInput["analysis"]) => verify({ ...input([el("3:1", "Text", box(16, 16, 166, 18), "Heirloom tomato", { fonts: [] })], { analysis: literals }), design: { ...d, root: { ...d.root, children: [sized] } } as DesignTree }).checks.find((c) => c.id === "layout")!.status;
+    expect(canvas(undefined)).toBe("pass");
+    expect(canvas({ componentsUsed: [], literals: [{ property: "fontFamily", written: "FontFamily.Serif", source: "literal" }] })).toBe("fail");
   });
 
   it("does not count a kit's placeholders or icons as components missing a mapping", () => {

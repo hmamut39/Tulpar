@@ -203,7 +203,10 @@ export function verify(input: VerifyInput): VerifyReport {
       // font): Inter and IBM Plex set the same words a few per cent apart. The typeface check reports that; layout
       // does not fail on it twice. Its place and height are still checked as strictly.
       const designFamilies = e.node.kind === "text" ? fontFamilies(e.node) : [];
-      const otherFont = designFamilies.length > 0 && el.fonts.length > 0 && !designFamilies.every((f) => el.fonts.some((d) => sameFamily(d, f)));
+      // A canvas renderer (Flutter, Compose) cannot say which font drew a text: when the code sets none, the theme's
+      // font drew it, as unknown to this check as one known to differ.
+      const unknownFont = designFamilies.length > 0 && el.fonts.length === 0 && !facts.some((f) => f.property === "fontFamily" && f.source === "literal");
+      const otherFont = unknownFont || (designFamilies.length > 0 && el.fonts.length > 0 && !designFamilies.every((f) => el.fonts.some((d) => sameFamily(d, f))));
       const wt = e.node.kind === "text" && fromScreenshot ? Math.max(t, 0.35 * e.node.box!.width) : otherFont ? Math.max(t, 0.12 * e.node.box!.width) : t;
       // Another typeface also sits its lines differently (its ascent and line height): a share of the font size, up and down.
       const ht = otherFont && e.node.kind === "text" && e.node.style.fontSize ? Math.max(t, 0.3 * e.node.style.fontSize) : t;
@@ -214,7 +217,9 @@ export function verify(input: VerifyInput): VerifyReport {
       if (!el.visible) details.push(`✗ ${e.node.name} (${e.node.id}): visible in the design, not visible in the render`);
       else if (diffs.length) {
         // A text of the wrong width is usually a type style of the wrong size: say which size the design's is.
-        const style = e.node.kind === "text" && diffs.some((d) => d.startsWith("width")) && e.node.style.fontSize ? ` — the design's text is ${e.node.style.fontSize}px${e.node.style.fontWeight ? `, weight ${e.node.style.fontWeight}` : ""}: use the type style of that size` : "";
+        // A text of the wrong size is usually a type style of the wrong size or line height: say which the design's are.
+        const s = e.node.kind === "text" ? e.node.style : undefined;
+        const style = s?.fontSize && diffs.some((d) => d.startsWith("width") || d.startsWith("height")) ? ` — the design's text is ${s.fontSize}px${s.fontWeight ? `, weight ${s.fontWeight}` : ""}${s.lineHeight ? `, line height ${round(s.lineHeight)}px` : ""}: use the type style of that size and line height` : "";
         details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t}${wt !== t ? `, width ±${round(wt)}` : ""}${ht !== t ? `, up and down ±${round(ht)}` : ""})${style}`);
       }
       else within++;
