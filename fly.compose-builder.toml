@@ -16,6 +16,14 @@ primary_region = "iad"
     type = "requests"
     hard_limit = 25
 
+  # A version that cannot start fails its deploy, instead of "succeeding" and failing every Kotlin run.
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "15s"
+
 # The Kotlin compiler alone asks for 4 GB, and Gradle for 2 GB.
 [[vm]]
   size = "shared-cpu-4x"

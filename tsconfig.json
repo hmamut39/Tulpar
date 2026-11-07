@@ -19,6 +19,7 @@
     "cli",
     "adapters",
     "web/src",
+    "deploy",
     "vitest.config.ts",
     "mcp/src",
     "mcp/test",
