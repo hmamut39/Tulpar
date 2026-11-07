@@ -155,6 +155,8 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const trustProxy = options.trustProxy ?? process.env.TULPAR_TRUST_PROXY === "1";
   const log = options.log ?? ((line: string) => console.log(line));
   const runs = new Map<string, number[]>();
+  // When each job was counted against its visitor's limits: a job that fails before the model runs is not counted.
+  const jobStamps = new Map<string, { visitor: string; at: number }>();
   const today: number[] = [];
   const invites = new Map<string, string>(); // job id → which invite (a hash, never the code)
   const auth = options.auth === undefined ? authFromEnv() : (options.auth ?? undefined);
@@ -204,6 +206,13 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       // Failed before the model ran (e.g. the Figma frame could not be read): the generation is given back.
       const owner = jobAccounts.get(job.id);
       if (owner && job.state === "error" && !r) accounts?.refund(owner.id, owner.charged ?? 1);
+      const stamp = jobStamps.get(job.id);
+      if (stamp && job.state === "error" && !r) {
+        const list = runs.get(stamp.visitor);
+        if (list?.includes(stamp.at)) list.splice(list.indexOf(stamp.at), 1);
+        if (today.includes(stamp.at)) today.splice(today.indexOf(stamp.at), 1);
+      }
+      jobStamps.delete(job.id);
       accounts?.closeRun(job.id);
       invites.delete(job.id);
       jobAccounts.delete(job.id);
@@ -452,9 +461,10 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           }
         }
 
-        recent.push(Date.now());
+        const at = Date.now();
+        recent.push(at);
         runs.set(visitor, recent);
-        today.push(Date.now());
+        today.push(at);
         const input: JobInput = {
           projectDir: project.dir,
           name,
@@ -473,6 +483,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           if (!counted.consumed) return json(res, 402, { error: counted.blocked, upgrade: !!billing });
         }
         const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro"), owner: ownerOf(code, account) });
+        jobStamps.set(id, { visitor, at });
         if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
         if (account) {
           jobAccounts.set(id, { id: account.id, login: account.login, charged: charge });
@@ -499,9 +510,10 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         const sent = Array.isArray(body.files) ? (body.files as unknown[]).filter((f): f is GeneratedFile => !!f && typeof (f as GeneratedFile).path === "string" && typeof (f as GeneratedFile).content === "string") : [];
         const delivered = new Set(from.result.files.map((f) => f.path));
         const files = sent.length && sent.every((f) => delivered.has(f.path)) ? sent : from.result.files;
-        recent.push(Date.now());
+        const at = Date.now();
+        recent.push(at);
         runs.set(visitor, recent);
-        today.push(Date.now());
+        today.push(at);
         if (account) {
           const counted = accounts!.consume(account.id, new Date());
           if (!counted.consumed) return json(res, 402, { error: counted.blocked, upgrade: !!billing });
@@ -513,6 +525,7 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           change: { of: from.id, request, files, context: from.context },
         };
         const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro"), owner: ownerOf(code, account) });
+        jobStamps.set(id, { visitor, at });
         if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
         if (account) {
           jobAccounts.set(id, { id: account.id, login: account.login, charged: 1 });

@@ -151,6 +151,34 @@ describe("web API", () => {
   });
 });
 
+describe("a run that fails before the model runs", () => {
+  it("does not count against the visitor's hourly limit", async () => {
+    const never = { name: "never", generate: () => new Promise<never>(() => {}) } as unknown as ScriptedLlm;
+    const one = await startServer({ repoRoot: repo, llm: () => never, accessCode: "solo", runsPerHour: 1 }, 0);
+    const send = (body: Record<string, unknown>) => fetch(`${one.url}/api/jobs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accessCode: "solo", project: "carbon-react", name: "Card", ...body }) });
+    const saved = process.env.FIGMA_TOKEN;
+    delete process.env.FIGMA_TOKEN;
+    try {
+      // A frame that is not in the cache, with no Figma token: the design cannot be read, so no model is called.
+      const res = await send({ figmaUrl: "https://www.figma.com/design/b8xYgmx2Js30XaldxPkOs9/Carbon?node-id=999999-1" });
+      expect(res.status).toBe(202);
+      const { id } = await res.json();
+      let state = "queued";
+      for (let i = 0; i < 60 && (state === "queued" || state === "running"); i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        state = (await (await fetch(`${one.url}/api/jobs/${id}`)).json()).state;
+      }
+      expect(state).toBe("error");
+      // The hour's one run is still there.
+      expect((await send({ figmaUrl: FRAME })).status).toBe(202);
+      expect((await send({ figmaUrl: FRAME })).status).toBe(429);
+    } finally {
+      if (saved) process.env.FIGMA_TOKEN = saved;
+      await one.close();
+    }
+  }, 120_000);
+});
+
 describe("hosting rules", () => {
   let hosted: { url: string; close: () => Promise<void> };
   const lines: string[] = [];
