@@ -1,0 +1,9 @@
+{
+  "adapter": "vaadin",
+  "figma": {
+    "fileKey": "b8xYgmx2Js30XaldxPkOs9"
+  },
+  "vaadin": {
+    "tokens": { "runtime": { "prefix": "aura" } }
+  }
+}

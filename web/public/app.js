@@ -5,7 +5,7 @@ import { initAccount, refreshAllowance, showNotice, signedIn, upgrade } from "./
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = "tulpar.figmaToken";
 const FRAMEWORK_KEY = "tulpar.framework";
-const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", "web-components": "Web Components", flutter: "Flutter", blazor: "Blazor (C#)", leptos: "Leptos (Rust)", compose: "Jetpack Compose (Kotlin)" };
+const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", "web-components": "Web Components", flutter: "Flutter", blazor: "Blazor (C#)", leptos: "Leptos (Rust)", compose: "Jetpack Compose (Kotlin)", vaadin: "Vaadin (Java)" };
 // Framework → the {language, styling} combinations it writes, its default first: from the adapters
 // themselves (/api/config), so the lists are never more or less than what they write.
 let OUTPUTS = {};
@@ -25,6 +25,7 @@ const OUTPUT_HINTS = {
   blazor: "Blazor components are written in C# and Razor, with a scoped stylesheet.",
   leptos: "Leptos components are written in Rust, with a plain stylesheet.",
   compose: "Compose components are written in Kotlin, styled from your app's Material theme.",
+  vaadin: "Vaadin views are written in Java, styled by its Aura theme.",
 };
 // A UI framework decides the language its components are written in, and a language arrives once its
 // components can really be built and checked.
@@ -35,7 +36,7 @@ const soon = () => SOON.filter(([a]) => ![...$("framework").options].some((o) =>
 const languagesSoon = () => `<optgroup label="Coming with their frameworks">${soon().map(([, l, f]) => `<option disabled>${l} · ${f}</option>`).join("")}</optgroup>`;
 const languagesLater = () => `${soon().map(([, l]) => l).join(", ").replace(/, ([^,]*)$/, " and $1")} arrive with their frameworks.`;
 // Languages another framework writes: someone looking for C# looks here, so choosing one switches framework.
-const LANGUAGES_ELSEWHERE = [["blazor", "C# · Blazor"], ["leptos", "Rust · Leptos"], ["compose", "Kotlin · Compose"], ["flutter", "Dart · Flutter"], ["web-components", "HTML · Web Components"], ["react", "TypeScript · React"]];
+const LANGUAGES_ELSEWHERE = [["blazor", "C# · Blazor"], ["leptos", "Rust · Leptos"], ["vaadin", "Java · Vaadin"], ["compose", "Kotlin · Compose"], ["flutter", "Dart · Flutter"], ["web-components", "HTML · Web Components"], ["react", "TypeScript · React"]];
 const SWITCH = "framework:";
 function otherLanguages(adapter) {
   const offered = [...$("framework").options].map((o) => o.value);
@@ -49,7 +50,7 @@ function fillOutputs() {
   $("outputHint").textContent = `${OUTPUT_HINTS[adapter] ?? "Tulpar writes the files the way your codebase does."} ${languagesLater()}`;
   // Never disabled: a greyed-out field reads as broken (on a phone, tapping it does nothing). One option says there is one way.
   if (!list.length) {
-    const one = { "web-components": ["HTML · JavaScript", "CSS"], flutter: ["Dart", "Material theme"], blazor: ["C#", "Scoped CSS"], leptos: ["Rust", "CSS"], compose: ["Kotlin", "Material theme"] }[adapter] ?? ["The framework's default", "Its default"];
+    const one = { "web-components": ["HTML · JavaScript", "CSS"], flutter: ["Dart", "Material theme"], blazor: ["C#", "Scoped CSS"], leptos: ["Rust", "CSS"], compose: ["Kotlin", "Material theme"], vaadin: ["Java", "Aura theme"] }[adapter] ?? ["The framework's default", "Its default"];
     $("language").innerHTML = option("", one[0]) + otherLanguages(adapter) + languagesSoon();
     $("styling").innerHTML = option("", one[1]);
     return;
@@ -86,7 +87,7 @@ $("styling").addEventListener("change", saveOutput);
 // Shown so people know what is coming, but never selectable before an adapter exists for it.
 const COMING_SOON = [["swiftui", "SwiftUI (Swift)"], ["compose", "Jetpack Compose (Kotlin)"], ["vaadin", "Vaadin (Java)"]];
 // Most-used first; the page opens on the first one unless the visitor chose another before.
-const FRAMEWORK_ORDER = ["react", "vue", "angular", "svelte", "blazor", "flutter", "compose", "leptos", "web-components"];
+const FRAMEWORK_ORDER = ["react", "vue", "angular", "svelte", "blazor", "flutter", "compose", "vaadin", "leptos", "web-components"];
 // Product names for known packages; anything else shows its package name.
 const PRODUCTS = {
   "@carbon/react": "Carbon (IBM)", "@carbon/web-components": "Carbon (IBM)", "carbon-components-angular": "Carbon (IBM)",
@@ -164,7 +165,7 @@ function fillProjects() {
 const ADD = "__add__";
 function fillAddOption() {
   // Flutter's packages live on pub.dev, Blazor's on NuGet and Leptos's on crates.io.
-  if (["flutter", "blazor", "leptos", "compose"].includes($("framework").value)) return;
+  if (["flutter", "blazor", "leptos", "compose", "vaadin"].includes($("framework").value)) return;
   $("project").insertAdjacentHTML("beforeend", `<option value="${ADD}">+ Add from npm…</option>`);
 }
 $("project").addEventListener("change", () => {

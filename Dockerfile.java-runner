@@ -1,0 +1,49 @@
+# The Java runner (deploy/java-runner.ts): checks generated Vaadin views, one per machine start. No secrets, no public
+# address, outgoing connections blocked before it serves, the app run as an unprivileged user. Deploy:
+#   flyctl deploy --config fly.java-runner.toml --remote-only
+FROM node:24-bookworm-slim
+
+WORKDIR /app
+ENV NODE_ENV=production PORT=8080 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright TULPAR_JAVA_HOME=/opt/jdk JAVA_HOME=/opt/jdk \
+    TULPAR_RUNNER_UID=1500 TULPAR_RUNNER_GID=1500 MAVEN_OPTS=-Dmaven.repo.local=/opt/m2
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip iptables fonts-inter fonts-open-sans \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd -g 1500 runner && useradd -r -u 1500 -g 1500 -M -d /tmp runner \
+ && mkdir -p /opt/jdk /opt/maven /opt/m2
+
+COPY package.json package-lock.json ./
+COPY core/package.json core/package.json
+COPY cli/package.json cli/package.json
+COPY web/package.json web/package.json
+COPY mcp/package.json mcp/package.json
+COPY adapters adapters
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+ && npx playwright install --with-deps --only-shell chromium
+
+# The JDK and Maven from their releases, their published checksums checked.
+ARG JDK_URL=https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz
+ARG MAVEN_VERSION=3.10.0
+RUN curl -sSL -o /tmp/jdk.tgz "$JDK_URL" \
+ && curl -sSL "$JDK_URL.sha256.txt" | cut -d' ' -f1 | sed 's|$|  /tmp/jdk.tgz|' | sha256sum -c - \
+ && tar -xzf /tmp/jdk.tgz -C /opt/jdk --strip-components=1 && rm /tmp/jdk.tgz \
+ && rm -rf /opt/jdk/lib/src.zip /opt/jdk/jmods \
+ && M="https://repo1.maven.org/maven2/org/apache/maven/apache-maven/${MAVEN_VERSION}/apache-maven-${MAVEN_VERSION}-bin.tar.gz" \
+ && curl -sSL -o /tmp/maven.tgz "$M" \
+ && curl -sSL "$M.sha512" | cut -d' ' -f1 | sed 's|$|  /tmp/maven.tgz|' | sha512sum -c - \
+ && tar -xzf /tmp/maven.tgz -C /opt/maven --strip-components=1 && rm /tmp/maven.tgz
+
+COPY core core
+COPY deploy/java-runner.ts deploy/java-runner.ts
+COPY examples/vaadin-aura examples/vaadin-aura
+
+# The app built once, with network: Vaadin's pre-built bundle, every library, and the components' source to read.
+# A check only compiles the view, offline. Readable by the runner user, which runs the app.
+RUN cd examples/vaadin-aura \
+ && /opt/maven/bin/mvn -q -B package -DskipTests \
+ && /opt/maven/bin/mvn -q -B dependency:build-classpath -Dmdep.outputFile=target/cp.txt -Dmdep.includeScope=runtime \
+ && /opt/maven/bin/mvn -q -B dependency:unpack-dependencies -Dclassifier=sources -DincludeGroupIds=com.vaadin -DoutputDirectory=.tulpar/sources -Dmdep.failOnMissingClassifierArtifact=false "-Dmdep.includes=com/vaadin/flow/component/**/*.java" \
+ && chmod -R a+rX /opt/m2 /opt/jdk /app/examples/vaadin-aura
+
+EXPOSE 8080
+CMD ["node", "deploy/java-runner.ts"]

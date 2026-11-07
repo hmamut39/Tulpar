@@ -69,6 +69,8 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
 
     // The library's root class (Radix's <Theme> adds "radix-themes") and the theme class, as an app has them.
     const frameClasses = [config.rootClass, themeClass].filter((c): c is string => !!c && /^[\w-]+$/.test(c));
+    // A page drawn from a server (Vaadin) adds the frame after it loads.
+    await page.waitForSelector(`#${FRAME_ID}`, { state: "attached", timeout: 60_000 });
     await page.evaluate(({ frameId, frameClasses }) => document.getElementById(frameId)!.classList.add(...frameClasses), { frameId: FRAME_ID, frameClasses });
     // A framework that failed to start (Angular's bootstrap rejected) is a crash like a page error.
     const startup = await framework.settle(page, FRAME_ID);

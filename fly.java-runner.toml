@@ -1,0 +1,35 @@
+# The Java runner: one check per machine start, then the process exits and the machine stops; the next request starts
+# it again from the image, so no check sees another's leftovers. No public address: the main server reaches it on
+# Fly's private network. See Dockerfile.java-runner.
+app = "tulpar-java-runner"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.java-runner"
+
+[http_service]
+  internal_port = 8080
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # One request at a time per machine: a machine that is checking a view takes no other.
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 1
+    hard_limit = 1
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+# Exiting after a check is the plan, not a crash: it stays stopped until the next request starts it.
+[[restart]]
+  policy = "never"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"

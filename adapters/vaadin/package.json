@@ -1,0 +1,11 @@
+{
+  "name": "@tulpar/adapter-vaadin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "tulpar-adapter-vaadin": "./src/main.ts" },
+  "dependencies": {
+    "@tulpar/core": "0.0.0",
+    "@tulpar/web-kit": "0.0.0"
+  }
+}
