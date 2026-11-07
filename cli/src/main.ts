@@ -22,6 +22,7 @@ import { initCommand } from "./init.ts";
 import { match } from "./match.ts";
 import { verifyCommand } from "./verify.ts";
 import { checkCommand } from "./check.ts";
+import { verifyChangedCommand } from "./verify-changed.ts";
 import { evalCommand } from "./eval.ts";
 import {
   AdapterHost,
@@ -132,6 +133,12 @@ switch (command) {
     process.exitCode = (await checkCommand(target, rest, { format })).code;
     break;
   }
+  case "verify-changed": {
+    if (!target) usage();
+    const format = values.format === "github" || values.format === "json" ? values.format : "text";
+    process.exitCode = await verifyChangedCommand(target, rest, { out: values.out, cache: values.cache, format });
+    break;
+  }
   case "eval":
     process.exitCode = await evalCommand({ ...(values.only && { only: values.only.split(",") }), ...(values.cases && { casesFile: values.cases }), ...(values.candidates && { candidates: Number(values.candidates) }), out: values.out, cache: values.cache });
     break;
@@ -167,6 +174,7 @@ function usage(): never {
       "       tulpar drift <projectDir> --from <version> --to <version>",
       "       tulpar eval [--only <id,id>] [--cases eval/cases.json] [--candidates N]   the benchmark (calls the model: costs money)",
       "       tulpar check <projectDir> [files...] [--format text|github|json]   hard-coded values and invented tokens, no model",
+      '       tulpar verify-changed <projectDir> [changed files...] [--format text|github|json]   the components tulpar.json lists under "verify", drawn and compared with their Figma frames',
       "       tulpar generate <projectDir> (--figma <Figma frame link> | --frame <nodeId> | --image <screenshot.png>) --name <ComponentName> [--image design.png] [--scale 2] [--attempts 3] [--candidates 1] [--page] [--language typescript|javascript] [--styling css|css-modules|scss|less|tailwind|styled-components|emotion]",
     ].join("\n"),
   );

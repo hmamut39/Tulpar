@@ -212,6 +212,18 @@ describe("verify", () => {
     expect(r.checks.find((c) => c.id === "typeface")!.details).toEqual(["✗ Button 2:1 (2:1): design uses Plex, drawn with Arial"]);
   });
 
+  it("says when the design system's theme, not the code, draws another typeface", () => {
+    const roboto = good().map((e) => ({ ...e, fonts: e.fonts.length ? ["Roboto"] : e.fonts }));
+    const r = verify(input(roboto));
+    expect(status(r, "typeface")).toBe("fail");
+    expect(r.designNote).toContain("The design is set in Plex");
+    expect(r.designNote).toContain("draws text in Roboto, and the code rightly sets no font of its own. To match, set the theme's font to Plex.");
+    // The code chose the font itself: that is the code's to fix, not the theme's.
+    const set = verify({ ...input(roboto), analysis: { componentsUsed: [], literals: [{ property: "fontFamily", written: "Roboto", source: "literal" }] } });
+    expect(set.designNote ?? "").not.toContain("draws text in Roboto");
+    expect(verify(input(good())).designNote ?? "").not.toContain("The design is set in");
+  });
+
   it("does not count a kit's placeholders or icons as components missing a mapping", () => {
     const slot = { ...instance("2:5", "S", 0, ""), name: "Slot", component: { id: "Sv", set: { id: "S", name: "Slot" } }, children: [] } as DesignNode;
     const icon = { ...instance("2:6", "C", 280, ""), name: "Close", box: box(280, 12, 16, 16), component: { id: "Cv", name: "Close" }, children: [] } as DesignNode;

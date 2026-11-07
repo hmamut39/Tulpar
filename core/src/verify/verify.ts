@@ -315,7 +315,17 @@ export function verify(input: VerifyInput): VerifyReport {
 
   const mappedNode = (n: DesignNode) => n.kind === "instance" && !!(input.mapping.get(n.id) ?? input.mapping.get(n.component.id) ?? (n.component.set && input.mapping.get(n.component.set.id)));
   // Only for a Figma frame: a screenshot's colours and sizes are estimates, too rough to call gaps.
-  const designNote = input.design.source.fileKey === "screenshot" ? undefined : fitNote(designFit(root, input.tokens, mappedNode), input.index.package?.name ?? "the design system");
+  const fitText = input.design.source.fileKey === "screenshot" ? undefined : fitNote(designFit(root, input.tokens, mappedNode), input.index.package?.name ?? "the design system");
+  // The design's typeface is not the one the design system's theme draws in, and the code set no font of its own:
+  // the theme decides, so say so (MudBlazor draws Roboto; a design set in Inter needs the theme's font changed).
+  const designFamilies = [...new Set(texts.flatMap((e) => fontFamilies(e.node)))];
+  const drawnFamilies = [...new Set(texts.flatMap((e) => byId.get(e.node.id)?.fonts ?? []))];
+  const codeSetsFont = facts.some((f) => f.property === "fontFamily" && f.source === "literal");
+  const themeFont =
+    designFamilies.length && drawnFamilies.length && !codeSetsFont && !designFamilies.some((f) => drawnFamilies.some((d) => sameFamily(d, f)))
+      ? `The design is set in ${designFamilies.join(" and ")}; ${input.index.package?.name ?? "the design system"}'s theme draws text in ${drawnFamilies.slice(0, 2).join(" and ")}, and the code rightly sets no font of its own. To match, set the theme's font to ${designFamilies[0]}.`
+      : undefined;
+  const designNote = [fitText, themeFont].filter(Boolean).join(" ") || undefined;
 
   const ran = checks.filter((c) => c.status !== "not-checked");
   const verdict = checks.some((c) => c.status === "fail") ? "fail" : checks.some((c) => c.status === "not-checked") ? "incomplete" : "pass";
