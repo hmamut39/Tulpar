@@ -199,7 +199,12 @@ export function verify(input: VerifyInput): VerifyReport {
       const t = e.node.kind === "text" ? tol.text : tol.box;
       // A screenshot's text is measured in its own font, which the sandbox may not have: the width of a
       // line follows the font (the typeface check covers that), so it gets a share of slack; its place does not.
-      const wt = e.node.kind === "text" && fromScreenshot ? Math.max(t, 0.35 * e.node.box!.width) : t;
+      // The same holds when the text is drawn in another typeface than the design names (the design system's theme
+      // font): Inter and IBM Plex set the same words a few per cent apart. The typeface check reports that; layout
+      // does not fail on it twice. Its place and height are still checked as strictly.
+      const designFamilies = e.node.kind === "text" ? fontFamilies(e.node) : [];
+      const otherFont = designFamilies.length > 0 && el.fonts.length > 0 && !designFamilies.every((f) => el.fonts.some((d) => sameFamily(d, f)));
+      const wt = e.node.kind === "text" && fromScreenshot ? Math.max(t, 0.35 * e.node.box!.width) : otherFont ? Math.max(t, 0.12 * e.node.box!.width) : t;
       // The element's box, or what it draws: a design box measured from pixels (a screenshot, or
       // auto-width text) matches the drawn extent, while a block-level element fills its row.
       const diffs = boxDiffs(e.node.box!, el.box, t, wt);
@@ -272,11 +277,6 @@ export function verify(input: VerifyInput): VerifyReport {
     if (!checked) checks.push(skip("text", "Text", "no tagged element carries design text"));
     else checks.push(exact === checked ? ok("text", "Text", `${summary} (${checked})`, details) : fail("text", "Text", summary, details));
   }
-
-  // A drawn font names its face: "Inter SemiBold" is Inter at weight 600, and "Newsreader 16pt" a variable
-  // font's optical size, both the family the design asks for.
-  const sameFamily = (drawn: string, family: string) =>
-    drawn === family || (drawn.startsWith(`${family} `) && /^(thin|hairline|extra ?light|ultra ?light|light|regular|normal|book|medium|semi ?bold|demi ?bold|bold|extra ?bold|ultra ?bold|black|heavy|italic|oblique|\d+(\.\d+)?pt|\s)+$/i.test(drawn.slice(family.length + 1)));
 
   // 9. Typeface actually used to draw the text
   if (!elements) checks.push(skip("typeface", "Typeface", noRender));
@@ -599,6 +599,14 @@ function fontFamilies(n: DesignNode): string[] {
   };
   visit(n);
   return [...families];
+}
+
+/**
+ * A drawn font names its face: "Inter SemiBold" is Inter at weight 600, and "Newsreader 16pt" a variable font's
+ * optical size, both the family the design asks for.
+ */
+function sameFamily(drawn: string, family: string): boolean {
+  return drawn === family || (drawn.startsWith(`${family} `) && /^(thin|hairline|extra ?light|ultra ?light|light|regular|normal|book|medium|semi ?bold|demi ?bold|bold|extra ?bold|ultra ?bold|black|heavy|italic|oblique|\d+(\.\d+)?pt|\s)+$/i.test(drawn.slice(family.length + 1)));
 }
 
 function boxDiffs(want: Box, got: Box, tolerance: number, widthTolerance = tolerance): string[] {

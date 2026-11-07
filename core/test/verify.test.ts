@@ -224,6 +224,18 @@ describe("verify", () => {
     expect(verify(input(good())).designNote ?? "").not.toContain("The design is set in");
   });
 
+  it("gives a text's width some slack when it is drawn in another typeface, but not its place", () => {
+    const heading = text("3:1", "Heirloom tomato", box(16, 16, 160, 18));
+    const d = { ...design, root: { ...design.root, children: [heading] } } as DesignTree;
+    const layout = (fonts: string[], b: RenderedElement["box"]) => verify({ ...input([el("3:1", "span", b, "Heirloom tomato", { fonts })]), design: d }).checks.find((c) => c.id === "layout")!.status;
+    // Drawn in IBM Plex instead of Plex's design family: 7% narrower is the typeface, reported by its own check.
+    expect(layout(["IBM Plex Sans"], box(16, 16, 149, 18))).toBe("pass");
+    // In the design's own typeface, the same difference is a layout difference.
+    expect(layout(["Plex"], box(16, 16, 149, 18))).toBe("fail");
+    // Another typeface does not excuse a text in the wrong place.
+    expect(layout(["IBM Plex Sans"], box(40, 16, 149, 18))).toBe("fail");
+  });
+
   it("does not count a kit's placeholders or icons as components missing a mapping", () => {
     const slot = { ...instance("2:5", "S", 0, ""), name: "Slot", component: { id: "Sv", set: { id: "S", name: "Slot" } }, children: [] } as DesignNode;
     const icon = { ...instance("2:6", "C", 280, ""), name: "Close", box: box(280, 12, 16, 16), component: { id: "Cv", name: "Close" }, children: [] } as DesignNode;
