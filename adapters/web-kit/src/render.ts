@@ -110,12 +110,14 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
           box = box ? { l: Math.min(box.l, r.left), t: Math.min(box.t, r.top), r: Math.max(box.r, r.right), b: Math.max(box.b, r.bottom) } : { l: r.left, t: r.top, r: r.right, b: r.bottom };
         };
         let budget = 3000;
-        const visit = (n: Node) => {
+        // Text inside an element tagged with its own Figma id belongs to that element, not to its container (a
+        // card's title is the card's text; the fields in it are checked on their own). Its box still counts.
+        const visit = (n: Node, own = true) => {
           if (--budget < 0) return;
           if (n.nodeType === Node.TEXT_NODE) {
             const s = n.textContent ?? "";
             if (!s.trim()) return;
-            text.push(s);
+            if (own) text.push(s);
             const range = document.createRange();
             range.selectNodeContents(n);
             add(range.getBoundingClientRect());
@@ -145,10 +147,11 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
             // A checkbox's or radio's value ("on") is form data, never drawn.
             if (n instanceof HTMLInputElement && /^(checkbox|radio|hidden|range|color|file)$/.test(n.type)) return;
             const value = n.value ? (n.type === "password" ? "•".repeat(n.value.length) : n.value) : n.placeholder;
-            if (value) text.push(value);
+            if (value && own) text.push(value);
             return;
           }
-          for (const c of childrenOf(n)) visit(c);
+          const tagged = n !== host && n instanceof HTMLElement && !!n.dataset.figmaId;
+          for (const c of childrenOf(n)) visit(c, own && !tagged);
         };
         visit(host);
         return { text: text.join(" ").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim(), box, hidden };
@@ -158,7 +161,9 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
         // Light-DOM text first; a component that draws its text in its shadow root (a label or
         // placeholder set by attribute) is read through it.
         const d = drawn(el);
-        let inner = (el.innerText || el.textContent || "").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
+        // A container of tagged elements: innerText would hold their text too, so only its own drawn text counts.
+        const nested = !!el.querySelector("[data-figma-id]");
+        let inner = nested ? "" : (el.innerText || el.textContent || "").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
         for (const h of d.hidden) inner = inner.replace(h, " ").replace(/\s+/g, " ").trim();
         return {
           figmaId: el.dataset.figmaId!,

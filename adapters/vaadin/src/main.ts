@@ -3,6 +3,7 @@
 // adapter never runs generated Java: a runner machine compiles it, starts it, draws it and sends back what it drew
 // (deploy/java-runner.ts, TULPAR_JAVA_RUNNER). Reading the source for hard-coded values happens here.
 
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams, type RenderResult, type TokenSet } from "@tulpar/core";
@@ -61,7 +62,9 @@ serve({
     const c = config(params);
     const set: TokenSet = c.tokens ? readTokens(params.root, c.tokens, [], "vaadin") : { adapter: "vaadin", modes: [], tokens: [], gaps: ['No "tokens" configured.'] };
     if (!c.tokens?.runtime) return set;
-    const cache = join(params.root, ".tulpar", "cache", `vaadin-tokens-${VERSION}.json`);
+    // Kept per Vaadin version and token setup: a new prefix reads the theme again.
+    const key = createHash("sha256").update(JSON.stringify(c.tokens.runtime)).digest("hex").slice(0, 12);
+    const cache = join(params.root, ".tulpar", "cache", `vaadin-tokens-${VERSION}-${key}.json`);
     if (existsSync(cache)) return mergeTokens(set, JSON.parse(readFileSync(cache, "utf8")) as TokenSet);
     const answer = await ask<{ ok: boolean; tokens?: TokenSet; log?: string }>("/tokens", { runtime: c.tokens.runtime }, 300_000).catch((err: Error) => ({ ok: false, log: err.message }) as { ok: boolean; log?: string; tokens?: TokenSet });
     if (!answer.ok || !answer.tokens) return { ...set, gaps: [...set.gaps, `Theme tokens not read: ${answer.log ?? "the runner sent none"}`] };

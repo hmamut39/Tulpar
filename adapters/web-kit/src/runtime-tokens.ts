@@ -14,6 +14,8 @@ import type { FrameworkHooks } from "./render.ts";
 export interface RuntimeTokenConfig {
   /** Only properties with this prefix (without "--"), e.g. "p" for --p-primary-color. */
   prefix?: string;
+  /** Several prefixes, e.g. Vaadin's ["aura", "vaadin-gap", "vaadin-padding", "vaadin-radius"]. */
+  prefixes?: string[];
   /** Mode name → class that switches to it (set on <html> and the frame), e.g. { "dark": "p-dark" }. */
   modes?: Record<string, string>;
   /**
@@ -46,9 +48,11 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
     await framework.settle(page, FRAME_ID);
     for (const e of errors) gaps.push(`Probe page error: ${e}`);
 
-    const prefix = config.prefix ? `--${config.prefix}-` : "--";
+    const prefixes = (config.prefixes ?? (config.prefix ? [config.prefix] : [""])).map((p) => (p ? `--${p}-` : "--"));
+    const prefix = prefixes.join(", ");
     const read = () =>
-      page.evaluate(({ id, prefix, rootClass, scope }) => {
+      page.evaluate(({ id, prefixes, rootClass, scope }) => {
+        const wanted = (n: string) => prefixes.some((p) => n.startsWith(p));
         const scopes = new Set([":root", "html", ":host", ...(rootClass ? [`.${rootClass}`] : [])]);
         const names = new Set<string>();
         const visit = (rules: CSSRuleList) => {
@@ -59,7 +63,7 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
               if (!selectors.some((s) => scopes.has(s.trim()) || (scope && s.trim().startsWith(scope)))) continue;
               for (let i = 0; i < rule.style.length; i++) {
                 const n = rule.style.item(i);
-                if (n.startsWith(prefix)) names.add(n);
+                if (wanted(n)) names.add(n);
               }
             } else if ("cssRules" in rule) {
               try {
@@ -71,7 +75,7 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
           }
         };
         const inline = document.documentElement.style;
-        for (let i = 0; i < inline.length; i++) if (inline.item(i).startsWith(prefix)) names.add(inline.item(i));
+        for (let i = 0; i < inline.length; i++) if (wanted(inline.item(i))) names.add(inline.item(i));
         for (const sheet of [...Array.from(document.styleSheets), ...document.adoptedStyleSheets]) {
           try {
             visit(sheet.cssRules);
@@ -80,9 +84,21 @@ export async function probeTokens(artifact: string, render: RenderConfig, framew
           }
         }
         // Computed on the frame: it sees :root and the root class alike, with var() already substituted.
-        const style = getComputedStyle((scope && document.querySelector(scope)) || document.getElementById(id) || document.documentElement);
-        return [...names].map((n) => [n, style.getPropertyValue(n).trim()] as const).filter(([, v]) => v !== "");
-      }, { id: FRAME_ID, prefix, rootClass: render.rootClass ?? "", scope: config.scope ?? "" });
+        const holder = (scope && document.querySelector(scope)) || document.getElementById(id) || document.documentElement;
+        const style = getComputedStyle(holder);
+        // A size written as a formula (Aura's round(16 * 0.75 * 1px, 1px)) is kept as written: the browser works it
+        // out when it is used as a width.
+        const resolve = (n: string, v: string) => {
+          if (!/^(round|calc|min|max|clamp)\(/.test(v)) return v;
+          const probe = document.createElement("div");
+          probe.style.cssText = `position:absolute;visibility:hidden;width:var(${n})`;
+          holder.appendChild(probe);
+          const px = getComputedStyle(probe).width;
+          probe.remove();
+          return /^[\d.]+px$/.test(px) ? px : v;
+        };
+        return [...names].map((n) => [n, resolve(n, style.getPropertyValue(n).trim())] as const).filter(([, v]) => v !== "");
+      }, { id: FRAME_ID, prefixes, rootClass: render.rootClass ?? "", scope: config.scope ?? "" });
 
     const byMode = new Map<string, Map<string, string>>([["default", new Map(await read())]]);
     for (const [mode, cls] of Object.entries(config.modes ?? {})) {

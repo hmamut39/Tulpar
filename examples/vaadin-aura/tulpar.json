@@ -4,6 +4,6 @@
     "fileKey": "b8xYgmx2Js30XaldxPkOs9"
   },
   "vaadin": {
-    "tokens": { "runtime": { "prefix": "aura" } }
+    "tokens": { "runtime": { "prefixes": ["aura", "vaadin-gap", "vaadin-padding", "vaadin-radius"] } }
   }
 }
