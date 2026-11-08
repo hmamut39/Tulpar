@@ -131,7 +131,7 @@ export function buildBrief(input: BriefInput): Brief {
     }
     const stack = n.kind !== "shape" && n.stack ? ` stack=${n.stack.axis} gap=${n.stack.gap} pad=${[n.stack.padding.top, n.stack.padding.right, n.stack.padding.bottom, n.stack.padding.left].join("/")} align=${n.stack.mainAlign}/${n.stack.crossAlign}` : "";
     const label = n.kind === "shape" ? `SHAPE ${n.figmaType}` : n.kind === "container" ? n.figmaType : "INSTANCE";
-    lines.push(`${pad}- ${label} id=${n.id} "${n.name}" ${box}${stack}${fillNote(n)}${tokenNote(n)}`);
+    lines.push(`${pad}- ${label} id=${n.id} "${n.name}" ${box}${stack}${fillNote(n)}${strokeNote(n)}${tokenNote(n)}`);
     for (const c of n.children) outline(c, depth + 1, insideInstance || n.kind === "instance");
   };
   outline(design.root, 0, false);
@@ -223,6 +223,16 @@ function fillNote(n: DesignNode): string {
   if (!solid || solid.kind !== "solid") return "";
   const hex = [solid.color.r, solid.color.g, solid.color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("");
   return ` fill=#${hex}${solid.token ? `(var ${solid.token.source === "variable" ? solid.token.id : solid.token.name})` : ""}`;
+}
+
+/** A container's stroke: its width, where it sits (inside does not add to the box), and its colour. */
+export function strokeNote(n: DesignNode): string {
+  const stroke = n.kind === "text" ? undefined : n.stroke;
+  const solid = stroke?.paints.find((p) => p.kind === "solid");
+  if (!stroke || !solid || solid.kind !== "solid") return "";
+  const w = typeof stroke.weight === "number" ? `${stroke.weight}` : [stroke.weight.top, stroke.weight.right, stroke.weight.bottom, stroke.weight.left].join("/");
+  const hex = [solid.color.r, solid.color.g, solid.color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("");
+  return ` stroke=${w}px ${stroke.align} #${hex}${solid.token ? `(var ${solid.token.source === "variable" ? solid.token.id : solid.token.name})` : ""}`;
 }
 
 function tokenNote(n: DesignNode): string {
