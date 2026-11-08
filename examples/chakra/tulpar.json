@@ -18,6 +18,9 @@
     "render": {
       "stylesheets": [],
       "setup": "tulpar.setup.tsx"
-    }
+    },
+    "rules": [
+      "Heading size and Text textStyle set the font size by name: xs 12px, sm 14px, md 16px, lg 18px, xl 20px, 2xl 24px, 3xl 30px, 4xl 36px, 5xl 48px. Pick the name of the design's size (20px is xl, not lg)."
+    ]
   }
 }
