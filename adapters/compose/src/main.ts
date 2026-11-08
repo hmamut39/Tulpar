@@ -9,6 +9,7 @@ import { toolchainFound } from "./sdk.ts";
 import { closeBrowser } from "./states.ts";
 import { readTokens, type SpacingConfig } from "./tokens.ts";
 import { analyze, render } from "./verify.ts";
+import { testBuilt } from "./tests.ts";
 
 interface Config {
   library?: { module: string; name: string; version: string };
@@ -36,7 +37,7 @@ serve({
       // Compose paints a canvas: styles come from reading the code, not from the render.
       runtimeStyleProvenance: false,
       staticProvenance: true,
-      tests: false,
+      tests: found,
       forceStates: found ? ["hover", "pressed", "focus"] : [],
       themes: false,
     },
@@ -52,12 +53,18 @@ serve({
 
   analyze: (params) => analyze(params.root, params.entry, config(params).spacing?.object),
 
+  // The page built for the component runs them, in the sandboxed browser: CardTest.kt is Card.kt's.
+  test: (params) => testBuilt(params.root, params.entry),
+
   conventions: (params) => {
     const spacing = config(params).spacing;
     return {
       language: "Kotlin",
       framework: `Jetpack Compose with ${library(params).name}`,
-      files: [{ path: "{name}.kt", role: "component", description: "The component: @Composable fun {name}() with no required parameters and no package line; it renders the whole design." }],
+      files: [
+        { path: "{name}.kt", role: "component", description: "The component: @Composable fun {name}() with no required parameters and no package line; it renders the whole design." },
+        { path: "{name}Test.kt", role: "test", description: "Its tests, with Compose's UI test API: @OptIn(ExperimentalTestApi::class) @Test fun …() = runComposeUiTest { setContent { {name}() }; onNodeWithTag(\"<figma id>\").performClick(); onNodeWithTag(\"<figma id>\").assertTextEquals(\"…\") }." },
+      ],
       entry: "{name}.kt",
       rules: [
         "Use Material 3's composables (Button, OutlinedButton, TextField, OutlinedTextField, Checkbox, Card, Text…) for every mapped instance, with the parameters the mapping gives. Never rebuild one from Box and clickable. Every composable's required parameters must be given: a Button needs onClick = {}.",
@@ -67,6 +74,7 @@ serve({
         spacing ? `Spacing and sizes come from the app's scale: ${spacing.object}.<step> (no import needed), in Modifier.padding, Arrangement.spacedBy and Spacer. Never a bare .dp other than 0.dp.` : "Spacing: prefer the layout's own arrangement over bare numbers.",
         "State is remembered: var email by remember { mutableStateOf(\"\") }, passed as value = email, onValueChange = { email = it }. A label inside a field's border is label = { Text(\"…\") }; a placeholder is placeholder = { Text(\"…\") }; a label drawn above it is its own Text. A one-line field has singleLine = true, or the Tab key stays inside it and keyboard users cannot leave.",
         "Do not give the root a fixed size from the frame: Modifier.fillMaxWidth() and the content's own height.",
+        "In {name}Test.kt: import androidx.compose.ui.test.*, kotlin.test.Test and what the content needs; no package line, top-level @Test functions (no class). Use only setContent, onNodeWithTag, onNodeWithText, onNodeWithContentDescription, performClick, performTextInput, assertTextEquals, assertTextContains, assertExists, assertIsDisplayed, assertDoesNotExist and assertIsEnabled, each test a straight sequence of them: the browser plays these against the drawn component. A tagged button's text is its text: assertTextEquals(\"Save\").",
         "Import each name you use: androidx.compose.material3.*, androidx.compose.foundation.layout.*, androidx.compose.runtime.*, androidx.compose.ui.Modifier, androidx.compose.ui.platform.testTag, androidx.compose.ui.Alignment. Only these and androidx.compose.ui.unit.dp; no other libraries, no package line, no main function. An @ExperimentalMaterial3Api composable needs @OptIn(ExperimentalMaterial3Api::class) on the function.",
         ...(config(params).rules ?? []),
       ],

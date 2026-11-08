@@ -10,6 +10,7 @@ import { fullest, parseComponents, toComponent } from "../src/components.ts";
 import { toolchainFound } from "../src/sdk.ts";
 import { spacingValues } from "../src/tokens.ts";
 import { describeSource, scan } from "../src/verify.ts";
+import { asSource, testDriver, testsIn } from "../src/tests.ts";
 
 const source = `
 /** A button. */
@@ -84,6 +85,26 @@ fun Card() {
 
   it("reads the spacing object", () => {
     expect(spacingValues("object Space {\n  val xs = 4.dp\n  val md = 12.dp\n}")).toEqual({ xs: 4, md: 12 });
+  });
+});
+
+describe("Compose tests in the browser", () => {
+  const file = ["import androidx.compose.ui.test.*", "import kotlin.test.Test", "", "@OptIn(ExperimentalTestApi::class)", "@Test", "fun showsTheTitle() = runComposeUiTest {", "    setContent { Card() }", "}", "", "@Test fun countsAClick() = runComposeUiTest { }"].join("\n");
+
+  it("finds each @Test function", () => {
+    expect(testsIn(file)).toEqual(["showsTheTitle", "countsAClick"]);
+  });
+
+  it("compiles the file without kotlin.test, the tests kept as functions the page calls", () => {
+    const source = asSource(file);
+    expect(source).not.toMatch(/kotlin\.test|@Test/);
+    expect(source).toContain("fun showsTheTitle() = runComposeUiTest {");
+  });
+
+  it("runs the test the address names and plays its steps", () => {
+    const driver = testDriver(["showsTheTitle", "countsAClick"]);
+    expect(driver).toContain('"showsTheTitle" -> showsTheTitle()');
+    expect(driver).toContain("TULPAR TEST PASSED");
   });
 });
 

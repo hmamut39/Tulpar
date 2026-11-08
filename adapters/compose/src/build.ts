@@ -7,6 +7,7 @@ import { basename, dirname, join, relative } from "node:path";
 import type { BuildParams, BuildResult } from "@tulpar/core";
 import { FRAME_ID } from "@tulpar/web-kit";
 import { gradle, type Run } from "./sdk.ts";
+import { asSource, isTestFile, testDriver, testsIn, UI_TEST_SHIM } from "./tests.ts";
 
 export const DISTRIBUTION_TASK = "wasmJsBrowserDevelopmentExecutableDistribution";
 const OUTPUT = join("build", "dist", "wasmJs", "developmentExecutable");
@@ -28,7 +29,11 @@ export function buildErrors(output: string): string {
 const failure = (run: Run) => buildErrors(run.stdout + "\n" + run.stderr) || run.stderr.split(/\r?\n/).filter((l) => l.trim()).slice(0, 6).join(" ").slice(0, 1500) || `gradle failed (exit ${run.code})`;
 
 /** The app around a component: its theme, on the app's surface, at the frame's size. */
-export function harness(component: string, frame: { width: number; height: number }): string {
+// A test, when the address names one: it draws what it sets as content instead.
+const TEST_MODE = `    tulparTestName()?.let { runTulparTest(it); return }
+`;
+
+export function harness(component: string, frame: { width: number; height: number }, withTests = false): string {
   return `// Written by Tulpar: shows one component at the Figma frame's size.
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -42,7 +47,7 @@ import kotlinx.browser.document
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    ComposeViewport(document.getElementById("${FRAME_ID}")!!) {
+${withTests ? TEST_MODE : ""}    ComposeViewport(document.getElementById("${FRAME_ID}")!!) {
         MaterialTheme {
             Surface(Modifier.size(${frame.width}.dp, ${frame.height}.dp)) {
                 Box { ${component}() }
@@ -147,8 +152,21 @@ export async function build(params: BuildParams): Promise<BuildResult> {
   if (!existsSync(join(root, entry))) return { ok: false, log: `${entry} was not written.` };
   const src = sourceFolder(root);
   // Sections of a page refer to each other by name: every generated file compiles together.
-  for (const f of readdirSync(from).filter((x) => x.endsWith(".kt"))) cpSync(join(from, f), join(src, f));
+  // Test files compile with the browser's implementation of Compose's test API, and the page runs them by name.
+  const tests: string[] = [];
+  for (const f of readdirSync(from).filter((x) => x.endsWith(".kt"))) {
+    if (!isTestFile(f)) cpSync(join(from, f), join(src, f));
+    else {
+      const source = readFileSync(join(from, f), "utf8");
+      writeFileSync(join(src, f), asSource(source));
+      tests.push(...testsIn(source));
+    }
+  }
+  if (tests.length) {
+    writeFileSync(join(src, "TulparUiTest.kt"), UI_TEST_SHIM);
+    writeFileSync(join(src, "TulparTestDriver.kt"), testDriver(tests));
+  }
   const name = basename(entry, ".kt");
-  writeFileSync(join(src, "TulparHarness.kt"), harness(name, frame));
+  writeFileSync(join(src, "TulparHarness.kt"), harness(name, frame, tests.length > 0));
   return compile(root, name, frame);
 }
