@@ -190,7 +190,7 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
     // page pass the pixel check against a mostly white design.
     const crashes = [...startup, ...errors];
     if (!measured.some((m) => m.visible) && crashes.length) {
-      return { status: "failed", reason: `The component crashed before drawing anything: ${crashes[0]}` };
+      return { status: "failed", reason: `The component drew nothing the design tags: ${crashes[0]}` };
     }
     const facts = [...best.values()].map(({ tag, ...m }) => ({ ...m, ...(identity[m.figmaId] ?? { component: tag, defined: true }) }));
 

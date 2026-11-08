@@ -14,7 +14,12 @@ export function angularHooks(known: Set<string>): FrameworkHooks {
         .then((h) => h.jsonValue())
         .catch(() => "timeout");
       if (state === true) return [];
-      return [state === "timeout" ? "Angular never became stable within 20 s." : `Angular failed to start: ${String(state).slice(0, 500)}`];
+      // Said so a repair can act on it: something keeps Angular busy, and the usual causes are named.
+      return [
+        state === "timeout"
+          ? "Angular never became stable within 20 s: something keeps running (a timer, an interval, an observable or request that never completes), or the view waits for something the sandbox never gives (an image or data to load: it has no network). Draw everything at once, and never hold the view back on a load."
+          : `Angular failed to start: ${String(state).slice(0, 500)}`,
+      ];
     },
 
     identify(page) {
