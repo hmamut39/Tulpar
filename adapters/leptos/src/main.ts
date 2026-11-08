@@ -9,6 +9,7 @@ import { build, type HarnessConfig } from "./build.ts";
 import { indexComponents } from "./components.ts";
 import { cargoFound } from "./sdk.ts";
 import { analyze, leptosHooks, render } from "./verify.ts";
+import { testBuilt } from "./tests.ts";
 
 interface Config {
   /** The crates that are the design system, e.g. ["thaw"]. */
@@ -38,7 +39,7 @@ serve({
       render: found ? { supported: true, hostOS: ["linux", "windows", "macos"] } : { supported: false, hostOS: [], reason: "the Rust toolchain is not installed (set TULPAR_RUST_ROOT)" },
       runtimeStyleProvenance: true,
       staticProvenance: true,
-      tests: false,
+      tests: found,
       forceStates: found ? ["hover", "pressed", "focus"] : [],
       themes: false,
     },
@@ -66,6 +67,9 @@ serve({
 
   analyze: (params) => analyze(params.root, params.entry, prefix(params)),
 
+  // The page built for the component runs them, in the sandboxed browser: card_test.rs is card.rs's.
+  test: (params) => testBuilt(params.root, params.entry),
+
   conventions: (params) => {
     const c = config(params);
     const crate = c.crates?.[0] ?? "the design system";
@@ -76,6 +80,7 @@ serve({
       files: [
         { path: "{snake}.rs", role: "component", description: `The component: #[component] pub fn {name}() -> impl IntoView, with no required props; it renders the whole design. Begin with use leptos::prelude::*; ${uses}` },
         { path: "{snake}.css", role: "styles", description: "Plain CSS for the component's own layout (design-system components style themselves). Prefix class names with the component's name: the stylesheet is global." },
+        { path: "{snake}_test.rs", role: "test", description: "Its tests, run in the browser: use wasm_bindgen_test::*; wasm_bindgen_test_configure!(run_in_browser); then #[wasm_bindgen_test] functions that mount the component and check the page." },
       ],
       entry: "{snake}.rs",
       rules: [
@@ -86,6 +91,7 @@ serve({
         `Colours, type and spacing come from the theme: the component's own props, or a stylesheet token written with its value as the fallback, e.g. var(--colorNeutralForeground1, #242424). No hex, rgb or px literals in {snake}.css or style attributes.`,
         `Rust keywords cannot be attribute names on a component: "for" is one, so never write for= on a component. Tie a field to its label with attr:id on the label and attr:aria-labelledby on the field, or use a plain <label for="…"> element.`,
         `Only the component: no include!, include_str!, env!, std::fs, std::net, std::process, unsafe, extern, macro_rules! or mod declarations. They are refused before compiling.`,
+        `In {snake}_test.rs: use super::*; use leptos::prelude::*; use leptos::wasm_bindgen::JsCast; ${uses} and the wasm_bindgen_test lines above. Each test mounts a fresh copy into its own element: let host = document().create_element("div").unwrap(); document().body().unwrap().append_child(&host).unwrap(); leptos::mount::mount_to(host.clone().unchecked_into(), || view! { ${c.harness?.provider ? `<${c.harness.provider}><{name} /></${c.harness.provider}>` : "<{name} />"} }).forget(); then finds elements with host.query_selector("[data-figma-id=\\"…\\"]") and asserts their text_content(), trimmed. A test that clicks is async: element.unchecked_ref::<leptos::web_sys::HtmlElement>().click(); leptos::task::Executor::tick().await; then asserts. Assert with assert_eq!, so a failure says what differed.`,
         ...(c.rules ?? []),
       ],
       importExample: `use leptos::prelude::*; ${uses}`,

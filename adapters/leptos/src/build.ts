@@ -8,6 +8,7 @@ import { basename, dirname, join, relative } from "node:path";
 import type { BuildParams, BuildResult } from "@tulpar/core";
 import { FRAME_ID, IMPL_SOURCE_URL } from "@tulpar/web-kit";
 import { forbidden, tool } from "./sdk.ts";
+import { asModule, isTestFile, testDispatch, testsIn, type RustTest } from "./tests.ts";
 
 export interface HarnessConfig {
   /** Crates every generated component gets (use …::*), e.g. thaw. */
@@ -59,9 +60,18 @@ export async function build(params: BuildParams, config: HarnessConfig): Promise
   const src = join(dir, "src");
   rmSync(src, { recursive: true, force: true });
   mkdirSync(join(src, "generated"), { recursive: true });
-  for (const f of rustSources) cpSync(join(from, f), join(src, "generated", f));
+  // Test files join the page as modules whose tests it runs by name (?tulpar_test=…); the rest are the component.
+  const tests: { module: string; tests: RustTest[] }[] = [];
+  for (const f of rustSources) {
+    if (isTestFile(f)) {
+      const source = readFileSync(join(from, f), "utf8");
+      writeFileSync(join(src, "generated", f), asModule(source));
+      tests.push({ module: basename(f, ".rs"), tests: testsIn(source) });
+    } else cpSync(join(from, f), join(src, "generated", f));
+  }
   const modules = rustSources.map((f) => basename(f, ".rs"));
-  writeFileSync(join(src, "generated", "mod.rs"), modules.map((m) => `pub mod ${m};\n#[allow(unused_imports)]\npub use ${m}::*;`).join("\n") + "\n");
+  const isTests = (m: string) => tests.some((t) => t.module === m);
+  writeFileSync(join(src, "generated", "mod.rs"), modules.map((m) => (isTests(m) ? `#[allow(dead_code, unused_imports)]\npub mod ${m};` : `pub mod ${m};\n#[allow(unused_imports)]\npub use ${m}::*;`)).join("\n") + "\n");
   const name = componentName(readFileSync(join(root, entry), "utf8"), entry);
   // Sections of a page refer to each other by name: every file sees all the generated components.
   writeFileSync(
@@ -72,7 +82,7 @@ use leptos::prelude::*;
 ${(config.uses ?? []).map((u) => `use ${u}::*;`).join("\n")}
 
 fn main() {
-    let frame = document().get_element_by_id("${FRAME_ID}").unwrap();
+${testDispatch(tests)}    let frame = document().get_element_by_id("${FRAME_ID}").unwrap();
     leptos::mount::mount_to(frame.unchecked_into(), || {
         view! { ${config.provider ? `<${config.provider}><${name} /></${config.provider}>` : `<${name} />`} }
     })
