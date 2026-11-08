@@ -86,7 +86,18 @@ for (const c of cases) {
   mkdirSync(dir, { recursive: true });
   for (const [name, content] of Object.entries(c.files)) writeFileSync(join(dir, name), content);
   try {
-    const r: TestRunResult = await withAdapter(project, (host) => host.call("test", { ...project.params, entry: `.tulpar/smoke/${c.spec}` }));
+    // Timed, as the live machine's limits allow: a check that crawls here crawls for a customer.
+    const r: TestRunResult = await withAdapter(project, async (host) => {
+      if (project.config.adapter === "flutter") {
+        const started = Date.now();
+        const built = await host.call("build", { ...project.params, entry: ".tulpar/smoke/smoke.dart", frame: { width: 300, height: 80 } });
+        console.log(`     flutter build ${built.ok ? "ok" : "FAILED"} in ${Math.round((Date.now() - started) / 1000)} s`);
+      }
+      const started = Date.now();
+      const result = await host.call("test", { ...project.params, entry: `.tulpar/smoke/${c.spec}` });
+      console.log(`     ${project.config.adapter} tests ran in ${Math.round((Date.now() - started) / 1000)} s`);
+      return result;
+    });
     const ok = r.status === "ran" && !r.fileError && r.tests.length > 0 && r.tests.every((t) => t.status === "passed");
     if (!ok) failed++;
     console.log(`${ok ? "ok  " : "FAIL"} ${project.config.adapter}: ${r.status === "ran" ? (r.fileError ?? r.tests.map((t) => `${t.name} ${t.status}${t.error ? ` (${t.error.split("\n")[0]})` : ""}`).join("; ")) : r.reason}`);
