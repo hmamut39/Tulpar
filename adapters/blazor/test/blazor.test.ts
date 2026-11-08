@@ -9,6 +9,7 @@ import { buildErrors, componentName, packageReferences } from "../src/build.ts";
 import { toComponent } from "../src/components.ts";
 import { dotnetBin } from "../src/sdk.ts";
 import { analyze, componentsWrittenOn } from "../src/verify.ts";
+import { compileErrors, packageVersions, testProject, trxResults, writeSources } from "../src/tests.ts";
 
 const param = (name: string, type: string, extra = {}) => ({ name, type, required: false, values: null, deprecated: false, attributes: false, ...extra });
 
@@ -51,6 +52,33 @@ describe("Blazor harness", () => {
       "/app/x/Generated/Card.razor(3,1): error CS0103: The name 'email' does not exist in the current context [/app/x/Harness.csproj]",
     ].join("\n");
     expect(buildErrors(out).split("\n")).toEqual(["Card.razor:12:5: RZ10012: Found markup element with unexpected name 'MudButon'.", "Card.razor:3:1: CS0103: The name 'email' does not exist in the current context"]);
+  });
+});
+
+describe("Blazor tests on the .NET runner", () => {
+  it("reads dotnet test's results: each test, and a failure's message", () => {
+    const trx = '<TestRun><Results><UnitTestResult testName="CardTest.ShowsTheTitle" outcome="Passed" /><UnitTestResult testName="CardTest.Pays" outcome="Failed"><Output><ErrorInfo><Message>Assert.Equal() Failure: Strings differ&#xD;&#xA;Expected: &quot;Pay&quot;</Message></ErrorInfo></Output></UnitTestResult></Results></TestRun>';
+    expect(trxResults(trx)).toEqual({ status: "ran", runner: "bUnit with xUnit (.NET)", tests: [{ name: "ShowsTheTitle", status: "passed" }, { name: "Pays", status: "failed", error: 'Assert.Equal() Failure: Strings differ Expected: "Pay"' }] });
+  });
+
+  it("builds the test project from the design system's own package versions", () => {
+    const versions = packageVersions('<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.14" /><PackageReference Include="MudBlazor" Version="9.12.0" />');
+    expect(versions).toEqual({ MudBlazor: "9.12.0" });
+    const project = testProject(versions);
+    expect(project).toContain('<PackageReference Include="bunit" Version="2.14.0" />');
+    expect(project).toContain('<PackageReference Include="MudBlazor" Version="9.12.0" />');
+  });
+
+  it("gives a compile error its file and line, and takes only component and test files", () => {
+    expect(compileErrors("/w/Card.razor(12,5): error CS0246: The type 'Mud' could not be found [/w/Tests.csproj]\n/w/Card.razor(12,5): error CS0246: The type 'Mud' could not be found [/w/Tests.csproj]")).toBe("Card.razor:12:5: [CS0246] The type 'Mud' could not be found");
+    const dir = join(resolve(import.meta.dirname), ".tmp-sources");
+    mkdirSync(dir, { recursive: true });
+    try {
+      expect(writeSources(dir, [{ name: "../../evil.cs", content: "" }])).toMatch(/not a component or test file name/);
+      expect(writeSources(dir, [{ name: "CardTest.cs", content: "public class CardTest {}" }])).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

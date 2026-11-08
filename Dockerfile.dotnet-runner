@@ -1,0 +1,37 @@
+# The .NET runner (deploy/dotnet-runner.ts): runs generated Blazor components' bUnit tests, one check per machine
+# start. No secrets, no public address, outgoing connections blocked before it serves, tests run as an unprivileged
+# user. Deploy:  flyctl deploy --config fly.dotnet-runner.toml --remote-only
+FROM node:24-bookworm-slim
+
+WORKDIR /app
+ENV NODE_ENV=production PORT=8080 TULPAR_DOTNET=/opt/dotnet/dotnet TULPAR_TEST_PROJECT=/work NUGET_PACKAGES=/opt/nuget \
+    TULPAR_RUNNER_UID=1500 TULPAR_RUNNER_GID=1500 DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME=/tmp
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl iptables libicu72 \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd -g 1500 runner && useradd -r -u 1500 -g 1500 -M -d /tmp runner \
+ && mkdir -p /opt/dotnet /opt/nuget /work
+
+# .NET from Microsoft's release archive, its published SHA-512 checked (the same SDK as the main server's).
+ARG DOTNET_VERSION=10.0.403
+ARG DOTNET_SHA512=b7b3d8461cf98b07d2552ce9199702fa3ad010ac2671a5f8cd5136f7534e50f6855ba7bbb02b11494563f1d04156276a31cda1103b900e5eecd0d9473dc7b9c5
+RUN curl -sSL -o /tmp/dotnet.tar.gz "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_VERSION}/dotnet-sdk-${DOTNET_VERSION}-linux-x64.tar.gz" \
+ && echo "${DOTNET_SHA512}  /tmp/dotnet.tar.gz" | sha512sum -c - \
+ && tar -xzf /tmp/dotnet.tar.gz -C /opt/dotnet && rm /tmp/dotnet.tar.gz \
+ && rm -rf /opt/dotnet/sdk/*/FSharp /opt/dotnet/templates /opt/dotnet/sdk/*/Containers
+
+# Only what the runner reads: its script, the test project's helpers, and the example's packages and settings.
+COPY package.json package.json
+COPY deploy/dotnet-runner.ts deploy/dotnet-runner.ts
+COPY adapters/blazor/src/tests.ts adapters/blazor/src/tests.ts
+COPY examples/blazor-mud/tulpar.json examples/blazor-mud/tulpar.json
+COPY examples/blazor-mud/BlazorMud.csproj examples/blazor-mud/BlazorMud.csproj
+
+# The test project, restored and built once with network: a check compiles only the component and its test, offline.
+RUN node deploy/dotnet-runner.ts --prepare /work \
+ && cd /work && /opt/dotnet/dotnet restore -v q && /opt/dotnet/dotnet test --no-restore -v q \
+ && rm -rf /work/results \
+ && chown -R runner:runner /work && chmod -R a+rX /opt/nuget /opt/dotnet
+
+EXPOSE 8080
+CMD ["node", "deploy/dotnet-runner.ts"]

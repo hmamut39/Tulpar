@@ -2,13 +2,14 @@
 // Tulpar adapter for Blazor (C#). Speaks the adapter protocol on stdio; uses the .NET SDK as a tool.
 
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { PROTOCOL_VERSION, serve, type ProjectParams } from "@tulpar/core";
+import { basename, dirname, join } from "node:path";
+import { PROTOCOL_VERSION, serve, type ProjectParams, type TestRunResult } from "@tulpar/core";
 import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, serving, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { build, type HarnessConfig } from "./build.ts";
 import { indexComponents } from "./components.ts";
 import { dotnetBin } from "./sdk.ts";
 import { analyze, blazorHooks, render } from "./verify.ts";
+import { sourcesBeside } from "./tests.ts";
 
 interface Config {
   /** The NuGet packages that are the design system, e.g. ["MudBlazor"]. */
@@ -42,7 +43,8 @@ serve({
       runtimeStyleProvenance: true,
       staticProvenance: true,
       // bUnit, the usual test library, runs the component on the host; generated code runs only in the sandbox.
-      tests: false,
+      // On the .NET runner: bUnit runs the component in .NET's memory, so never here.
+      tests: !!process.env.TULPAR_DOTNET_RUNNER,
       forceStates: sdkFound ? ["hover", "pressed", "focus"] : [],
       themes: false,
     },
@@ -70,6 +72,20 @@ serve({
 
   analyze: (params) => analyze(params.root, params.entry, prefix(params)),
 
+  // The component and its test go to the .NET runner, which runs them and says how each test ended.
+  test: async (params) => {
+    const runner = process.env.TULPAR_DOTNET_RUNNER;
+    if (!runner) return { status: "unsupported", reason: "no .NET runner is configured (TULPAR_DOTNET_RUNNER)" };
+    const file = join(params.root, params.entry);
+    const sources = sourcesBeside(dirname(file), basename(file));
+    try {
+      const res = await fetch(`${runner}/test`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sources }), signal: AbortSignal.timeout(420_000) });
+      return (await res.json()) as TestRunResult;
+    } catch (err) {
+      return { status: "failed", reason: `The .NET runner did not answer: ${(err as Error).message}` };
+    }
+  },
+
   conventions: (params) => {
     const c = config(params);
     const pkg = c.packages?.[0] ?? "the design system";
@@ -81,6 +97,7 @@ serve({
       files: [
         { path: "{name}.razor", role: "component", description: "The component, with no required parameters; it renders the whole design. Any logic goes in an @code block in this file." },
         { path: "{name}.razor.css", role: "styles", description: "Scoped styles for the component's own layout (design-system components style themselves)." },
+        ...(process.env.TULPAR_DOTNET_RUNNER ? [{ path: "{name}Test.cs", role: "test" as const, description: "Its tests (bUnit with xUnit): public class {name}Test : BunitContext, whose constructor sets up the design system's services (Services.AddMudServices(); JSInterop.Mode = JSRuntimeMode.Loose;); each [Fact] renders it with Render<{name}>(), finds elements with cut.Find(\"[data-figma-id='…']\"), clicks with .Click(), and asserts with Assert.Equal on TextContent.Trim()." }] : []),
       ],
       entry: "{name}.razor",
       rules: [
