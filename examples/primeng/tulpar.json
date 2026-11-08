@@ -9,10 +9,16 @@
     ],
     "tokens": {
       "runtime": {
-        "prefix": "p",
         "modes": {
           "dark": "p-dark"
-        }
+        },
+        "prefix": "p"
+      },
+      "css": {
+        "files": [
+          "app.css"
+        ],
+        "prefix": "app"
       }
     },
     "render": {
@@ -20,6 +26,9 @@
         "app.css"
       ],
       "setup": "tulpar.setup.ts"
-    }
+    },
+    "rules": [
+      "Text sizes, line heights and weights come from the app's type scale: var(--app-font-size-xl, 1.25rem), var(--app-line-height-snug, 1.3), var(--app-font-weight-semibold, 600). PrimeNG has none of its own."
+    ]
   }
 }
