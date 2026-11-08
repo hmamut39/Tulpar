@@ -2,7 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { AdapterHost, type ProjectParams } from "@tulpar/core";
+import { AdapterHost, type Conventions, type ProjectParams } from "@tulpar/core";
 
 export interface Project {
   root: string;
@@ -29,4 +29,14 @@ export async function withAdapter<T>(project: Project, fn: (host: AdapterHost) =
   } finally {
     await host.stop();
   }
+}
+
+/**
+ * The project's own rules (its tulpar.json section's "rules", in the design system's terms) join the adapter's,
+ * whether or not the adapter passes them on: every framework's team can teach the model what it needs.
+ */
+export function withProjectRules(project: Project, conventions: Conventions): Conventions {
+  const own = Array.isArray(project.params.config.rules) ? (project.params.config.rules as unknown[]).filter((r): r is string => typeof r === "string") : [];
+  const missing = own.filter((r) => !conventions.rules.includes(r));
+  return missing.length ? { ...conventions, rules: [...conventions.rules, ...missing] } : conventions;
 }

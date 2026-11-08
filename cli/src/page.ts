@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { NAME_PLACEHOLDERS, fillName, pageSections, type Conventions, type GeneratedFile } from "@tulpar/core";
 import { generateCommand, type GenerateCommandOptions, type GenerateOutcome } from "./generate.ts";
 import { loadDesign } from "./pipeline.ts";
-import { loadProject, withAdapter } from "./project.ts";
+import { loadProject, withAdapter, withProjectRules } from "./project.ts";
 
 export interface PageOutcome extends GenerateOutcome {
   sections: { name: string; figmaId: string; status: string }[];
@@ -30,7 +30,7 @@ export async function generatePageCommand(projectDir: string, options: GenerateC
     return { ...(await generateCommand(projectDir, options)), sections: [] };
   }
   const output = options.output ?? (project.config.output as GenerateCommandOptions["output"]);
-  const conventions: Conventions = await withAdapter(project, (host) => host.call("conventions", { ...project.params, ...(output && { output }) }));
+  const conventions: Conventions = withProjectRules(project, await withAdapter(project, (host) => host.call("conventions", { ...project.params, ...(output && { output }) })));
   const importOf = importer(conventions);
   if (!importOf) return { code: 2, error: `${project.config.adapter} components cannot import one another, so a page cannot be composed from them.`, sections: [] };
   log(`A page of ${sections.length} sections: ${sections.map((s) => s.name).join(", ")}.`);

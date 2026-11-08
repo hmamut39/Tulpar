@@ -10,7 +10,7 @@ import { NAME_PLACEHOLDERS, OpenAiLlm, fillName, flatten, maskBoxes, placeholder
 import { codebaseExamples } from "./examples.ts";
 import { formatFiles } from "./format.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry, type Context, type FrameInput } from "./pipeline.ts";
-import { loadProject, withAdapter, type Project } from "./project.ts";
+import { loadProject, withAdapter, withProjectRules, type Project } from "./project.ts";
 import { printReport } from "./verify.ts";
 
 export interface GenerateCommandOptions {
@@ -123,7 +123,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     }
     if (!options.context && ctx.source === "screenshot") log(`Read the screenshot: ${ctx.mapping.size} design-system component types found.${ctx.notes.slice(1).map((n) => `
   note: ${n}`).join("")}`);
-    const conventions = await host.call("conventions", project.params);
+    const conventions = withProjectRules(project, await host.call("conventions", project.params));
     const tokens = ctx.tokens;
     const workDir = join(".tulpar", "generated", options.name);
     let attempt = 0;
