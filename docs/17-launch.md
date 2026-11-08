@@ -60,7 +60,8 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 > - It identifies which design-system component each element really is (by identity, not by name), so a hand-made `<button>` fails.
 > - It reads the CSS that actually applied and fails hard-coded colours, spacing and type, invented tokens, and tokens of the wrong kind (a border colour used for text).
 > - It compares layout boxes, text and the typeface that drew it, and pixels against Figma's own picture of the frame. Kit placeholders and photos are masked; the design's web fonts are fetched for the sandbox.
-> - It runs the tests it generated, and checks hover, pressed and focus states with a real mouse and keyboard.
+> - It runs the tests it generated, in every language, and checks hover, pressed and focus states with a real mouse and keyboard. Web, Rust and Kotlin tests run in the sandboxed browser. Java (JUnit with Vaadin's browserless testing) and C# (bUnit) execute on the server side, so they run on throwaway machines that hold no secrets, block all outgoing connections, run as an unprivileged user, and start clean for every check: generated code that tries the internet gets a connection error and finds no keys.
+> - Generated code never runs on Tulpar's own server.
 >
 > Failures go back to the model, and the best attempt is kept (a repair that makes things worse is set aside). A repair that deletes tests or assertions is rejected. When a design isn't built with the chosen design system, the report says so rather than listing failures with no reason.
 >
@@ -83,7 +84,8 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 > ✅ colours, type and spacing from your tokens
 > ✅ layout, text and typeface against the design
 > ✅ pixels against Figma's own picture
-> ✅ its own tests, plus hover, pressed and focus states
+> ✅ its own tests, plus hover, pressed and focus states, in every language
+> ✅ in a sandbox: generated code never runs on our server, and can't reach the internet or any secret
 >
 > If something fails, it's repaired. If it can't be checked, it says so.
 >
