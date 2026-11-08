@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { bundle, readStylesheet } from "../src/index.ts";
 
 // The first Sass compile loads the compiler, which is slow under the test runner.
-describe("bundling the team's language and styling", { timeout: 60_000 }, () => {
+// Compiling SCSS and bundling takes seconds alone, and over a minute while the whole suite builds every example.
+describe("bundling the team's language and styling", { timeout: 120_000 }, () => {
   const dir = mkdtempSync(join(tmpdir(), "tulpar-bundle-"));
   // A stand-in for React's JSX runtime: the folder has no React installed.
   mkdirSync(join(dir, "node_modules", "react"), { recursive: true });
