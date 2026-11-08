@@ -6,7 +6,7 @@
 
 import { fontClass, type FontClass } from "./fonts.ts";
 import { tokenKind, wrongKind, wrongRole, type TokenKind } from "./token-kind.ts";
-import type { ComponentIndex, TokenSet } from "../code-model.ts";
+import type { ComponentIndex, DesignToken, TokenSet } from "../code-model.ts";
 import type { AdapterManifest } from "../adapter/protocol.ts";
 import type { Box, DesignNode, DesignTree } from "../model.ts";
 import {
@@ -172,7 +172,7 @@ export function verify(input: VerifyInput): VerifyReport {
       ...literal.map((f) => `✗ ${f.property}: ${f.written}${f.at ? ` at ${f.at}` : ""}`),
       ...undefinedTokens.map((f) =>
         known && !known.has(f.token ?? "", f)
-          ? `✗ ${f.property}: ${f.written} — no such token (misspelt or invented)${f.at ? ` at ${f.at}` : ""}`
+          ? `✗ ${f.property}: ${f.written} — no such token (misspelt or invented)${nearestToken(f.written, input.tokens)}${f.at ? ` at ${f.at}` : ""}`
           : `✗ ${f.property}: ${f.written} — the token is not defined on the page; write its fallback, e.g. var(--token, value)${f.at ? ` at ${f.at}` : ""}`,
       ),
       ...misused.map(({ f, why }) => `✗ ${f.property}: ${f.written} — ${why}${f.at ? ` at ${f.at}` : ""}`),
@@ -622,6 +622,28 @@ function fontFamilies(n: DesignNode): string[] {
   };
   visit(n);
   return [...families];
+}
+
+/**
+ * The token an invented one most likely meant: one of the same family (--app-font-weight-*) with the value the code
+ * fell back to, or the family's only member. "--app-font-weight-normal, 400" → "did you mean var(--app-font-weight-regular) (400)?"
+ */
+export function nearestToken(written: string, tokens: TokenSet | undefined): string {
+  const m = /var\(\s*--([\w-]+)\s*(?:,\s*([^)]+))?\)/.exec(written);
+  if (!m || !tokens) return "";
+  const stem = m[1]!.split("-").slice(0, -1).join("-");
+  if (!stem) return "";
+  const valueOf = (t: DesignToken) => {
+    const v = t.values.default ?? Object.values(t.values)[0];
+    return v?.kind === "dimension" ? `${round(v.points)}px` : v?.kind === "number" ? String(v.value) : undefined;
+  };
+  const raw = m[2]?.trim();
+  const fallback = !raw ? undefined : /^-?\d+(\.\d+)?$/.test(raw) ? String(Number(raw)) : /rem$/.test(raw) ? `${round(parseFloat(raw) * 16)}px` : /px$/.test(raw) ? `${round(parseFloat(raw))}px` : undefined;
+  const family = tokens.tokens.map((t) => ({ t, name: /var\(\s*--([\w-]+)/.exec(t.codeRef ?? "")?.[1] ?? t.name })).filter((c) => c.name.startsWith(`${stem}-`) && c.name !== m[1]);
+  const best = family.find((c) => fallback && valueOf(c.t) === fallback) ?? (family.length === 1 ? family[0] : undefined);
+  if (!best) return "";
+  const value = valueOf(best.t);
+  return `; did you mean var(--${best.name})${value ? ` (${value})` : ""}?`;
 }
 
 /**

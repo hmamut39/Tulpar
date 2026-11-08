@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fontClass } from "../src/verify/fonts.ts";
 import { tokenKind } from "../src/verify/token-kind.ts";
 import { verify, visibleText, type AdapterManifest, type ComponentIndex, type DesignNode, type DesignTree, type RenderedElement, type RenderResult, type StateFact, type TokenSet, type VerifyInput } from "../src/index.ts";
+import { nearestToken } from "../src/verify/verify.ts";
 
 const box = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
 const base = { visible: true, opacity: 1, fills: [], effects: [], clips: false, tokens: {} };
@@ -413,5 +414,23 @@ describe("generated tests check", () => {
   it("does not blame the tests when the runner itself is unavailable", () => {
     expect(withTests({ status: "unsupported", reason: "no Vitest installed" })).toMatchObject({ status: "not-checked", summary: "no Vitest installed" });
     expect(withTests(undefined)).toMatchObject({ status: "not-checked", summary: "the adapter cannot run tests in a sandbox" });
+  });
+});
+
+describe("an invented token", () => {
+  const set = { adapter: "angular", modes: ["default"], gaps: [], tokens: [
+    { name: "app-font-weight-regular", path: [], type: "number", values: { default: { kind: "number", value: 400 } }, codeRef: "var(--app-font-weight-regular)" },
+    { name: "app-font-weight-semibold", path: [], type: "number", values: { default: { kind: "number", value: 600 } }, codeRef: "var(--app-font-weight-semibold)" },
+    { name: "app-font-size-xl", path: [], type: "dimension", values: { default: { kind: "dimension", points: 20 } }, codeRef: "var(--app-font-size-xl)" },
+  ] } as unknown as TokenSet;
+
+  it("is answered with the real one of its family and value", () => {
+    expect(nearestToken("var(--app-font-weight-normal, 400)", set)).toBe("; did you mean var(--app-font-weight-regular) (400)?");
+    expect(nearestToken("var(--app-font-size-large, 1.25rem)", set)).toBe("; did you mean var(--app-font-size-xl) (20px)?");
+  });
+
+  it("guesses nothing when the family or the value does not tell", () => {
+    expect(nearestToken("var(--app-font-weight-heavy, 900)", set)).toBe("");
+    expect(nearestToken("var(--made-up, 4px)", set)).toBe("");
   });
 });
