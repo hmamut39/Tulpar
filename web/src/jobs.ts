@@ -120,7 +120,11 @@ export class JobQueue {
           status: job.result.status,
           model: job.result.model,
           usage: job.result.usage,
-          attempts: job.result.attempts.map((a) => ({ rejected: a.rejected, verdict: a.report?.verdict, failing: a.report?.checks.filter((c) => c.status === "fail").map((c) => c.summary) ?? [] })),
+          // Each attempt's failures with their first details: why a repair did not help is worth seeing.
+          attempts: job.result.attempts.map((a) => {
+            const failed = a.report?.checks.filter((c) => c.status === "fail") ?? [];
+            return { rejected: a.rejected, verdict: a.report?.verdict, failing: failed.map((c) => c.summary), details: failed.flatMap((c) => c.details.slice(0, 2).map((d) => `${c.id}: ${d}`.slice(0, 400))) };
+          }),
           files: job.result.files,
           report: job.result.report,
           ...(job.result.departures && { departures: job.result.departures }),
@@ -223,7 +227,8 @@ function describe(e: GenerationEvent): string {
 }
 
 function verdictLine(r: VerifyReport): string {
-  const failing = r.checks.filter((c) => c.status === "fail").map((c) => c.summary);
+  // A build or render that failed says why: the summary alone ("render failed") cannot be acted on.
+  const failing = r.checks.filter((c) => c.status === "fail").map((c) => (/^(build|render)$/.test(c.id) && c.details[0] ? `${c.summary} (${c.details[0].replace(/\s+/g, " ").slice(0, 200)})` : c.summary));
   return failing.length ? `Checks failed: ${failing.join("; ")}.` : "All checks that ran passed.";
 }
 
