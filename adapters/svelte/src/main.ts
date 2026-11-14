@@ -98,6 +98,10 @@ serve({
     runVitestBrowser({
       root: params.root,
       testFile: params.entry,
+      // Vite's start-up scan cannot read .svelte files, so the design system they import was found mid-run,
+      // optimized late and the page reloaded under the test ("Failed to import test file"): it is pre-bundled
+      // from the start instead.
+      optimize: (config(params).packages ?? []).map((p) => p.replace(/\\/g, "/").split("node_modules/").pop()!).filter((m) => existsSync(join(params.root, "node_modules", m))),
       pluginImports: [`import { tulparSvelte } from ${JSON.stringify(pathToFileURL(join(import.meta.dirname, "verify", "vitest-plugin.mjs")).href)};`],
       plugins: `[tulparSvelte(${JSON.stringify(params.root.replace(/\\/g, "/"))})]`,
     }),
