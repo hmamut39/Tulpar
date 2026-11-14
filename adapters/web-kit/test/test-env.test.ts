@@ -10,6 +10,18 @@ describe("the test runner's environment", () => {
   });
 });
 
+describe("a run broken by Vite re-optimizing its dependencies", () => {
+  it("is run again; a real import failure is not", async () => {
+    const { staleOptimizedDeps } = await import("../src/tests.ts");
+    const vite = 'Failed to import test file /w/examples/carbon-svelte/.tulpar/matrix/ts/Matrix.test.ts: [vite] (client) Pre-transform error: The file does not exist at "/w/examples/carbon-svelte/node_modules/.vite/vitest/da39a3ee5e/deps/carbon.js"';
+    const own = 'Failed to import test file: The file does not exist at "/w/examples/x/.tulpar/vitest/17-ab12cd-cache/vitest/da39/deps/x.js"';
+    expect(staleOptimizedDeps({ status: "ran", runner: "Vitest in Chromium", tests: [], fileError: vite })).toBe(true);
+    expect(staleOptimizedDeps({ status: "ran", runner: "Vitest in Chromium", tests: [], fileError: own })).toBe(true);
+    expect(staleOptimizedDeps({ status: "ran", runner: "Vitest in Chromium", tests: [], fileError: 'Failed to resolve import "./Missing.svelte"' })).toBe(false);
+    expect(staleOptimizedDeps({ status: "ran", runner: "Vitest in Chromium", tests: [{ name: "a", status: "passed" }] })).toBe(false);
+  });
+});
+
 describe("why a test file did not import", () => {
   it("names a parse error and where it is", async () => {
     const { importError } = await import("../src/tests.ts");

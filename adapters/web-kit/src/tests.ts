@@ -30,7 +30,19 @@ export interface VitestOptions {
 
 const ownRequire = createRequire(import.meta.url);
 
+/**
+ * Vite found a dependency mid-run and optimized again, removing the files the test file was importing
+ * ("The file does not exist at …/.vite/…"). It says nothing about the generated code, and the cache is warm
+ * after it: the run is made once more.
+ */
+export const staleOptimizedDeps = (r: TestRunResult) => /does not exist at[^\n]*(?:[\\/]\.vite[\\/]|-cache[\\/])/.test(r.status === "ran" ? (r.fileError ?? "") : r.reason);
+
 export async function runVitestBrowser(o: VitestOptions): Promise<TestRunResult> {
+  const first = await runOnce(o);
+  return staleOptimizedDeps(first) ? runOnce(o) : first;
+}
+
+async function runOnce(o: VitestOptions): Promise<TestRunResult> {
   const vitest = join(o.root, "node_modules", "vitest", "vitest.mjs");
   if (!existsSync(vitest) || !existsSync(join(o.root, "node_modules", "@vitest", "browser-playwright"))) {
     return { status: "unsupported", reason: "the project has no Vitest browser mode installed (vitest, @vitest/browser-playwright)" };
