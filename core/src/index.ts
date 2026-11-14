@@ -18,6 +18,7 @@ export { rerank, evaluateRerank, describeFigma, describeCode, type RerankResult,
 export { tokens as nameTokens, normValue, valueOverlap, tokenOverlap, jaroWinkler, commonPrefix } from "./match/text.ts";
 export * from "./verify/types.ts";
 export { verify, visibleText, type Check, type CheckStatus, type VerifyInput, type VerifyReport } from "./verify/verify.ts";
+export { scanSafety, type SafetyResult, type SourceFile } from "./verify/safety.ts";
 export { compareIndexes, signature, type DriftFinding, type DriftKind, type DriftOptions, type DriftReport, type DriftSeverity } from "./drift/drift.ts";
 export { LlmError, generationCost, tokenCost, type Llm, type LlmImage, type LlmRequest, type LlmResponse } from "./generate/llm.ts";
 export { DEFAULT_OPENAI_MODEL, OpenAiLlm, type OpenAiOptions } from "./generate/openai.ts";

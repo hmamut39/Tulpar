@@ -27,6 +27,7 @@
   ],
   "exclude": [
     "**/*.template.ts",
+    "cli/test/golden/*/**",
     "**/node_modules"
   ]
 }

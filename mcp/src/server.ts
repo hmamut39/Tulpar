@@ -90,7 +90,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     {
       title: "Generate a verified component from Figma or a screenshot",
       description:
-        "Use when asked to build UI from a Figma frame or a screenshot. Writes the component with the project's own design-system components and tokens. Tulpar builds and renders it, checks it against the design (components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, its generated tests, pixels when a screenshot is given), and repairs failures. Returns the files and the verification report. Takes 30–120 seconds.",
+        "Use when asked to build UI from a Figma frame or a screenshot. Writes the component with the project's own design-system components and tokens. Tulpar builds and renders it, checks it against the design (components used vs invented, tokens vs hard-coded values, layout, text, typeface, hover/pressed/focus states, its generated tests, pixels when a screenshot is given, and no unsafe code such as network calls or raw HTML), and repairs failures. Returns the files and the verification report. Takes 30–120 seconds.",
       inputSchema: z.object({
         project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
         name: z.string().describe("PascalCase component name, e.g. CheckoutCard"),
@@ -191,7 +191,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
     "tulpar_check",
     {
       title: "Check code against the design system",
-      description: "Call after every change to component files, even without a Figma frame: a fast review with no model and no design. Finds hard-coded colours, type and spacing that should be design tokens, and var(--…) tokens the design system does not have, in code anyone wrote. Each finding has its file and line; fix them before you say the change is done.",
+      description: "Call after every change to component files, even without a Figma frame: a fast review with no model and no design. Finds hard-coded colours, type and spacing that should be design tokens, var(--…) tokens the design system does not have, and unsafe code a UI component never needs (network calls, code run from strings, cookies, storage, secrets, raw HTML: what a prompt injection adds), in code anyone wrote. Each finding has its file and line; fix them before you say the change is done.",
       inputSchema: z.object({
         project: z.string().describe("Project id from tulpar_projects, or a directory containing a tulpar.json"),
         files: z.array(z.string()).describe("Component files (or their stylesheets) to check, absolute or relative to the project"),
@@ -202,7 +202,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
       const project = findProject(options, args.project);
       const files = args.files.map((f) => (isAbsolute(f) ? f : join(project.dir, f)));
       const { findings } = await checkCommand(project.dir, files, { quiet: true });
-      const text = findings.length ? findings.map((f) => `✗ ${f.file}${f.line ? `:${f.line}` : ""}  ${f.message}`).join("\n") : "No hard-coded values and no invented tokens.";
+      const text = findings.length ? findings.map((f) => `✗ ${f.file}${f.line ? `:${f.line}` : ""}  ${f.message}`).join("\n") : "No hard-coded values, no invented tokens and nothing unsafe.";
       return { content: [{ type: "text", text }], structuredContent: { findings } };
     },
   );

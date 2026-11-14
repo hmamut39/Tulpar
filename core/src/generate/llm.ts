@@ -15,13 +15,19 @@ export interface LlmRequest {
   /** JSON Schema the answer must follow (strict structured output). */
   schema: { name: string; schema: Record<string, unknown> };
   maxOutputTokens?: number;
+  /**
+   * Requests with the same key share a long identical opening (the rules and the brief: every attempt of one
+   * generation). Providers that cache prompt prefixes route them together, so repairs are cheaper and faster.
+   */
+  cacheKey?: string;
 }
 
 export interface LlmResponse {
   /** The parsed JSON answer. */
   json: unknown;
   model: string;
-  usage?: { inputTokens: number; outputTokens: number };
+  /** cachedInputTokens: the part of the input the provider served from its prompt cache (billed lower). */
+  usage?: { inputTokens: number; outputTokens: number; cachedInputTokens?: number };
 }
 
 export interface Llm {
@@ -47,8 +53,8 @@ export class LlmError extends Error {
  * (TULPAR_OPENAI_DRAFT_INPUT_PER_M / _OUTPUT_PER_M) for drafts. Undefined when a price is missing:
  * no cost is better than a wrong one.
  */
-export function generationCost(attempts: { usage?: { inputTokens: number; outputTokens: number }; draft?: boolean }[], env: Record<string, string | undefined> = process.env): number | undefined {
-  const draftPrices = { TULPAR_OPENAI_INPUT_PER_M: env.TULPAR_OPENAI_DRAFT_INPUT_PER_M, TULPAR_OPENAI_OUTPUT_PER_M: env.TULPAR_OPENAI_DRAFT_OUTPUT_PER_M };
+export function generationCost(attempts: { usage?: { inputTokens: number; outputTokens: number; cachedInputTokens?: number }; draft?: boolean }[], env: Record<string, string | undefined> = process.env): number | undefined {
+  const draftPrices = { TULPAR_OPENAI_INPUT_PER_M: env.TULPAR_OPENAI_DRAFT_INPUT_PER_M, TULPAR_OPENAI_OUTPUT_PER_M: env.TULPAR_OPENAI_DRAFT_OUTPUT_PER_M, TULPAR_OPENAI_CACHED_INPUT_PER_M: env.TULPAR_OPENAI_DRAFT_CACHED_INPUT_PER_M };
   let total = 0;
   for (const a of attempts) {
     if (!a.usage) continue;
@@ -59,9 +65,12 @@ export function generationCost(attempts: { usage?: { inputTokens: number; output
   return Math.round(total * 10000) / 10000;
 }
 
-export function tokenCost(usage: { inputTokens: number; outputTokens: number }, env: Record<string, string | undefined> = process.env): number | undefined {
+/** Cached input is priced at TULPAR_OPENAI_CACHED_INPUT_PER_M when set, else as ordinary input (never under-counted). */
+export function tokenCost(usage: { inputTokens: number; outputTokens: number; cachedInputTokens?: number }, env: Record<string, string | undefined> = process.env): number | undefined {
   const input = Number(env.TULPAR_OPENAI_INPUT_PER_M || 0);
   const output = Number(env.TULPAR_OPENAI_OUTPUT_PER_M || 0);
   if (!input && !output) return undefined;
-  return Math.round(((usage.inputTokens / 1e6) * input + (usage.outputTokens / 1e6) * output) * 10000) / 10000;
+  const cachedPrice = Number(env.TULPAR_OPENAI_CACHED_INPUT_PER_M || input);
+  const cached = Math.min(usage.cachedInputTokens ?? 0, usage.inputTokens);
+  return Math.round((((usage.inputTokens - cached) / 1e6) * input + (cached / 1e6) * cachedPrice + (usage.outputTokens / 1e6) * output) * 10000) / 10000;
 }

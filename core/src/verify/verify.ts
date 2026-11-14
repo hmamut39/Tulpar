@@ -26,11 +26,12 @@ import { compareImages, type VisualComparison } from "./visual.ts";
 import { accentProp, familyOf, nearestColorToken } from "../generate/accent.ts";
 import { isPlaceholder } from "../generate/page.ts";
 import { designFit, fitNote } from "./fit.ts";
+import { scanSafety, type SourceFile } from "./safety.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
 export interface Check {
-  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "tests" | "visual" | "states";
+  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "tests" | "visual" | "states" | "safety";
   title: string;
   status: CheckStatus;
   /** One line, used in the headline when the check ran. */
@@ -53,6 +54,8 @@ export interface VerifyInput {
   tests?: TestRunResult;
   /** An image of the design to compare the render with, pixel by pixel. PNG, base64. */
   baseline?: { png: string; source: "screenshot" | "figma"; maxMismatch?: number };
+  /** The implementation's source files (the code and its tests), scanned for what a component never needs. */
+  sources?: SourceFile[];
   /** Tolerances in design points (plan §3: ±1 for boxes, ±2–4 for text). */
   tolerance?: { box: number; text: number };
 }
@@ -335,6 +338,7 @@ export function verify(input: VerifyInput): VerifyReport {
   checks.push(testsCheck(input, skip, ok, fail));
   checks.push(visualCheck(input, elements, skip, ok, fail));
   checks.push(statesCheck(input, elements, skip, ok, fail));
+  checks.push(safetyCheck(input, skip, ok, fail));
 
   const mappedNode = (n: DesignNode) => n.kind === "instance" && !!(input.mapping.get(n.id) ?? input.mapping.get(n.component.id) ?? (n.component.set && input.mapping.get(n.component.set.id)));
   // Only for a Figma frame: a screenshot's colours and sizes are estimates, too rough to call gaps.
@@ -683,4 +687,17 @@ function dedupe(facts: StyleFact[]): StyleFact[] {
 
 function round(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** Nothing a component made from a design never needs: network calls, code from strings, secrets, raw HTML. */
+function safetyCheck(input: VerifyInput, skip: (id: Check["id"], t: string, r: string) => Check, ok: (id: Check["id"], t: string, s: string, d?: string[]) => Check, fail: (id: Check["id"], t: string, s: string, d?: string[]) => Check): Check {
+  const title = "Safe to ship";
+  if (!input.sources?.length) return skip("safety", title, "no source files to scan");
+  const { findings } = scanSafety(input.sources);
+  // What the render tried to reach (the sandbox blocked it): often the design system's own web fonts, so a note, not a failure.
+  const tried = input.render?.status === "ok" ? input.render.warnings.filter((w) => w.startsWith("Blocked network requests")).map((w) => `– the render ${w.charAt(0).toLowerCase()}${w.slice(1)} (the sandbox has no network)`) : [];
+  const files = input.sources.length;
+  return findings.length
+    ? fail("safety", title, `${findings.length} unsafe ${findings.length === 1 ? "use" : "uses"} in the code: network, code from strings, secrets or raw HTML`, [...findings, ...tried])
+    : ok("safety", title, `no network calls, code from strings, secrets or raw HTML in ${files} ${files === 1 ? "file" : "files"}`, tried);
 }

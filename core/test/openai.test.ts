@@ -60,3 +60,40 @@ describe("token cost", () => {
     expect(tokenCost({ inputTokens: 13_000, outputTokens: 7_000 }, {})).toBeUndefined();
   });
 });
+
+describe("prompt cache", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  const capture = (usage: Record<string, unknown>) => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      return new Response(JSON.stringify({ model: "m", output: [{ type: "message", content: [{ type: "output_text", text: "{}" }] }], usage }), { status: 200 });
+    });
+    return bodies;
+  };
+
+  it("sends the cache key to OpenAI and reads back what was served from the cache", async () => {
+    const bodies = capture({ input_tokens: 10_000, output_tokens: 100, input_tokens_details: { cached_tokens: 8_192 } });
+    const r = await new OpenAiLlm({ apiKey: "k" }).complete({ ...request, cacheKey: "tulpar-abc" });
+    expect(bodies[0]!.prompt_cache_key).toBe("tulpar-abc");
+    expect(r.usage).toEqual({ inputTokens: 10_000, outputTokens: 100, cachedInputTokens: 8_192 });
+  });
+
+  it("leaves the key out for a company's own endpoint, which may not know it", async () => {
+    const bodies = capture({ input_tokens: 1, output_tokens: 1 });
+    const r = await new OpenAiLlm({ apiKey: "k", baseUrl: "https://x.openai.azure.com/openai/v1" }).complete({ ...request, cacheKey: "tulpar-abc" });
+    expect(bodies[0]!.prompt_cache_key).toBeUndefined();
+    expect(r.usage).toEqual({ inputTokens: 1, outputTokens: 1 });
+  });
+
+  it("prices cached input at its own rate, and as ordinary input when none is set", async () => {
+    const { tokenCost } = await import("../src/index.ts");
+    const usage = { inputTokens: 1_000_000, outputTokens: 0, cachedInputTokens: 800_000 };
+    expect(tokenCost(usage, { TULPAR_OPENAI_INPUT_PER_M: "2", TULPAR_OPENAI_OUTPUT_PER_M: "8", TULPAR_OPENAI_CACHED_INPUT_PER_M: "0.2" })).toBe(0.56);
+    expect(tokenCost(usage, { TULPAR_OPENAI_INPUT_PER_M: "2", TULPAR_OPENAI_OUTPUT_PER_M: "8" })).toBe(2);
+  });
+});

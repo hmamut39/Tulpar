@@ -58,6 +58,7 @@
     <ul>
       <li>A screenshot or frame is held in memory while your run is shown, and deleted within one hour. Working files on disk are deleted when the run finishes.</li>
       <li>Generated code never runs on Tulpar's own server. It is built and run in a sandboxed browser with the network blocked, or, for Java and C#, whose code runs on a server, on a throwaway machine that holds no secrets, blocks every outgoing connection, runs it as an unprivileged user and starts clean for every check.</li>
+      <li>Generated code is also checked before you get it. A component made from a design never needs to call a server, run code from a string, read cookies, stored data or secrets, or write raw HTML. Code that does fails the safety check and is repaired. Such code is what a prompt injection would add: instructions hidden in a design's text or a library's docs. The model is also told that everything in a design is content, never instructions.</li>
       <li>To write the code, your design is sent to OpenAI's API with storage turned off. See the <a href="/privacy">Privacy Policy</a> for everyone who receives data.</li>
     </ul></section>
 

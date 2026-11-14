@@ -28,6 +28,7 @@ import {
   type TokenSet,
   type RenderedElement,
   type VerifyReport,
+  type SourceFile,
   type Figma,
   type NormalizeContext,
 } from "@tulpar/core";
@@ -240,7 +241,7 @@ export async function rerankUnlinked(ctx: Context, llm: Llm, options: { max?: nu
 // The design's typefaces, fetched once per design (every attempt renders with them).
 const FONT_FACES = new WeakMap<DesignTree, Promise<string>>();
 
-export async function verifyEntry(host: AdapterHost, project: Project, ctx: Context, entry: string, theme?: string, testFile?: string): Promise<{ report: VerifyReport; png?: string; elements?: RenderedElement[] }> {
+export async function verifyEntry(host: AdapterHost, project: Project, ctx: Context, entry: string, theme?: string, testFile?: string, sources?: SourceFile[]): Promise<{ report: VerifyReport; png?: string; elements?: RenderedElement[] }> {
   const caps = host.manifest!.capabilities;
   const frame = { width: ctx.design.root.box!.width, height: ctx.design.root.box!.height };
   if (!FONT_FACES.has(ctx.design)) FONT_FACES.set(ctx.design, designFontFaces(ctx.design.root));
@@ -254,8 +255,11 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
   const analysis = caps.staticProvenance ? await host.call("analyze", { ...project.params, entry }).catch(() => undefined) : undefined;
   // The implementation's own tests, in the adapter's sandbox; only when it built.
   const tests = caps.tests && testFile && build?.ok ? await host.call("test", { ...project.params, entry: testFile }) : undefined;
+  // The code scanned for what a component never needs: the files given, or the entry and its test on disk.
+  const scanned = sources ?? (await Promise.all([entry, testFile].filter((f): f is string => !!f).map(async (path) => ({ path, content: await readFile(join(project.root, path), "utf8").catch(() => "") })))).filter((f) => f.content);
   const report = verify({
     design: ctx.design,
+    ...(scanned.length && { sources: scanned }),
     ...(tests && { tests }),
     mapping: ctx.mapping,
     index: ctx.index,

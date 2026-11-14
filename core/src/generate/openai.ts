@@ -65,6 +65,8 @@ export class OpenAiLlm implements Llm {
       ],
       text: { format: { type: "json_schema", name: request.schema.name, schema: request.schema.schema, strict: true } },
       ...(request.maxOutputTokens && { max_output_tokens: request.maxOutputTokens }),
+      // OpenAI's own API only: a gateway or an Azure deployment may reject a parameter it does not know.
+      ...(request.cacheKey && this.#baseUrl === "https://api.openai.com/v1" && { prompt_cache_key: request.cacheKey }),
       // Designs and code are the user's; don't keep them on OpenAI's side longer than needed.
       store: false,
     };
@@ -91,7 +93,7 @@ export class OpenAiLlm implements Llm {
     return {
       json,
       model: data.model ?? this.#model,
-      ...(data.usage && { usage: { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } }),
+      ...(data.usage && { usage: { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens, ...(data.usage.input_tokens_details?.cached_tokens && { cachedInputTokens: data.usage.input_tokens_details.cached_tokens }) } }),
     };
   }
 }
@@ -102,5 +104,5 @@ interface OpenAiResponse {
   incomplete_details?: { reason?: string };
   error?: { message?: string };
   output?: { type: string; content?: { type: string; text?: string; refusal?: string }[] }[];
-  usage?: { input_tokens: number; output_tokens: number };
+  usage?: { input_tokens: number; output_tokens: number; input_tokens_details?: { cached_tokens?: number } };
 }

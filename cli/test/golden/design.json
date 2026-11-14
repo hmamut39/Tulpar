@@ -1,0 +1,44 @@
+{
+  "document": {
+    "id": "900:1",
+    "name": "Order card",
+    "type": "FRAME",
+    "absoluteBoundingBox": { "x": 0, "y": 0, "width": 320, "height": 88 },
+    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+    "layoutMode": "VERTICAL",
+    "itemSpacing": 8,
+    "paddingTop": 16,
+    "paddingRight": 16,
+    "paddingBottom": 16,
+    "paddingLeft": 16,
+    "primaryAxisAlignItems": "MIN",
+    "counterAxisAlignItems": "MIN",
+    "children": [
+      {
+        "id": "900:2",
+        "name": "Title",
+        "type": "TEXT",
+        "absoluteBoundingBox": { "x": 16, "y": 16, "width": 288, "height": 28 },
+        "characters": "Order summary",
+        "style": { "fontFamily": "IBM Plex Sans", "fontWeight": 400, "fontSize": 20, "lineHeightPx": 28, "textAlignHorizontal": "LEFT", "textAlignVertical": "TOP" },
+        "fills": [{ "type": "SOLID", "color": { "r": 0.0863, "g": 0.0863, "b": 0.0863, "a": 1 } }],
+        "layoutSizingHorizontal": "FILL",
+        "layoutSizingVertical": "HUG"
+      },
+      {
+        "id": "900:3",
+        "name": "Body",
+        "type": "TEXT",
+        "absoluteBoundingBox": { "x": 16, "y": 52, "width": 288, "height": 20 },
+        "characters": "Two items, ready to ship.",
+        "style": { "fontFamily": "IBM Plex Sans", "fontWeight": 400, "fontSize": 14, "lineHeightPx": 20, "textAlignHorizontal": "LEFT", "textAlignVertical": "TOP" },
+        "fills": [{ "type": "SOLID", "color": { "r": 0.3216, "g": 0.3216, "b": 0.3216, "a": 1 } }],
+        "layoutSizingHorizontal": "FILL",
+        "layoutSizingVertical": "HUG"
+      }
+    ]
+  },
+  "components": {},
+  "componentSets": {},
+  "styles": {}
+}

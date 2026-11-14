@@ -6,16 +6,18 @@
 //   framework's own static scan (styles, inline styles, stylesheets, CSS-in-JS).
 // - Invented tokens: var(--<prefix>-…) names the design system does not have, which silently fall
 //   back or draw nothing.
+// - Unsafe code: network calls, code run from strings, cookies, storage, secrets or raw HTML, which a UI
+//   component never needs and a prompt injection would add (scanSafety, the verifier's safety check).
 // Given files (a pull request's changed files) are mapped to their components: Card.module.css and
 // Card.styles.ts to Card.tsx, card.component.html to card.component.ts.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
-import type { StyleFact } from "@tulpar/core";
+import { scanSafety, type StyleFact } from "@tulpar/core";
 import { loadProject, withAdapter } from "./project.ts";
 
 export interface CheckFinding {
-  kind: "hard-coded" | "invented-token";
+  kind: "hard-coded" | "invented-token" | "unsafe";
   /** Path relative to the current directory, for editors and CI annotations. */
   file: string;
   line?: number;
@@ -51,6 +53,10 @@ export async function checkCommand(projectDir: string, files: string[], options:
     const prefix = (project.params.config as { tokens?: { css?: { prefix?: string }; prefix?: string } }).tokens?.css?.prefix ?? (project.params.config as { tokens?: { prefix?: string } }).tokens?.prefix;
     for (const entry of entries) {
       const rel = relative(root, entry).replace(/\\/g, "/");
+      // Unsafe code, in every framework: the component and the files beside it, its tests too.
+      for (const file of [entry, ...siblings(entry, true)]) {
+        for (const item of scanSafety([{ path: file, content: readFileSync(file, "utf8") }]).items) findings.push({ kind: "unsafe", file: here(file), line: item.line, message: item.message });
+      }
       if (caps.staticProvenance) {
         const analysis = await host.call("analyze", { ...project.params, entry: rel }).catch(() => undefined);
         for (const fact of analysis?.literals ?? []) findings.push(literalFinding(fact, root, here));
@@ -101,7 +107,7 @@ function print(findings: CheckFinding[], checked: number, format: "text" | "gith
   } else {
     for (const f of findings) console.log(`✗ ${f.file}${f.line ? `:${f.line}` : ""}  ${f.message}`);
   }
-  console.log(`${checked} component(s) checked: ${findings.length ? `${findings.length} finding(s)` : "no hard-coded values, no invented tokens"}`);
+  console.log(`${checked} component(s) checked: ${findings.length ? `${findings.length} finding(s)` : "no hard-coded values, no invented tokens, nothing unsafe"}`);
 }
 
 /** The component a file belongs to: itself, or the component file sharing its name in the same folder. */
@@ -118,12 +124,12 @@ function stemOf(file: string): string {
   return basename(file).replace(/\.(component|module|styles|test|spec|stories)?\.[^.]+$/, "").replace(/\.[^.]+$/, "");
 }
 
-function siblings(entry: string): string[] {
+function siblings(entry: string, withTests = false): string[] {
   const dir = dirname(entry);
   const stem = stemOf(entry);
   return readdirSync(dir)
     .map((f) => join(dir, f))
-    .filter((f) => f !== entry && stemOf(f) === stem && /\.(css|scss|less|ts|js|html)$/.test(f) && !/\.(test|spec)\./.test(f));
+    .filter((f) => f !== entry && stemOf(f) === stem && (withTests ? /\.(css|scss|less|ts|tsx|js|jsx|html)$/ : /\.(css|scss|less|ts|js|html)$/).test(f) && (withTests || !/\.(test|spec)\./.test(f)));
 }
 
 /** Every file of the project, outside dependencies and build output. */

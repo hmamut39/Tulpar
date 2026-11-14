@@ -172,7 +172,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
         const entry = join(workDir, conventions.entry.replace(NAME_PLACEHOLDERS, (p) => fillName(p, options.name))).replace(/\\/g, "/");
         const testSpec = conventions.files.find((f) => f.role === "test");
         const testFile = testSpec && join(workDir, testSpec.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, options.name))).replace(/\\/g, "/");
-        const verified = await verifyEntry(host, project, ctx, entry, options.theme, testFile && files.some((f) => testFile.endsWith(f.path)) ? testFile : undefined);
+        const verified = await verifyEntry(host, project, ctx, entry, options.theme, testFile && files.some((f) => testFile.endsWith(f.path)) ? testFile : undefined, files.map((f) => ({ path: f.path, content: f.content })));
         if (verified.png) pngs.set(verified.report, verified.png);
         debug.attempts.push(verified.elements ?? null);
         return verified.report;
@@ -205,7 +205,7 @@ export async function generateCommand(projectDir: string, options: GenerateComma
     console.log("");
     if (result.report) printReport(result.report);
     const label = { verified: "VERIFIED", "unchecked-remain": "NO FAILURES (some checks could not run)", failed: "FAILED" }[result.status];
-    console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}${(() => { const cost = generationCost(result.attempts); return cost === undefined ? "" : ` (≈ $${cost.toFixed(3)})`; })()}`);
+    console.log(`\nGeneration: ${label} after ${result.attempts.length} attempt(s) with ${result.model}; tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}${result.usage.cachedInputTokens ? ` (${result.usage.cachedInputTokens} in from the prompt cache)` : ""}${(() => { const cost = generationCost(result.attempts); return cost === undefined ? "" : ` (≈ $${cost.toFixed(3)})`; })()}`);
     console.log(`Files: ${outDir}`);
   }
   return { code: result.status === "failed" ? 1 : 0, result, outDir, ...(png && { png }), ...(context && { context }) };
