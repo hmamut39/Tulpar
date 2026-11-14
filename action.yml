@@ -1,5 +1,6 @@
 # Tulpar as a GitHub Action: reviews a pull request's component changes against your design system (hard-coded
-# colours, type and spacing; tokens that do not exist), whoever wrote the code, and marks each finding on its line.
+# colours, type and spacing; tokens that do not exist; unsafe code such as network calls or raw HTML, which a prompt
+# injection would add), whoever wrote the code, and marks each finding on its line.
 # With verify: true it also builds and draws each changed component that tulpar.json lists under "verify", and
 # compares it with its Figma frame. No AI model is called either way.
 #
@@ -11,7 +12,7 @@
 #       verify: true                    # optional: compare listed components with their Figma frames
 #       figma-token: ${{ secrets.FIGMA_TOKEN }}
 name: Tulpar check
-description: Hard-coded values and invented tokens in a pull request's components, and optionally each changed component compared with its Figma frame.
+description: Hard-coded values, invented tokens and unsafe code in a pull request's components, checked against your design system.
 branding:
   icon: check-square
   color: purple

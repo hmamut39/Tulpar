@@ -6,6 +6,7 @@ Facts used:
 
 - Benchmark: 12 cases (React, Vue, Angular, Svelte, Web Components, Flutter, Blazor and Leptos; Carbon, Radix, shadcn/ui, Element Plus, PrimeNG, Material 3, MudBlazor, Thaw). 9 verified, all 12 checks passing. Flutter and Blazor have no failing check, with tests not run on the page's benchmark (Flutter's run on the server only; Blazor's are not checked yet). Leptos fails the pixel check only, about 11% (Thaw has one brand blue), and its tests are not checked yet.
 - Free trial: 20 verified generations, no card. Pro: $29/month, 300 generations.
+- 14 Nov 2026: 13 checks per run (the 13th, safety, is new). The Figma basics "Tomato" card passes with no failing check on all 15 built-in projects (live runs, 8–14 Nov; not yet on the benchmark page, which still shows the 12-case run above). Every language runs its generated tests. CI holds a golden gate: a reference per framework must pass and planted defects (including a cookie-stealing call) must fail.
 - Surfaces: web page, CLI, VS Code extension (also Cursor, Windsurf, VSCodium), MCP server, Figma plugin (once published).
 
 ---
@@ -62,6 +63,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 > - It compares layout boxes, text and the typeface that drew it, and pixels against Figma's own picture of the frame. Kit placeholders and photos are masked; the design's web fonts are fetched for the sandbox.
 > - It runs the tests it generated, in every language, and checks hover, pressed and focus states with a real mouse and keyboard. Web, Rust and Kotlin tests run in the sandboxed browser. Java (JUnit with Vaadin's browserless testing) and C# (bUnit) execute on the server side, so they run on throwaway machines that hold no secrets, block all outgoing connections, run as an unprivileged user, and start clean for every check: generated code that tries the internet gets a connection error and finds no keys.
 > - Generated code never runs on Tulpar's own server.
+> - A safety check fails code that a component made from a design never needs: network calls, code run from strings, cookies, stored data or secrets, raw HTML, files loaded from the web. It's what a prompt injection hidden in a design's text or a library's docs would add, and the model is told that design text is content, never instructions. `tulpar check` and the GitHub Action run the same scan on code any agent wrote.
 >
 > Failures go back to the model, and the best attempt is kept (a repair that makes things worse is set aside). A repair that deletes tests or assertions is rejected. When a design isn't built with the chosen design system, the report says so rather than listing failures with no reason.
 >
@@ -86,6 +88,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 > ✅ pixels against Figma's own picture
 > ✅ its own tests, plus hover, pressed and focus states, in every language
 > ✅ in a sandbox: generated code never runs on our server, and can't reach the internet or any secret
+> ✅ safe to ship: no network calls, secrets or raw HTML, the things a prompt injection would sneak in
 >
 > If something fails, it's repaired. If it can't be checked, it says so.
 >
