@@ -1,0 +1,37 @@
+<script lang="ts">
+  const title = "Order summary";
+</script>
+
+<section class="order-card" data-figma-id="900:1">
+  <h2 class="title" data-figma-id="900:2">{title}</h2>
+  <p class="body" data-figma-id="900:3">Two items, ready to ship.</p>
+</section>
+
+<style>
+  .order-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cds-spacing-03, 0.5rem);
+    margin: 0;
+    padding: var(--cds-spacing-05, 1rem);
+    background-color: var(--cds-background, #ffffff);
+  }
+
+  .title {
+    margin: 0;
+    color: var(--cds-text-primary, #161616);
+    font-size: var(--cds-heading-03-font-size, 1.25rem);
+    font-weight: var(--cds-heading-03-font-weight, 400);
+    line-height: var(--cds-heading-03-line-height, 1.4);
+    letter-spacing: var(--cds-heading-03-letter-spacing, 0);
+  }
+
+  .body {
+    margin: 0;
+    color: var(--cds-text-secondary, #525252);
+    font-size: var(--cds-body-01-font-size, 0.875rem);
+    font-weight: var(--cds-body-01-font-weight, 400);
+    line-height: var(--cds-body-01-line-height, 1.42857);
+    letter-spacing: var(--cds-body-01-letter-spacing, 0.16px);
+  }
+</style>
