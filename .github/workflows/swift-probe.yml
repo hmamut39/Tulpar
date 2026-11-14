@@ -26,7 +26,7 @@ jobs:
           TEST_RUNNER_TULPAR_OUT=/tmp/tulpar-out xcodebuild test -project TulparHost.xcodeproj -scheme TulparHost -destination "platform=iOS Simulator,name=$device" -quiet 2>&1 | tail -30
           echo "Seconds: $(( $(date +%s) - start ))"
           cat /tmp/tulpar-out/render.json
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: swift-render
