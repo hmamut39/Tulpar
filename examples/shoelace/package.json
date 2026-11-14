@@ -4,5 +4,10 @@
   "description": "A design system Tulpar was not built around, set up only with `tulpar init`.",
   "dependencies": {
     "@shoelace-style/shoelace": "2.20.1"
+  },
+  "devDependencies": {
+    "@vitest/browser-playwright": "5.0.5",
+    "playwright": "1.63.0",
+    "vitest": "5.0.5"
   }
 }

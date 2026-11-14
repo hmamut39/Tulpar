@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AdapterHost } from "@tulpar/core";
 import { toComponent } from "../src/components.ts";
-import { parse, stalled, testBrowser } from "../src/tests.ts";
+import { exception, parse, stalled, testBrowser } from "../src/tests.ts";
 import { flutterBin } from "../src/sdk.ts";
 import { buildErrors, widgetClass } from "../src/verify.ts";
 
@@ -67,6 +67,32 @@ describe("the Flutter component model", () => {
     expect(parse(events, 1)).toEqual({ status: "ran", runner: "flutter test in Chromium", tests: [{ name: "shows the actions", status: "passed" }, { name: "fails honestly", status: "failed", error: "Expected: exactly one matching candidate   Actual: _TextWidgetFinder:<Found 0 widgets>" }] });
     const broken = [{ type: "testStart", test: { id: 1, name: "loading test/tulpar_run/a_test.dart", url: null } }, { type: "error", testID: 1, error: "a_test.dart:3:8: Error: Not found: 'x.dart'" }, { type: "testDone", testID: 1, result: "error", hidden: true }].map((e) => JSON.stringify(e)).join("\n");
     expect(parse(broken, 1)).toMatchObject({ status: "ran", tests: [], fileError: "a_test.dart:3:8: Error: Not found: 'x.dart'" });
+  });
+
+  it("gives a widget test's failure from the printed exception, not 'See exception logs above'", () => {
+    const printed = [
+      "══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════",
+      "The following TestFailure was thrown running a test:",
+      "Expected: exactly one matching candidate",
+      "  Actual: _SemanticsFinder:<Found 0 widgets with semantics label \"Tomato\": []>",
+      "   Which: means none were found but one was expected",
+      "",
+      "When the exception was thrown, this was the stack:",
+      "#4      main.<anonymous closure> (file:///product_card_test.dart:21:5)",
+      "The test description was:",
+      "  exposes the design layers through semantics",
+      "════════════════════════════════════════════════════════════════════════════════════════════════════",
+    ].join("\n");
+    const events = [
+      { type: "testStart", test: { id: 2, name: "exposes the design layers through semantics", url: "file:///a_test.dart" } },
+      { type: "print", testID: 2, messageType: "print", message: printed },
+      { type: "error", testID: 2, error: "Test failed. See exception logs above.\nThe test description was: exposes the design layers through semantics" },
+      { type: "testDone", testID: 2, result: "failure", hidden: false },
+    ].map((e) => JSON.stringify(e)).join("\n");
+    expect(parse(events, 1)).toMatchObject({
+      tests: [{ status: "failed", error: 'The following TestFailure was thrown running a test: Expected: exactly one matching candidate Actual: _SemanticsFinder:<Found 0 widgets with semantics label "Tomato": []> Which: means none were found but one was expected' }],
+    });
+    expect(exception("no block here")).toBeUndefined();
   });
 
   it("gives a build error its place and the call it belongs to, so a repair fixes the right line", () => {

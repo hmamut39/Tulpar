@@ -18,6 +18,24 @@ interface Event {
   hidden?: boolean;
   skipped?: boolean;
   error?: string;
+  message?: string;
+}
+
+/**
+ * A widget test's failure is printed as an "EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK" block, and its error
+ * event only says "See exception logs above". The block's own lines (what was thrown, Expected, Actual, Which)
+ * are what a repair needs; the stack and the decoration are left out.
+ */
+export function exception(printed: string): string | undefined {
+  const lines = printed.split("\n");
+  const start = lines.findIndex((l) => l.includes("EXCEPTION CAUGHT BY"));
+  if (start < 0) return undefined;
+  const body: string[] = [];
+  for (const l of lines.slice(start + 1)) {
+    if (/^When the exception was thrown|^The test description was|^═{3,}/.test(l.trim())) break;
+    if (l.trim()) body.push(l.trim());
+  }
+  return body.length ? body.slice(0, 8).join(" ") : undefined;
 }
 
 // A run takes about a minute. Now and then Flutter's web runner starts Chromium and the suite never
@@ -68,11 +86,17 @@ export function parse(stdout: string, code: number | null): TestRunResult {
   const events = stdout.split("\n").filter((l) => l.startsWith("{")).map((l) => JSON.parse(l) as Event);
   const names = new Map<number, { name: string; loading: boolean }>();
   const errors = new Map<number, string>();
+  const printed = new Map<number, string>();
   const tests: { name: string; status: "passed" | "failed" | "skipped"; error?: string }[] = [];
   let fileError: string | undefined;
   for (const e of events) {
     if (e.type === "testStart" && e.test) names.set(e.test.id, { name: e.test.name, loading: e.test.url === null && e.test.name.startsWith("loading ") });
-    if (e.type === "error" && e.testID !== undefined && e.error) errors.set(e.testID, errors.get(e.testID) ?? e.error.split("\n").filter((l) => l.trim()).slice(0, 4).join(" "));
+    if (e.type === "print" && e.testID !== undefined && e.message) printed.set(e.testID, `${printed.get(e.testID) ?? ""}${e.message}\n`);
+    if (e.type === "error" && e.testID !== undefined && e.error && !errors.has(e.testID)) {
+      const own = e.error.split("\n").filter((l) => l.trim()).slice(0, 4).join(" ");
+      const logged = /See exception logs above/.test(e.error) ? exception(printed.get(e.testID) ?? "") : undefined;
+      errors.set(e.testID, logged ?? own);
+    }
     if (e.type === "testDone" && e.testID !== undefined) {
       const t = names.get(e.testID);
       if (!t) continue;

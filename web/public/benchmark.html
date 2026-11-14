@@ -50,11 +50,11 @@
   <h1>Every result checked, failures included.</h1>
   <p class="lede">The same designs, generated with each design system and framework by the model the site runs, then built, rendered and checked like every result you get. This page shows the latest run of each case as it was recorded.</p>
   <p class="bench-summary" id="summary">Loading the latest results…</p>
-  <div class="bench-list" id="cases" aria-live="polite"></div>
+  <div id="cases" aria-live="polite"></div>
   <section>
     <h2>How to read it</h2>
     <p><b>Verified</b>: every check ran and passed. <b>No failures</b>: nothing failed, but some checks could not run for that case (no picture to compare with, for example). <b>Failed</b>: a check still failed after the last attempt; the failing checks are named. Attempts counts the first draft and each repair.</p>
-    <p>Checks: components (the design system's own components, not imitations), colours, type and spacing from tokens, layout, text, typeface, the generated tests, pixels against the design, and hover, pressed and focus states.</p>
+    <p>Checks: components (the design system's own components, not imitations), colours, type and spacing from tokens, layout, text, typeface, the generated tests, pixels against the design, hover, pressed and focus states, and safety (no network calls, secrets or raw HTML in the code).</p>
   </section>
 </main>
 

@@ -1,0 +1,25 @@
+{
+  "about": "The live benchmark: one Figma design (the \"Tomato\" product card from Figma basics, frame 4368:321208 of file YI0iMSOjTzMgKegxEetqvm) through every project on tulparsi.com, sent the way the Figma plugin sends it. Recorded from the live site, not with `tulpar eval`; results in eval/results.",
+  "suite": { "id": "card",
+    "title": "One Figma design, every project",
+    "about": "The \"Tomato\" product card from Figma basics, generated on the live site with each design system and framework. The card is drawn in plain Figma, not with any design system's components, so the components check has nothing to compare and the best result is \"no failures\" rather than \"verified\"."
+  },
+  "cases": [
+    { "id": "card-blazor-mud", "project": "examples/blazor-mud", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-carbon", "project": "examples/carbon", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-carbon-angular", "project": "examples/carbon-angular", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-carbon-react", "project": "examples/carbon-react", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-carbon-svelte", "project": "examples/carbon-svelte", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-chakra", "project": "examples/chakra", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-compose-material", "project": "examples/compose-material", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-element-plus", "project": "examples/element-plus", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-flutter-material", "project": "examples/flutter-material", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-leptos-thaw", "project": "examples/leptos-thaw", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-mui", "project": "examples/mui", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-primeng", "project": "examples/primeng", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-radix", "project": "examples/radix", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-shadcn", "project": "examples/shadcn", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-shoelace", "project": "examples/shoelace", "frame": "4368:321208", "name": "ProductCard", "suite": "card" },
+    { "id": "card-vaadin-aura", "project": "examples/vaadin-aura", "frame": "4368:321208", "name": "ProductCard", "suite": "card" }
+  ]
+}

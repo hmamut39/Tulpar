@@ -1,0 +1,330 @@
+{
+  "at": "2026-11-14T15:48:57.547Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com), sent as the Figma plugin sends a frame",
+  "results": [
+    {
+      "id": "card-blazor-mud",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "seconds": 145,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-carbon",
+      "status": "unchecked-remain",
+      "attempts": 3,
+      "inputTokens": 17034,
+      "outputTokens": 5537,
+      "seconds": 124,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-carbon-angular",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 11563,
+      "outputTokens": 3499,
+      "seconds": 71,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-carbon-react",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 11250,
+      "outputTokens": 3324,
+      "seconds": 64,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-carbon-svelte",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 11495,
+      "outputTokens": 3355,
+      "seconds": 74,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-chakra",
+      "status": "unchecked-remain",
+      "attempts": 3,
+      "inputTokens": 15300,
+      "outputTokens": 6389,
+      "seconds": 143,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-compose-material",
+      "status": "unchecked-remain",
+      "attempts": 1,
+      "inputTokens": 2862,
+      "outputTokens": 1750,
+      "seconds": 129,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-element-plus",
+      "status": "unchecked-remain",
+      "attempts": 3,
+      "inputTokens": 11474,
+      "outputTokens": 6206,
+      "seconds": 134,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-flutter-material",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 10240,
+      "outputTokens": 5336,
+      "seconds": 407,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "tests": false,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-leptos-thaw",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 8045,
+      "outputTokens": 4309,
+      "seconds": 101,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-mui",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 6190,
+      "outputTokens": 3578,
+      "seconds": 92,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-primeng",
+      "status": "unchecked-remain",
+      "attempts": 3,
+      "inputTokens": 13297,
+      "outputTokens": 7491,
+      "seconds": 142,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-radix",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 7637,
+      "outputTokens": 3201,
+      "seconds": 67,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-shadcn",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 6297,
+      "outputTokens": 2755,
+      "seconds": 61,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-shoelace",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 12239,
+      "outputTokens": 5809,
+      "seconds": 110,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": true,
+        "typeface": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    }
+  ]
+}

@@ -604,7 +604,13 @@ let benchmarkCache: unknown;
 function benchmark(repoRoot: string, projects: ProjectInfo[]): unknown {
   if (benchmarkCache) return benchmarkCache;
   const dir = join(repoRoot, "eval", "results");
-  const cases = existsSync(join(repoRoot, "eval", "cases.json")) ? (JSON.parse(readFileSync(join(repoRoot, "eval", "cases.json"), "utf8")) as { cases: { id: string; project: string; frame?: string; image?: string; output?: { language?: string; styling?: string } }[] }).cases : [];
+  // eval/cases.json (run with `tulpar eval`) and eval/live-cases.json (one design through every project, recorded
+  // from the live site). Each file's cases form a suite, shown as its own section.
+  type CaseFile = { suite?: { id: string; title: string; about: string }; cases: { id: string; project: string; frame?: string; image?: string; suite?: string; output?: { language?: string; styling?: string } }[] };
+  const read = (file: string): CaseFile | undefined => (existsSync(join(repoRoot, "eval", file)) ? (JSON.parse(readFileSync(join(repoRoot, "eval", file), "utf8")) as CaseFile) : undefined);
+  const files = [read("live-cases.json"), read("cases.json")].filter((f): f is CaseFile => !!f);
+  const suites = files.map((f) => f.suite ?? { id: "designs", title: "Designs across frameworks and styling", about: "A Carbon modal footer from Figma and a sign-in card from a screenshot, generated with each design system and in different styling." });
+  const cases = files.flatMap((f, i) => f.cases.map((c) => ({ ...c, suite: suites[i]!.id })));
   type Run = { status: string; attempts: number; seconds: number; checks: Record<string, boolean>; inputTokens?: number; outputTokens?: number };
   const latest = new Map<string, { at: string; model: string; result: Run }>();
   for (const file of existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")).sort() : []) {
@@ -615,9 +621,9 @@ function benchmark(repoRoot: string, projects: ProjectInfo[]): unknown {
     const run = latest.get(c.id);
     if (!run) return [];
     const project = projects.find((p) => p.dir.replace(/\\/g, "/").endsWith(c.project));
-    return [{ id: c.id, adapter: project?.adapter ?? c.project.split("/").pop(), designSystem: project?.label.split(" · ").slice(1).join(" · ") ?? c.project, input: c.frame ? "figma" : "screenshot", styling: c.output?.styling ?? "default", at: run.at, model: run.model.replace(/^openai:/, ""), status: run.result.status, attempts: run.result.attempts, seconds: run.result.seconds, tokens: (run.result.inputTokens ?? 0) + (run.result.outputTokens ?? 0), checks: run.result.checks }];
+    return [{ id: c.id, suite: c.suite, adapter: project?.adapter ?? c.project.split("/").pop(), designSystem: project?.label.split(" · ").slice(1).join(" · ") ?? c.project, input: c.frame ? "figma" : "screenshot", styling: c.output?.styling ?? "default", at: run.at, model: run.model.replace(/^openai:/, ""), status: run.result.status, attempts: run.result.attempts, seconds: run.result.seconds, tokens: (run.result.inputTokens ?? 0) + (run.result.outputTokens ?? 0), checks: run.result.checks }];
   });
-  benchmarkCache = { cases: rows, updated: rows.map((r) => r.at).sort().at(-1) ?? null };
+  benchmarkCache = { suites: suites.filter((s) => rows.some((r) => r.suite === s.id)), cases: rows, updated: rows.map((r) => r.at).sort().at(-1) ?? null };
   return benchmarkCache;
 }
 

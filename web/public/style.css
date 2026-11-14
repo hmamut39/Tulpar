@@ -495,6 +495,8 @@ h1, h2, h3 { text-wrap: balance; }
 /* Benchmark page: one card per case, the verdict as a pill. */
 .bench-summary { font-weight: 600; color: var(--text); margin: 8px 0 18px; }
 .bench-list { display: grid; gap: 12px; margin-bottom: 28px; }
+.bench-suite h2 { margin: 28px 0 4px; }
+.bench-about { color: var(--muted, inherit); margin: 0; }
 .bench-case { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--surface); }
 .bench-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bench-head h3 { margin: 0; font-size: 16px; }
