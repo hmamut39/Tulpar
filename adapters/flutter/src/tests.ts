@@ -81,7 +81,7 @@ export async function runWidgetTests(root: string, testFile: string, timeoutMs =
     if (!browser) return { status: "unsupported", reason: "Playwright's Chromium is not installed (npx playwright install chromium)" };
     const once = async () => {
       const result = await sdk("flutter", ["test", "--platform", "chrome", "--reporter", "json", `test/tulpar_run/${basename(testFile)}`], root, timeoutMs, { CHROME_EXECUTABLE: browser });
-      return parse(result.stdout, result.code);
+      return parse(result.stdout, result.code, result.stderr);
     };
     const first = await once();
     return stalled(first) ? once() : first;
@@ -109,12 +109,13 @@ const STALLED = "the test browser did not load the tests in time (flutter test w
 /** A run whose browser never loaded the suite: worth one more try. */
 export const stalled = (r: TestRunResult) => r.status === "failed" && (r.reason === STALLED || r.reason === "flutter test did not finish in time and reported nothing");
 
-export function parse(stdout: string, code: number | null): TestRunResult {
+/** stderr: where Flutter's web runner writes the exception blocks of failed widget tests. */
+export function parse(stdout: string, code: number | null, stderr = ""): TestRunResult {
   const events = stdout.split("\n").filter((l) => l.startsWith("{")).map((l) => JSON.parse(l) as Event);
   const names = new Map<number, { name: string; loading: boolean }>();
   const errors = new Map<number, string>();
   const printed = new Map<number, string>();
-  const named = exceptionsByTest(stdout);
+  const named = exceptionsByTest(`${stdout}\n${stderr}`);
   const tests: { name: string; status: "passed" | "failed" | "skipped"; error?: string }[] = [];
   let fileError: string | undefined;
   for (const e of events) {
