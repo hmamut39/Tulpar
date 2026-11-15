@@ -1,0 +1,26 @@
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  margin: 0;
+  padding: var(--space-4, 16px);
+  background-color: var(--color-panel-solid, #ffffff);
+}
+
+.order-card__title {
+  margin: 0;
+  color: var(--gray-12, #202020);
+  font-family: var(--heading-font-family, sans-serif);
+  font-size: var(--font-size-5, 20px);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-5, 28px);
+}
+
+.order-card__body {
+  margin: 0;
+  color: var(--gray-11, #646464);
+  font-family: var(--default-font-family, sans-serif);
+  font-size: var(--font-size-2, 14px);
+  font-weight: var(--font-weight-regular, 400);
+  line-height: var(--line-height-2, 20px);
+}

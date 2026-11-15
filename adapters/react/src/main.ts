@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Tulpar adapter for React. Speaks the adapter protocol on stdio.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { PROTOCOL_VERSION, serve, type ComponentIndex, type ProjectParams } from "@tulpar/core";
 import { closeBrowser, closeProbeBrowser, mergeTokens, probeTokens, readTokens, render, runVitestBrowser, tokenPrefix, type RenderConfig, type TokenConfig } from "@tulpar/web-kit";
 import { indexPackage, indexSources, projectAliases } from "./components.ts";
@@ -50,6 +50,21 @@ function index(params: ProjectParams): ComponentIndex {
 const TEST_LIBRARIES = ["@testing-library/react", "@testing-library/user-event", "@testing-library/jest-dom"];
 /** A package the project has installed (its folder under node_modules). */
 const installed = (root: string, module: string) => existsSync(join(root, "node_modules", ...module.split("/").slice(0, module.startsWith("@") ? 2 : 1)));
+
+/**
+ * The packages the component and its test import, as written ("@mui/material/Typography" is its own entry for
+ * Vite, apart from "@mui/material"): found only mid-run, one is optimized late and the page gets a second React.
+ */
+export function importedPackages(root: string, testFile: string): string[] {
+  const dir = dirname(join(root, testFile));
+  const found = new Set<string>();
+  for (const f of existsSync(dir) ? readdirSync(dir) : []) {
+    if (!/\.(tsx?|jsx?|mjs)$/.test(f)) continue;
+    const code = readFileSync(join(dir, f), "utf8");
+    for (const m of code.matchAll(/(?:from\s+|import\s*\(?\s*)["']([^."'/][^"']*)["']/g)) found.add(m[1]!);
+  }
+  return [...found].filter((m) => !m.startsWith("node:") && installed(root, m));
+}
 
 serve({
   initialize: () => ({
@@ -113,7 +128,8 @@ serve({
       optimize: [
         ...["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", ...TEST_LIBRARIES].filter((m) => installed(params.root, m)),
         ...(config(params).packages ?? []).map((p) => p.replace(/\\/g, "/").split("node_modules/").pop()!).filter((m) => installed(params.root, m)),
-      ],
+        ...importedPackages(params.root, params.entry),
+      ].filter((m, i, all) => all.indexOf(m) === i),
     }),
 
   conventions: (params) => {

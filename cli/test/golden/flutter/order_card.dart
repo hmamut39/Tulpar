@@ -1,0 +1,37 @@
+import 'package:flutter/material.dart';
+import 'package:tulpar_flutter_material/spacing.dart';
+
+class OrderCard extends StatelessWidget {
+  const OrderCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      identifier: '900:1',
+      container: true,
+      child: ColoredBox(
+        color: scheme.surface,
+        child: Padding(
+          padding: const EdgeInsets.all(Space.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Semantics(
+                identifier: '900:2',
+                child: Text('Order summary', style: theme.textTheme.titleLarge?.copyWith(color: scheme.onSurface)),
+              ),
+              const SizedBox(height: Space.sm),
+              Semantics(
+                identifier: '900:3',
+                child: Text('Two items, ready to ship.', style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

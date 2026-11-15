@@ -1,0 +1,26 @@
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chakra-spacing-2, 8px);
+  margin: 0;
+  padding: var(--chakra-spacing-4, 16px);
+  background-color: var(--chakra-colors-bg, #ffffff);
+}
+
+.order-card__title {
+  margin: 0;
+  color: var(--chakra-colors-fg, #09090b);
+  font-family: var(--chakra-fonts-heading, Inter, sans-serif);
+  font-size: var(--chakra-font-sizes-xl, 20px);
+  font-weight: var(--chakra-font-weights-semibold, 600);
+  line-height: var(--chakra-line-heights-moderate, 1.5);
+}
+
+.order-card__body {
+  margin: 0;
+  color: var(--chakra-colors-fg-muted, #52525b);
+  font-family: var(--chakra-fonts-body, Inter, sans-serif);
+  font-size: var(--chakra-font-sizes-sm, 14px);
+  font-weight: var(--chakra-font-weights-normal, 400);
+  line-height: var(--chakra-line-heights-moderate, 1.5);
+}

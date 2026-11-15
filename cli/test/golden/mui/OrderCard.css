@@ -1,0 +1,16 @@
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mui-spacing, 8px);
+  margin: 0;
+  padding: calc(2 * var(--mui-spacing, 8px));
+  background-color: var(--mui-palette-background-paper, #ffffff);
+}
+
+.order-card__title {
+  color: var(--mui-palette-text-primary, #212121);
+}
+
+.order-card__body {
+  color: var(--mui-palette-text-secondary, #666666);
+}

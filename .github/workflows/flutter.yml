@@ -6,9 +6,9 @@ name: Flutter
 on:
   push:
     branches: [main]
-    paths: ["adapters/flutter/**", "examples/flutter-material/**", "core/**", ".github/workflows/flutter.yml"]
+    paths: ["adapters/flutter/**", "examples/flutter-material/**", "core/**", "cli/test/golden/**", "cli/test/golden-flutter.test.ts", ".github/workflows/flutter.yml"]
   pull_request:
-    paths: ["adapters/flutter/**", "examples/flutter-material/**", "core/**", ".github/workflows/flutter.yml"]
+    paths: ["adapters/flutter/**", "examples/flutter-material/**", "core/**", "cli/test/golden/**", "cli/test/golden-flutter.test.ts", ".github/workflows/flutter.yml"]
   workflow_dispatch:
 
 permissions:
@@ -69,4 +69,4 @@ jobs:
       - name: Flutter adapter tests
         env:
           TULPAR_FLUTTER_SDK: /home/runner/flutter
-        run: npx vitest run adapters/flutter
+        run: npx vitest run adapters/flutter cli/test/golden-flutter.test.ts
