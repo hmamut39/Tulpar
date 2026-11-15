@@ -38,6 +38,33 @@ export function exception(printed: string): string | undefined {
   return body.length ? body.slice(0, 8).join(" ") : undefined;
 }
 
+/**
+ * Every exception block in the run's whole output (the JSON reporter's print messages and any plain lines
+ * Flutter writes beside them), by the test it names on its "The test description was:" line. On the web the
+ * block need not arrive as a print event of that test, so it is matched by name.
+ */
+export function exceptionsByTest(stdout: string): Map<string, string> {
+  const text = stdout
+    .split("\n")
+    .map((l) => {
+      if (!l.startsWith("{")) return l;
+      try {
+        const e = JSON.parse(l) as Event;
+        return e.type === "print" && e.message ? e.message : "";
+      } catch {
+        return l;
+      }
+    })
+    .join("\n");
+  const found = new Map<string, string>();
+  for (const block of text.split(/(?=^.*EXCEPTION CAUGHT BY)/m).slice(1)) {
+    const name = /The test description was:\s*\n?\s*(.+)/.exec(block)?.[1]?.trim();
+    const what = exception(block);
+    if (name && what && !found.has(name)) found.set(name, what);
+  }
+  return found;
+}
+
 // A run takes about a minute. Now and then Flutter's web runner starts Chromium and the suite never
 // loads (it waits on the browser until killed): such a run is started again once, with a fresh browser.
 const ATTEMPT_MS = 180_000;
@@ -87,6 +114,7 @@ export function parse(stdout: string, code: number | null): TestRunResult {
   const names = new Map<number, { name: string; loading: boolean }>();
   const errors = new Map<number, string>();
   const printed = new Map<number, string>();
+  const named = exceptionsByTest(stdout);
   const tests: { name: string; status: "passed" | "failed" | "skipped"; error?: string }[] = [];
   let fileError: string | undefined;
   for (const e of events) {
@@ -94,7 +122,11 @@ export function parse(stdout: string, code: number | null): TestRunResult {
     if (e.type === "print" && e.testID !== undefined && e.message) printed.set(e.testID, `${printed.get(e.testID) ?? ""}${e.message}\n`);
     if (e.type === "error" && e.testID !== undefined && e.error && !errors.has(e.testID)) {
       const own = e.error.split("\n").filter((l) => l.trim()).slice(0, 4).join(" ");
-      const logged = /See exception logs above/.test(e.error) ? exception(printed.get(e.testID) ?? "") : undefined;
+      const name = names.get(e.testID)?.name ?? "";
+      const described = /The test description was:\s*(.+)/.exec(e.error)?.[1]?.trim();
+      const logged = /See exception logs above/.test(e.error)
+        ? (exception(printed.get(e.testID) ?? "") ?? named.get(described ?? name) ?? [...named].find(([n]) => name.endsWith(n))?.[1])
+        : undefined;
       errors.set(e.testID, logged ?? own);
     }
     if (e.type === "testDone" && e.testID !== undefined) {

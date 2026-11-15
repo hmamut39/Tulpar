@@ -93,6 +93,14 @@ describe("the Flutter component model", () => {
       tests: [{ status: "failed", error: 'The following TestFailure was thrown running a test: Expected: exactly one matching candidate Actual: _SemanticsFinder:<Found 0 widgets with semantics label "Tomato": []> Which: means none were found but one was expected' }],
     });
     expect(exception("no block here")).toBeUndefined();
+    // On the web the block can come as plain lines, not a print event of the test: matched by its description.
+    const plain = [
+      JSON.stringify({ type: "testStart", test: { id: 4, name: "identifies the design layers", url: "file:///a_test.dart" } }),
+      ...printed.replace("exposes the design layers through semantics", "identifies the design layers").split("\n"),
+      JSON.stringify({ type: "error", testID: 4, error: "Test failed. See exception logs above.\nThe test description was: identifies the design layers" }),
+      JSON.stringify({ type: "testDone", testID: 4, result: "failure", hidden: false }),
+    ].join("\n");
+    expect(parse(plain, 1)).toMatchObject({ tests: [{ status: "failed", error: expect.stringContaining('Found 0 widgets with semantics label "Tomato"') }] });
   });
 
   it("gives a build error its place and the call it belongs to, so a repair fixes the right line", () => {
@@ -170,6 +178,8 @@ describe.skipIf(!sdk || !existsSync(join(example, "pubspec.yaml")))("Flutter ada
       expect(r.status).toBe("ran");
       if (r.status !== "ran") return;
       expect(r.tests.map((t) => `${t.name} ${t.status}`)).toEqual(["shows both actions as Material buttons passed", "fails honestly failed"]);
+      // The repair is told what failed, not "See exception logs above".
+      expect(r.tests[1]!.error).toMatch(/Expected: exactly one matching/);
       expect(existsSync(join(example, "test", "tulpar_run"))).toBe(false);
     } finally {
       await host.stop();

@@ -35,7 +35,8 @@ const figmaNode = { document: card, components: entry.components ?? {}, componen
 const config = await (await fetch(`${SITE}/api/config`)).json();
 const projects = config.projects.filter((p) => !only.length || only.includes(p.id));
 const results = [];
-const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+const runAt = new Date().toISOString();
+const stamp = runAt.replace(/[:.]/g, "-");
 let spent = 0;
 let lastStart = 0;
 for (const project of projects) {
@@ -71,6 +72,6 @@ for (const project of projects) {
   results.push({ job: data.id, project: project.id, label: project.label, state: job?.state, status: r.status, verdict: r.report?.verdict, seconds: Math.round((Date.now() - started) / 1000), attempts: r.attempts?.length, cost: Math.round(c * 100) / 100, report: r.report, files: r.files, attemptsFailing: r.attempts?.map((a) => a.failing), attemptsDetails: r.attempts?.map((a) => a.details), events: job?.events?.map((e) => e.text), error: job?.error });
   console.log(`${project.id.padEnd(18)} ${String(r.report?.verdict ?? job?.state ?? "lost").padEnd(10)} ${Math.round((Date.now() - started) / 1000)}s ~$${c.toFixed(2)} ${failing.join(" | ").slice(0, 260)}${job?.error ? ` ERROR ${job.error.slice(0, 160)}` : ""}`);
   writeFileSync(join(out, "matrix-node-latest.json"), JSON.stringify({ results }, null, 1));
-  writeFileSync(join(out, `bench-${stamp}.json`), JSON.stringify({ at: new Date(started).toISOString(), results }, null, 1));
+  writeFileSync(join(out, `bench-${stamp}.json`), JSON.stringify({ at: runAt, results }, null, 1));
 }
 console.log(`SPENT ~$${spent.toFixed(2)}; written ${join(out, "matrix-node-latest.json")}`);

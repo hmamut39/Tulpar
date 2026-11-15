@@ -1,0 +1,116 @@
+{
+  "at": "2026-11-15T15:24:06.019Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com), sent as the Figma plugin sends a frame",
+  "results": [
+    {
+      "id": "card-chakra",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 15377,
+      "outputTokens": 5802,
+      "seconds": 359,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-flutter-material",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 10220,
+      "outputTokens": 5556,
+      "seconds": 418,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "tests": false,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-mui",
+      "status": "unchecked-remain",
+      "attempts": 3,
+      "inputTokens": 10222,
+      "outputTokens": 5218,
+      "seconds": 121,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-shoelace",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 12922,
+      "outputTokens": 6772,
+      "seconds": 138,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": false,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-vaadin-aura",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 12070,
+      "outputTokens": 6084,
+      "seconds": 278,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    }
+  ]
+}
