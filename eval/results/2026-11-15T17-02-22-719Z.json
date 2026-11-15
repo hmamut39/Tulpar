@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-15T17:02:22.719Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com), sent as the Figma plugin sends a frame",
+  "results": [
+    {
+      "id": "card-flutter-material",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 6329,
+      "outputTokens": 3511,
+      "seconds": 431,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    }
+  ]
+}
