@@ -225,7 +225,10 @@ export function verify(input: VerifyInput): VerifyReport {
         const s = e.node.kind === "text" ? e.node.style : undefined;
         const style = s?.fontSize && diffs.some((d) => d.startsWith("width") || d.startsWith("height")) ? ` — the design's text is ${s.fontSize}px${s.fontWeight ? `, weight ${s.fontWeight}` : ""}${s.lineHeight ? `, line height ${round(s.lineHeight)}px` : ""}: use the type style of that size and line height` : "";
         // Out of place along its parent's layout: what is before it (a gap, a padding, a sibling) says why.
-        const cause = style ? undefined : layoutCause(e.node, root, byId, input.tokens, t);
+        // Each axis the check found it off along, with that axis's tolerance.
+        const cause = style
+          ? undefined
+          : [...new Set((["x", "y"] as const).filter((a) => diffs.some((d) => d.startsWith(`${a} `))).flatMap((a) => layoutCause(e.node, root, byId, input.tokens, a === "y" ? ht : t, a) ?? []))].join("; and ") || undefined;
         details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t}${wt !== t ? `, width ±${round(wt)}` : ""}${ht !== t ? `, up and down ±${round(ht)}` : ""})${style}${cause ? ` — ${cause}` : ""}`);
       }
       else within++;

@@ -60,6 +60,17 @@ describe("why an element is out of place", () => {
     expect(layoutCause(kids(list)[1]!, list, r, tokens, 3)).toBe('it follows "a", which is out of place or of the wrong height: fix that first');
   });
 
+  it("explains the axis it is off along: 4px too far left is the padding, not the space above", () => {
+    // Element Plus on the card: every text at x 20 (the design's 24); 4px higher too, within the text's ±6.
+    const r = rendered({ card: box(0, 0, 395, 444), photo: box(0, 0, 395, 296), title: box(20, 316, 162, 26) });
+    expect(layoutCause(kids(card)[1]!, card, r, tokens, 3, "x")).toBe('it sits 20px from the left of "card", the design\'s 24px (the padding): set that to 24px');
+  });
+
+  it("says a shorter element before it ends earlier, without a minus sign", () => {
+    const r = rendered({ card: box(0, 0, 395, 444), title: box(24, 320, 162, 20), price: box(24, 340, 92, 26) });
+    expect(layoutCause(kids(card)[2]!, card, r, tokens, 3, "y")).toContain('"title" also ends 6px earlier than in the design');
+  });
+
   it("says nothing when the element is in place", () => {
     const r = rendered({ card: box(0, 0, 395, 444), price: box(24, 350, 92, 26), origin: box(24, 393, 259, 24) });
     expect(layoutCause(kids(card)[3]!, card, r, tokens, 3)).toBeUndefined();

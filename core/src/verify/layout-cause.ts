@@ -47,13 +47,15 @@ const tokenNote = (px: number, tokens: TokenSet | undefined) => {
  * The likely cause of an element's misplacement along its parent's axis, or undefined when the element's
  * own size is what is off (the type hint covers that) or the design gives no auto layout to reason from.
  */
-export function layoutCause(node: DesignNode, root: DesignNode, rendered: Map<string, RenderedElement>, tokens: TokenSet | undefined, tolerance: number): string | undefined {
+export function layoutCause(node: DesignNode, root: DesignNode, rendered: Map<string, RenderedElement>, tokens: TokenSet | undefined, tolerance: number, axis?: "x" | "y"): string | undefined {
   const parent = parents(root).get(node.id);
   const el = rendered.get(node.id);
   if (!parent || !el || !node.box || !parent.box || !("children" in parent)) return undefined;
   const stack = "stack" in parent ? parent.stack : undefined;
-  // Without auto layout (layers placed by hand), the axis is the one the element is off along.
-  const v = stack ? stack.axis === "vertical" : Math.abs(el.box.y - node.box.y) > tolerance;
+  // The axis the layout check found it off along; else its parent's flow, or (layers placed by hand) where it is off.
+  const v = axis ? axis === "y" : stack ? stack.axis === "vertical" : Math.abs(el.box.y - node.box.y) > tolerance;
+  // Across an auto layout's flow (x in a column), only the padding places a child: there is no element before it.
+  const along = !stack || (stack.axis === "vertical") === v;
   const start = (b: Box) => (v ? b.y : b.x);
   const end = (b: Box) => (v ? b.y + b.height : b.x + b.width);
   const off = (want: Box, got: Box) => Math.abs(start(got) - start(want)) > tolerance || Math.abs(end(got) - end(want)) > tolerance;
@@ -69,7 +71,9 @@ export function layoutCause(node: DesignNode, root: DesignNode, rendered: Map<st
   const [a0, a1] = across(node.box);
   // The element just before it: in auto layout the previous child; otherwise the nearest layer that ends
   // before it starts and lies beside it on the other axis (the line above, the column to the left).
-  const prev = stack
+  const prev = !along
+    ? undefined
+    : stack
     ? parent.children.filter((c) => c.visible && c.box)[parent.children.filter((c) => c.visible && c.box).findIndex((c) => c.id === node.id) - 1]
     : siblings
         .filter((c) => end(c.box!) <= start(node.box!) + 0.5)
@@ -83,7 +87,7 @@ export function layoutCause(node: DesignNode, root: DesignNode, rendered: Map<st
     const designGap = start(node.box) - end(prev.box!);
     const renderGap = start(el.box) - end(prevEl.box);
     if (Math.abs(renderGap - designGap) > tolerance) {
-      const grew = Math.abs(end(prevEl.box) - end(prev.box!)) > 0.5 ? `; "${prev.name}" also ends ${round(end(prevEl.box) - end(prev.box!))}px ${end(prevEl.box) > end(prev.box!) ? "later" : "earlier"} than in the design (its ${v ? "height or line height" : "width"})` : "";
+      const grew = Math.abs(end(prevEl.box) - end(prev.box!)) > 0.5 ? `; "${prev.name}" also ends ${round(Math.abs(end(prevEl.box) - end(prev.box!)))}px ${end(prevEl.box) > end(prev.box!) ? "later" : "earlier"} than in the design (its ${v ? "height or line height" : "width"})` : "";
       return `the space between "${prev.name}" and it is ${round(renderGap)}px, the design's is ${round(designGap)}px${stack && designGap === stack.gap ? ` ("${parent.name}"'s gap)` : ""}: set that space to ${round(designGap)}px${tokenNote(designGap, tokens)}${grew}`;
     }
     if (off(prev.box!, prevEl.box)) return `it follows "${prev.name}", which is out of place or of the wrong ${v ? "height" : "width"}: fix that first`;
@@ -93,7 +97,7 @@ export function layoutCause(node: DesignNode, root: DesignNode, rendered: Map<st
     const designPad = start(node.box) - start(parent.box);
     const renderPad = start(el.box) - start(parentEl.box);
     if (Math.abs(renderPad - designPad) > tolerance) {
-      return `it sits ${round(renderPad)}px from the ${v ? "top" : "left"} of "${parent.name}", the design's ${round(designPad)}px${stack && designPad === (v ? stack.padding.top : stack.padding.left) ? " (its padding)" : ""}: set that to ${round(designPad)}px${tokenNote(designPad, tokens)}`;
+      return `it sits ${round(renderPad)}px from the ${v ? "top" : "left"} of "${parent.name}", the design's ${round(designPad)}px${!stack || designPad === (v ? stack.padding.top : stack.padding.left) ? ` (${stack ? "its" : "the"} padding)` : ""}: set that to ${round(designPad)}px${tokenNote(designPad, tokens)}`;
     }
   }
   return undefined;

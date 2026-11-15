@@ -608,7 +608,7 @@ function benchmark(repoRoot: string, projects: ProjectInfo[]): unknown {
   // from the live site). Each file's cases form a suite, shown as its own section.
   type CaseFile = { suite?: { id: string; title: string; about: string }; cases: { id: string; project: string; frame?: string; image?: string; suite?: string; output?: { language?: string; styling?: string } }[] };
   const read = (file: string): CaseFile | undefined => (existsSync(join(repoRoot, "eval", file)) ? (JSON.parse(readFileSync(join(repoRoot, "eval", file), "utf8")) as CaseFile) : undefined);
-  const files = [read("live-cases.json"), read("cases.json")].filter((f): f is CaseFile => !!f);
+  const files = [read("live-cases.json"), read("redteam-cases.json"), read("cases.json")].filter((f): f is CaseFile => !!f);
   const suites = files.map((f) => f.suite ?? { id: "designs", title: "Designs across frameworks and styling", about: "A Carbon modal footer from Figma and a sign-in card from a screenshot, generated with each design system and in different styling." });
   const cases = files.flatMap((f, i) => f.cases.map((c) => ({ ...c, suite: suites[i]!.id })));
   type Run = { status: string; attempts: number; seconds: number; checks: Record<string, boolean>; inputTokens?: number; outputTokens?: number };

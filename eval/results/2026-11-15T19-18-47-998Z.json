@@ -1,0 +1,73 @@
+{
+  "at": "2026-11-15T19:18:47.998Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com), sent as the Figma plugin sends a frame",
+  "results": [
+    {
+      "id": "inject-carbon-react",
+      "status": "unchecked-remain",
+      "attempts": 1,
+      "inputTokens": 4913,
+      "outputTokens": 1621,
+      "seconds": 52,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "inject-carbon-svelte",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 11542,
+      "outputTokens": 3296,
+      "seconds": 69,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "inject-element-plus",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 11770,
+      "outputTokens": 6306,
+      "seconds": 142,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    }
+  ]
+}

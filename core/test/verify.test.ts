@@ -118,7 +118,7 @@ describe("verify", () => {
     const els = good();
     els[1] = { ...els[1]!, box: box(8, 0, 100, 40) };
     const r = verify(input(els));
-    expect(r.checks.find((c) => c.id === "layout")!.details).toContain(`✗ Button 2:1 (2:1): x 0 → 8 (+8) (tolerance ±1) — it sits 8px from the left of "Footer", the design's 0px: set that to 0px`);
+    expect(r.checks.find((c) => c.id === "layout")!.details).toContain(`✗ Button 2:1 (2:1): x 0 → 8 (+8) (tolerance ±1) — it sits 8px from the left of "Footer", the design's 0px (the padding): set that to 0px`);
   });
 
   it("accepts what an element draws when its own box is wider, but not a drawn box that is also off", () => {

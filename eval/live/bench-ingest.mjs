@@ -18,7 +18,7 @@ for (const r of run.results) {
   if (!u) console.log(`no usage saved for ${r.project}: tokens left out`);
   model ??= u?.model;
   results.push({
-    id: `card-${r.project}`,
+    id: `${process.env.CASE_PREFIX ?? "card"}-${r.project}`,
     status: r.status,
     attempts: r.attempts,
     inputTokens: u?.inputTokens,
