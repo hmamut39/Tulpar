@@ -178,25 +178,6 @@ describe.skipIf(!sdk || !existsSync(join(example, "pubspec.yaml")))("Flutter ada
       expect(r.status).toBe("ran");
       if (r.status !== "ran") return;
       expect(r.tests.map((t) => `${t.name} ${t.status}`)).toEqual(["shows both actions as Material buttons passed", "fails honestly failed"]);
-      // TEMPORARY diagnostic: where does flutter test --platform chrome put the exception block?
-      if (!/Expected: exactly one matching/.test(r.tests[1]!.error ?? "")) {
-        const { sdk } = await import("../src/sdk.ts");
-        const { chromium } = await import("playwright");
-        const run = join(example, "test", "tulpar_diag");
-        mkdirSync(run, { recursive: true });
-        copyFileSync(join(dir, "modal_actions.dart"), join(run, "modal_actions.dart"));
-        copyFileSync(join(dir, "modal_actions_test.dart"), join(run, "modal_actions_test.dart"));
-        const out = await sdk("flutter", ["test", "--platform", "chrome", "--reporter", "json", "test/tulpar_diag/modal_actions_test.dart"], example, 180_000, { CHROME_EXECUTABLE: testBrowser(chromium.executablePath())! });
-        rmSync(run, { recursive: true, force: true });
-        const lines = out.stdout.split("\n");
-        console.log("DIAG event types:", JSON.stringify([...new Set(lines.filter((l) => l.startsWith("{")).map((l) => { try { const e = JSON.parse(l); return `${e.type}${e.messageType ? `/${e.messageType}` : ""}`; } catch { return "bad"; } }))]));
-        console.log("DIAG non-json stdout lines:", lines.filter((l) => l.trim() && !l.startsWith("{")).length);
-        for (const [n, text] of [["stdout", out.stdout], ["stderr", out.stderr]] as const) {
-          const i = text.search(/Expected|EXCEPTION|findsOneWidget|matching candidate/);
-          console.log(`DIAG ${n} (${text.length} chars) first hit at ${i}:`, i < 0 ? "-" : JSON.stringify(text.slice(Math.max(0, i - 600), i + 600)));
-        }
-        for (const l of lines.filter((l) => /"type":"(error|print)"/.test(l))) console.log("DIAG event:", l.slice(0, 700));
-      }
       // The repair is told what failed, not "See exception logs above".
       expect(r.tests[1]!.error).toMatch(/Expected: exactly one matching/);
       expect(existsSync(join(example, "test", "tulpar_run"))).toBe(false);

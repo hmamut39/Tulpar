@@ -4,7 +4,7 @@
 // Flutter's web test runner only reaches files under the project's test/ folder, so the widget and
 // its test are copied to test/tulpar_run/ for the run and removed afterwards.
 
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { chromium } from "playwright";
 import type { TestRunResult } from "@tulpar/core";
@@ -69,6 +69,25 @@ export function exceptionsByTest(stdout: string): Map<string, string> {
 // loads (it waits on the browser until killed): such a run is started again once, with a fresh browser.
 const ATTEMPT_MS = 180_000;
 
+/**
+ * On the web, a failed widget test's exception (Expected, Actual, Which) stays in the browser's console: the
+ * JSON report only says "See exception logs above". Flutter runs a flutter_test_config.dart beside the tests
+ * first, and this one prints each exception, which the report carries as a print event of that test.
+ */
+const REPORT_EXCEPTIONS = `import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  final original = reportTestException;
+  reportTestException = (FlutterErrorDetails details, String testDescription) {
+    print('EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK\\n\${details.exceptionAsString()}\\nThe test description was:\\n  \$testDescription');
+    original(details, testDescription);
+  };
+  await testMain();
+}
+`;
+
 export async function runWidgetTests(root: string, testFile: string, timeoutMs = ATTEMPT_MS): Promise<TestRunResult> {
   if (process.platform === "win32") return { status: "unsupported", reason: "flutter test --platform chrome does not run on Windows here; it runs on Linux" };
   const from = dirname(join(root, testFile));
@@ -76,6 +95,7 @@ export async function runWidgetTests(root: string, testFile: string, timeoutMs =
   rmSync(run, { recursive: true, force: true });
   mkdirSync(run, { recursive: true });
   for (const f of readdirSync(from)) if (f.endsWith(".dart")) cpSync(join(from, f), join(run, f));
+  writeFileSync(join(run, "flutter_test_config.dart"), REPORT_EXCEPTIONS);
   try {
     const browser = testBrowser(chromium.executablePath());
     if (!browser) return { status: "unsupported", reason: "Playwright's Chromium is not installed (npx playwright install chromium)" };
