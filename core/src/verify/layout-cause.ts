@@ -38,6 +38,28 @@ export function spacingTokens(px: number, tokens: TokenSet | undefined): string[
     .slice(0, 2);
 }
 
+/**
+ * The tokens that give a text's size, line height and weight, as code writes them: what "use the type style of
+ * that size" means in this design system. A line-height ratio counts when it gives the line height at that size.
+ */
+export function typeTokens(style: { fontSize?: number; lineHeight?: number; fontWeight?: number }, tokens: TokenSet | undefined): string {
+  if (!tokens) return "";
+  const name = (t: TokenSet["tokens"][number]) => `var(--${/var\(\s*--([\w-]+)/.exec(t.codeRef ?? "")?.[1] ?? t.name})`;
+  const first = (kind: string, ok: (v: NonNullable<TokenSet["tokens"][number]["values"][string]>) => boolean) =>
+    tokens.tokens.find((t) => {
+      if (tokenKind(t.name, t.type) !== kind) return false;
+      const v = t.values.default ?? Object.values(t.values)[0];
+      return !!v && ok(v);
+    });
+  const { fontSize: size, lineHeight: line, fontWeight: weight } = style;
+  const found = [
+    size && first("font-size", (v) => v.kind === "dimension" && Math.abs(v.points - size) < 0.5),
+    line && first("line-height", (v) => (v.kind === "dimension" && Math.abs(v.points - line) < 0.5) || (!!size && v.kind === "number" && Math.abs(v.value * size - line) < 0.5)),
+    weight && first("font-weight", (v) => v.kind === "number" && v.value === weight),
+  ].filter((t): t is TokenSet["tokens"][number] => !!t);
+  return found.length ? ` (${found.map(name).join(", ")})` : "";
+}
+
 const tokenNote = (px: number, tokens: TokenSet | undefined) => {
   const names = spacingTokens(px, tokens);
   return names.length ? ` (${names.join(" or ")})` : "";

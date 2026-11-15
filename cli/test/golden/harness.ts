@@ -175,6 +175,28 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     needs: "node_modules/@carbon/web-components",
   },
   {
+    // PrimeNG has no type scale of its own: the app's (app.css, --app-*), PrimeNG's colours and spacing; LESS.
+    project: "examples/primeng",
+    reference: "primeng",
+    entry: "order-card.component.ts",
+    style: "order-card.component.less",
+    test: "order-card.component.spec.ts",
+    script: 'import { ChangeDetectionStrategy, Component, input } from "@angular/core";',
+    scale: { font: "Inter", title: [20, 26], body: [14, 21], padding: 12, gap: 8, weights: [600, 400], colors: [[0.2, 0.2549, 0.3333], [0.3922, 0.4549, 0.5451]] },
+    needs: "node_modules/primeng",
+  },
+  {
+    // Line heights are ratios (dense 1.4): 20/28 and 14/19.6.
+    project: "examples/shoelace",
+    reference: "shoelace",
+    entry: "OrderCard.html",
+    style: "OrderCard.html",
+    test: "OrderCard.test.js",
+    script: '<script type="module">',
+    scale: { font: "Inter", title: [20, 28], body: [14, 19.6], padding: 16, gap: 8, weights: [500, 400], colors: [[0.0941, 0.0941, 0.1059], [0.3214, 0.3214, 0.3566]] },
+    needs: "node_modules/@shoelace-style/shoelace",
+  },
+  {
     // Tailwind: the design system is the theme's classes, so the mutants edit classes, not a stylesheet.
     project: "examples/shadcn",
     reference: "shadcn",

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { TokenSet } from "../src/code-model.ts";
 import type { Box, DesignNode } from "../src/model.ts";
 import type { RenderedElement } from "../src/verify/types.ts";
-import { layoutCause, spacingTokens } from "../src/verify/layout-cause.ts";
+import { layoutCause, spacingTokens, typeTokens } from "../src/verify/layout-cause.ts";
 
 const box = (x: number, y: number, width: number, height: number): Box => ({ x, y, width, height });
 const text = (id: string, b: Box) => ({ id, name: id, kind: "text", visible: true, box: b, style: {}, fills: [] }) as unknown as DesignNode;
@@ -74,6 +74,20 @@ describe("why an element is out of place", () => {
   it("says nothing when the element is in place", () => {
     const r = rendered({ card: box(0, 0, 395, 444), price: box(24, 350, 92, 26), origin: box(24, 393, 259, 24) });
     expect(layoutCause(kids(card)[3]!, card, r, tokens, 3)).toBeUndefined();
+  });
+
+  it("names the type tokens of a text's size, line height (ratios too) and weight", () => {
+    const type = {
+      tokens: [
+        { name: "sl-font-size-medium", type: "dimension", codeRef: "var(--sl-font-size-medium)", values: { default: { kind: "dimension", points: 16 } } },
+        { name: "sl-font-size-large", type: "dimension", codeRef: "var(--sl-font-size-large)", values: { default: { kind: "dimension", points: 20 } } },
+        { name: "sl-line-height-dense", type: "number", codeRef: "var(--sl-line-height-dense)", values: { default: { kind: "number", value: 1.4 } } },
+        { name: "sl-font-weight-semibold", type: "number", codeRef: "var(--sl-font-weight-semibold)", values: { default: { kind: "number", value: 500 } } },
+      ],
+    } as unknown as TokenSet;
+    expect(typeTokens({ fontSize: 20, lineHeight: 28, fontWeight: 500 }, type)).toBe(" (var(--sl-font-size-large), var(--sl-line-height-dense), var(--sl-font-weight-semibold))");
+    expect(typeTokens({ fontSize: 20, lineHeight: 26, fontWeight: 600 }, type)).toBe(" (var(--sl-font-size-large))");
+    expect(typeTokens({ fontSize: 13 }, type)).toBe("");
   });
 
   it("finds spacing tokens of a value, never another kind", () => {
