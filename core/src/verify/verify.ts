@@ -26,6 +26,7 @@ import { compareImages, type VisualComparison } from "./visual.ts";
 import { accentProp, familyOf, nearestColorToken } from "../generate/accent.ts";
 import { isPlaceholder } from "../generate/page.ts";
 import { designFit, fitNote } from "./fit.ts";
+import { layoutCause } from "./layout-cause.ts";
 import { scanSafety, type SourceFile } from "./safety.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
@@ -223,7 +224,9 @@ export function verify(input: VerifyInput): VerifyReport {
         // A text of the wrong size is usually a type style of the wrong size or line height: say which the design's are.
         const s = e.node.kind === "text" ? e.node.style : undefined;
         const style = s?.fontSize && diffs.some((d) => d.startsWith("width") || d.startsWith("height")) ? ` — the design's text is ${s.fontSize}px${s.fontWeight ? `, weight ${s.fontWeight}` : ""}${s.lineHeight ? `, line height ${round(s.lineHeight)}px` : ""}: use the type style of that size and line height` : "";
-        details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t}${wt !== t ? `, width ±${round(wt)}` : ""}${ht !== t ? `, up and down ±${round(ht)}` : ""})${style}`);
+        // Out of place along its parent's layout: what is before it (a gap, a padding, a sibling) says why.
+        const cause = style ? undefined : layoutCause(e.node, root, byId, input.tokens, t);
+        details.push(`✗ ${e.node.name} (${e.node.id}): ${diffs.join(", ")} (tolerance ±${t}${wt !== t ? `, width ±${round(wt)}` : ""}${ht !== t ? `, up and down ±${round(ht)}` : ""})${style}${cause ? ` — ${cause}` : ""}`);
       }
       else within++;
     }
