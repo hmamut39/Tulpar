@@ -7,7 +7,7 @@
 //   "verify": [{ "entry": "src/SignInCard.tsx", "figma": "https://www.figma.com/design/…?node-id=12-34", "test": "src/SignInCard.test.tsx" }]
 
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { parseFigmaUrl } from "@tulpar/core";
+import { findingsOf, parseFigmaUrl, type Finding } from "@tulpar/core";
 import { loadProject } from "./project.ts";
 import { verifyCommand } from "./verify.ts";
 
@@ -61,13 +61,13 @@ export async function verifyChangedCommand(projectDir: string, changed: string[]
     return 0;
   }
   let failed = 0;
-  const results: { entry: string; verdict: string; failing: string[] }[] = [];
+  const results: { entry: string; verdict: string; failing: string[]; findings: Finding[] }[] = [];
   for (const t of picked) {
     const frame = frameOf(t);
     const file = relative(process.cwd(), join(project.root, t.entry)).replace(/\\/g, "/");
     if (!frame) {
       failed++;
-      results.push({ entry: t.entry, verdict: "error", failing: ["no Figma frame: give it a figma link with node-id"] });
+      results.push({ entry: t.entry, verdict: "error", failing: ["no Figma frame: give it a figma link with node-id"], findings: [] });
       if (format === "github") console.log(`::error file=${file},title=Tulpar verify::No Figma frame for ${t.entry}: give it a figma link with node-id.`);
       continue;
     }
@@ -75,9 +75,11 @@ export async function verifyChangedCommand(projectDir: string, changed: string[]
     const failing = (report?.checks ?? []).filter((c) => c.status === "fail").map((c) => `${c.title}: ${c.summary}`);
     const verdict = report?.verdict ?? "error";
     if (verdict === "fail" || verdict === "error") failed++;
-    results.push({ entry: t.entry, verdict, failing });
+    const findings = report ? findingsOf(report) : [];
+    results.push({ entry: t.entry, verdict, failing, findings });
     if (format === "github") {
-      if (verdict === "fail") for (const f of failing) console.log(`::error file=${file},title=Tulpar verify::${f}`);
+      // One annotation per failure, naming the element and the fix, so the reviewer (or the agent) sees what to change.
+      if (verdict === "fail") for (const f of findings) console.log(`::error file=${file},title=Tulpar ${f.check}::${annotation(f)}`);
       else if (verdict === "error") console.log(`::error file=${file},title=Tulpar verify::It could not be built or drawn.`);
       else if (verdict === "incomplete") console.log(`::warning file=${file},title=Tulpar verify::No check failed; some could not run.`);
       else console.log(`::notice file=${file},title=Tulpar verify::Matches its Figma frame.`);
@@ -86,4 +88,10 @@ export async function verifyChangedCommand(projectDir: string, changed: string[]
   if (format === "json") console.log(JSON.stringify({ results }));
   console.log(`${picked.length} component(s) verified against Figma: ${failed ? `${failed} failed` : "none failed"}`);
   return failed ? 1 : 0;
+}
+
+/** A finding as one line for a GitHub annotation (no line breaks; %, CR and LF escaped as GitHub asks). */
+function annotation(f: Finding): string {
+  const text = `${f.element ? `${f.element.name} (${f.element.id}): ` : ""}${f.problem}${f.fix ? ` — ${f.fix}` : ""}`;
+  return text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }

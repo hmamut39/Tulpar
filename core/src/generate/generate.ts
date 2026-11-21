@@ -107,9 +107,10 @@ export async function generate(options: GenerateOptions): Promise<GenerationResu
   const attempts: Attempt[] = [];
   const usage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
   let model = options.llm.name;
-  // Every attempt opens with the same rules and brief: one key lets the provider serve that opening from its cache.
+  // Every run on a project opens with the same rules and the project's tokens: one key per project (not per job)
+  // sends them to the same cache, so other designs and other people's runs on the project reuse that opening too.
   const rules = instructions(brief);
-  const cacheKey = `tulpar-${createHash("sha256").update(rules).update(briefText(brief)).digest("hex").slice(0, 32)}`;
+  const cacheKey = `tulpar-${createHash("sha256").update(rules).update(brief.dimensions.map((d) => `${d.codeRef ?? d.name}=${d.points}`).join("\n")).digest("hex").slice(0, 32)}`;
 
   const change = options.change;
   // A failure that counts: after a change, differences from the design are what was asked for.
@@ -221,16 +222,27 @@ function instructions(b: Brief): string {
           `- The tests are kept and run by the team, so they test what a person sees and does: find things by role, label and visible text (the heading, a field by its label, a button by its name), check each design-system component is there (by its data-figma-id), type and click as a user would, and assert what changes on screen. When a test fails, fix the component, not the test: a repair with fewer tests or assertions is rejected. Never assert a design-system component's internal markup, class names or default attribute values (a checkbox's value, an inner wrapper): they change between library versions and the test then fails for no reason. Never assert computed CSS (getComputedStyle, a size or aspect ratio): the browser reports it differently from how it is written, and the design check measures the look already. Compare text as it reads, trimmed: templates put spaces and line breaks around it (element.textContent?.trim() === "Save", or a text matcher such as getByText), never untrimmed textContent.`,
         ]
       : []),
-    `- Write exactly these files and no others: ${c.files.map((f) => f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))).join(", ")}.`,
-    ...c.rules.map((r) => `- ${r.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))}`),
+    `- Write exactly the files the brief lists under FILES TO WRITE, and no others.`,
+    `- Follow the RULES FOR THIS FRAMEWORK AND PROJECT in the brief as strictly as these.`,
     `Answer with JSON: { "files": [{ "path", "content" }], "notes" }.`,
   ].join("\n");
 }
 
+/**
+ * The brief. What is the same for every design on a project comes first (the spacing and size tokens), then what
+ * this design brings: a provider's prompt cache reuses a prompt from its start up to the first difference, so the
+ * shared part is read from the cache on every run of the project, not only on a job's own repairs.
+ */
 function briefText(b: Brief): string {
   const c = b.conventions;
   return [
+    `SPACING AND SIZE TOKENS (the only ones that exist; value in points)`,
+    ...(b.dimensions.length ? b.dimensions.map((d) => `- ${d.codeRef ?? d.name} = ${d.points}`) : ["(none)"]),
+    ``,
     `Component name: ${b.name}`,
+    ``,
+    `RULES FOR THIS FRAMEWORK AND PROJECT (as binding as the rules above)`,
+    ...c.rules.map((r) => `- ${r.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))}`),
     ``,
     `FILES TO WRITE`,
     ...c.files.map((f) => `- ${f.path.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))} (${f.role}): ${f.description.replace(NAME_PLACEHOLDERS, (p) => fillName(p, b.name))}`),
@@ -265,9 +277,6 @@ function briefText(b: Brief): string {
           `- If the design system names colours by role instead of palette, pick the role whose colour is nearest: info is usually blue or sky, success green, warn or warning amber or orange, help purple, danger or error red; "primary" is the theme's default, which may not be the design's colour.`,
         ]
       : ["(none found)"]),
-    ``,
-    `SPACING AND SIZE TOKENS (the only ones that exist; value in points)`,
-    ...(b.dimensions.length ? b.dimensions.map((d) => `- ${d.codeRef ?? d.name} = ${d.points}`) : ["(none)"]),
   ].join("\n");
 }
 

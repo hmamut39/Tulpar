@@ -18,7 +18,7 @@ import { generateCommand } from "@tulpar/cli/generate";
 import { verifyCommand } from "@tulpar/cli/verify";
 import { checkCommand } from "@tulpar/cli/check";
 import { loadProject, withAdapter } from "@tulpar/cli/project";
-import { parseFigmaUrl, type ComponentIndex, type Llm, type TokenSet, type VerifyReport } from "@tulpar/core";
+import { findingsOf, parseFigmaUrl, type ComponentIndex, type Llm, type TokenSet, type VerifyReport } from "@tulpar/core";
 
 export interface TulparMcpOptions {
   repoRoot: string;
@@ -65,6 +65,8 @@ export function reportText(r: VerifyReport): string {
 }
 
 const checksShape = z.array(z.object({ id: z.string(), status: z.enum(["pass", "fail", "not-checked"]), summary: z.string() }));
+// Each failure as data an agent can act on: the check, the design element, what is wrong and what fixes it.
+const findingsShape = z.array(z.object({ check: z.string(), element: z.object({ id: z.string(), name: z.string() }).optional(), problem: z.string(), fix: z.string().optional() }));
 
 export function createServer(options: TulparMcpOptions): McpServer {
   const server = new McpServer({ name: "tulpar", version: "0.1.0" });
@@ -107,6 +109,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
         status: z.enum(["verified", "unchecked-remain", "failed"]),
         files: z.array(z.object({ path: z.string(), content: z.string() })),
         checks: checksShape,
+        findings: findingsShape,
         written: z.array(z.string()),
         attempts: z.number(),
       }),
@@ -158,7 +161,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
       ].join("\n");
       return {
         content: [{ type: "text", text }],
-        structuredContent: { status: r.status, files: r.files, checks: (r.report?.checks ?? []).map(({ id, status, summary }) => ({ id, status, summary })), written, attempts: r.attempts.length },
+        structuredContent: { status: r.status, files: r.files, checks: (r.report?.checks ?? []).map(({ id, status, summary }) => ({ id, status, summary })), findings: r.report ? findingsOf(r.report) : [], written, attempts: r.attempts.length },
       };
     },
   );
@@ -174,7 +177,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
         figmaUrl: z.string().describe("The Figma frame link it implements"),
         test: z.string().optional().describe("Its test file, relative to the project"),
       }),
-      outputSchema: z.object({ verdict: z.enum(["pass", "fail", "incomplete"]), checks: checksShape }),
+      outputSchema: z.object({ verdict: z.enum(["pass", "fail", "incomplete"]), checks: checksShape, findings: findingsShape }),
     },
     async (args) => {
       const project = findProject(options, args.project);
@@ -183,7 +186,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
       const entry = isAbsolute(args.entry) ? relative(project.dir, args.entry) : args.entry;
       const { report } = await verifyCommand(project.dir, entry, { frame: ref.nodeId, out, cache, quiet: true, ...(args.test && { test: args.test }) });
       if (!report) return error("Verification could not start (see the project's configuration).");
-      return { content: [{ type: "text", text: reportText(report) }], structuredContent: { verdict: report.verdict, checks: report.checks.map(({ id, status, summary }) => ({ id, status, summary })) } };
+      return { content: [{ type: "text", text: reportText(report) }], structuredContent: { verdict: report.verdict, checks: report.checks.map(({ id, status, summary }) => ({ id, status, summary })), findings: findingsOf(report) } };
     },
   );
 

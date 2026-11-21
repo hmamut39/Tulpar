@@ -28,6 +28,25 @@ describe("brief", () => {
   });
 });
 
+describe("the prompt cache", () => {
+  it("opens every component of a project with the same rules and the same key, its own name and rules after the shared tokens", async () => {
+    const answer = { files: [{ path: "X.tsx", content: "export default () => null;" }], notes: "" };
+    const pass = { frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: "pass", headline: "", checks: [], warnings: [] } as unknown as VerifyReport;
+    const conv = { ...conventions, rules: ["Default-export a function component named {name}."] };
+    const run = async (name: string) => {
+      const llm = new ScriptedLlm([answer]);
+      await generate({ llm, name, design, mapping: new Map([["B", "Button"]]), index, conventions: conv, maxAttempts: 1, verify: async () => pass });
+      return llm.requests[0]!;
+    };
+    const [footer, header] = [await run("Footer"), await run("Header")];
+    expect(footer.instructions).toBe(header.instructions);
+    expect(footer.cacheKey).toBe(header.cacheKey);
+    expect(footer.instructions).not.toMatch(/Footer/);
+    expect(footer.text).toMatch(/^SPACING AND SIZE TOKENS/);
+    expect(footer.text).toMatch(/RULES FOR THIS FRAMEWORK AND PROJECT[^\n]*\n- Default-export a function component named Footer\./);
+  });
+});
+
 describe("repairs that look at the render", () => {
   const answer = { files: [{ path: "Footer.tsx", content: "export default () => null;" }], notes: "" };
   const report = (failing: string) => ({ frame: { id: "1:1", name: "F", width: 1, height: 1 }, verdict: "fail", headline: "", checks: [{ id: failing, title: failing, status: "fail", summary: failing, details: [] }], warnings: [] }) as unknown as VerifyReport;
