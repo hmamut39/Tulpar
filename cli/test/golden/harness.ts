@@ -89,6 +89,7 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     script: "}: OrderCardProps) {",
     scale: { font: "Roboto", title: [20, 32], body: [14, 20], padding: 16, gap: 8, weights: [500, 400], colors: [[0.13, 0.13, 0.13], [0.4, 0.4, 0.4]] },
     needs: "node_modules/@mui/material",
+    mutate: { "a button with no accessible name": (f) => edit(f, "OrderCard.tsx", (s) => s.replace('<Typography variant="h6"', '<button type="button"></button><Typography variant="h6"')) },
   },
   {
     project: "examples/chakra",
@@ -228,6 +229,16 @@ const mutants: { name: string; mutate: (f: Files, c: Case) => Files; fails: Chec
     fails: "reusable",
     detail: /"Two items, ready to ship\." is written in place/,
   },
+  {
+    // A button a screen reader announces as nothing: the real axe-core audit in the sandboxed page must catch it.
+    name: "a button with no accessible name",
+    mutate: (f) => {
+      const at = Object.keys(f).find((p) => !/[._-](test|spec)\./.test(p) && f[p]!.includes("<h2"));
+      return at ? edit(f, at, (s) => s.replace("<h2", '<button type="button"></button><h2')) : f;
+    },
+    fails: "accessible",
+    detail: /Buttons must have discernible text \(button-name\)/,
+  },
 ];
 
 const failing = (r: VerifyReport) => r.checks.filter((c) => c.status === "fail").map((c) => `${c.id}: ${c.summary}\n  ${c.details.filter((d) => d.startsWith("✗")).join("\n  ")}`);
@@ -268,6 +279,8 @@ export function goldenSuite(c: Case): void {
     for (const m of mutants) {
       // A page of markup (Web Components) has no inputs: its content is the page's own.
       if (m.fails === "reusable" && c.entry.endsWith(".html")) continue;
+      // Flutter draws on a canvas: the WCAG audit needs a page's markup.
+      if (m.fails === "accessible" && c.entry.endsWith(".dart")) continue;
       it(`catches: ${m.name}`, async () => {
         const files = c.mutate?.[m.name]?.(reference) ?? m.mutate(reference, c);
         expect(files).not.toEqual(reference);

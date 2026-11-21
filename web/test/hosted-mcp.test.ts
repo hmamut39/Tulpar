@@ -101,14 +101,14 @@ describe("hosted MCP server", { timeout: 240_000 }, () => {
   it.skipIf(!installed)("verifies the golden reference against its frame: every check that ran passes, with structured findings", async () => {
     const files = readdirSync(reference).map((f) => ({ path: f, content: readFileSync(join(reference, f), "utf8") }));
     const figmaNode = orderCard({ font: "IBM Plex Sans", title: [20, 28], body: [14, 20], padding: 16, gap: 8 });
-    const r = await client.callTool({ name: "tulpar_verify", arguments: { project: "carbon-react", files, entry: "OrderCard.tsx", test: "OrderCard.test.tsx", figmaNode } });
+    const r = await client.callTool({ name: "tulpar_verify", arguments: { project: "carbon-react", files, entry: "OrderCard.tsx", test: "OrderCard.test.tsx", figmaNode } }, { timeout: 180_000 });
     const s = r.structuredContent as { verdict: string; checks: { id: string; status: string }[]; findings: unknown[] };
     expect(s.checks.filter((c) => c.status === "fail"), JSON.stringify(s.findings)).toEqual([]);
     expect(s.checks.filter((c) => c.status === "pass").map((c) => c.id)).toEqual(expect.arrayContaining(["build", "render", "colors", "layout", "text", "tests", "safety"]));
     expect(s.findings).toEqual([]);
     // A planted defect comes back as a finding with its element and fix.
     const broken = files.map((f) => (f.path === "OrderCard.css" ? { ...f, content: f.content.replace(/\n\s*padding: [^\n]*;/, "") } : f));
-    const b = (await client.callTool({ name: "tulpar_verify", arguments: { project: "carbon-react", files: broken, entry: "OrderCard.tsx", test: "OrderCard.test.tsx", figmaNode } })).structuredContent as { verdict: string; findings: { check: string; element?: { id: string } }[] };
+    const b = (await client.callTool({ name: "tulpar_verify", arguments: { project: "carbon-react", files: broken, entry: "OrderCard.tsx", test: "OrderCard.test.tsx", figmaNode } }, { timeout: 180_000 })).structuredContent as { verdict: string; findings: { check: string; element?: { id: string } }[] };
     expect(b.verdict).toBe("fail");
     expect(b.findings.some((f) => f.check === "layout" && f.element?.id === "900:2")).toBe(true);
   });

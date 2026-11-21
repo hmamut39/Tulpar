@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fontClass } from "../src/verify/fonts.ts";
 import { tokenKind } from "../src/verify/token-kind.ts";
-import { verify, visibleText, type AdapterManifest, type ComponentIndex, type DesignNode, type DesignTree, type RenderedElement, type RenderResult, type StateFact, type TokenSet, type VerifyInput } from "../src/index.ts";
+import { verify, visibleText, type A11yViolation, type AdapterManifest, type ComponentIndex, type DesignNode, type DesignTree, type RenderedElement, type RenderResult, type StateFact, type TokenSet, type VerifyInput } from "../src/index.ts";
 import { nearestToken } from "../src/verify/verify.ts";
 
 const box = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -307,6 +307,32 @@ describe("verify", () => {
     const run = (text: string) => verify(input([el("1:1", "x-footer", box(0, 0, 300, 40), text), el("5:1", "x-button", box(0, 0, 100, 40), text), el("5:2", "x-button", box(0, 0, 100, 40), "name@company.com")], { design: formDesign }));
     expect(run("Email name@company.com").checks.find((c) => c.id === "text")!.status).toBe("pass");
     expect(run("Emial name@company.com").checks.find((c) => c.id === "text")!.status).toBe("fail");
+  });
+
+  describe("accessibility", () => {
+    const audited = (a11y?: A11yViolation[]) => {
+      const base = input(good());
+      return verify({ ...base, render: { ...(base.render as Extract<RenderResult, { status: "ok" }>), ...(a11y && { a11y }) } }).checks.find((c) => c.id === "accessible")!;
+    };
+    const v = (rule: string, help: string, node: Partial<A11yViolation["nodes"][number]>): A11yViolation => ({ rule, help, helpUrl: `https://dequeuniversity.com/rules/axe/4.10/${rule}`, nodes: [{ target: "#x", html: "<x>", inLibrary: false, ...node }] });
+
+    it("fails the component's own violations with the element and the fix; contrast and the library's internals are notes", () => {
+      const c = audited([
+        v("button-name", "Buttons must have discernible text", { figmaId: "2:1" }),
+        v("color-contrast", "Elements must meet minimum color contrast ratio thresholds", { figmaId: "2:1" }),
+        v("aria-allowed-attr", "Elements must only use supported ARIA attributes", { inLibrary: true }),
+      ]);
+      expect(c.status).toBe("fail");
+      expect(c.summary).toBe("1 WCAG A/AA violation in the component's markup");
+      expect(c.details[0]).toBe("✗ Button 2:1 (2:1): Buttons must have discernible text (button-name) — give the button an accessible name: visible text, or aria-label when it shows only an icon");
+      expect(c.details.slice(1).join("\n")).toMatch(/– Button 2:1 \(2:1\): Elements must meet minimum color contrast.*the design's colours[\s\S]*– inside the design system's own markup/);
+    });
+
+    it("passes with none, and says when the renderer cannot be audited", () => {
+      expect(audited([]).status).toBe("pass");
+      expect(audited([v("color-contrast", "Elements must meet minimum color contrast ratio thresholds", { figmaId: "2:1" })]).status).toBe("pass");
+      expect(audited(undefined)).toMatchObject({ status: "not-checked", summary: expect.stringMatching(/draws on a canvas/) });
+    });
   });
 
   describe("interaction states", () => {

@@ -34,7 +34,7 @@ import { scanSafety, type SourceFile } from "./safety.ts";
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
 export interface Check {
-  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "tests" | "visual" | "states" | "safety" | "reusable";
+  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "tests" | "visual" | "states" | "safety" | "reusable" | "accessible";
   title: string;
   status: CheckStatus;
   /** One line, used in the headline when the check ran. */
@@ -348,6 +348,7 @@ export function verify(input: VerifyInput): VerifyReport {
   checks.push(statesCheck(input, elements, skip, ok, fail));
   checks.push(safetyCheck(input, skip, ok, fail));
   checks.push(reusableCheck(input, root, skip, ok, fail));
+  checks.push(accessibleCheck(input, root, skip, ok, fail));
 
   const mappedNode = (n: DesignNode) => n.kind === "instance" && !!(input.mapping.get(n.id) ?? input.mapping.get(n.component.id) ?? (n.component.set && input.mapping.get(n.component.set.id)));
   // Only for a Figma frame: a screenshot's colours and sizes are estimates, too rough to call gaps.
@@ -701,6 +702,48 @@ function round(n: number): number {
 }
 
 /** Nothing a component made from a design never needs: network calls, code from strings, secrets, raw HTML. */
+/** What fixes the common WCAG rules, in the code's terms; others link to the rule. */
+const A11Y_FIX: Record<string, string> = {
+  "image-alt": "give the image alt text describing it (an input, defaulting to the design's description)",
+  "button-name": "give the button an accessible name: visible text, or aria-label when it shows only an icon",
+  "link-name": "give the link an accessible name: visible text, or aria-label",
+  label: "tie a visible label to the field (the design system's label prop, or <label for>)",
+  "input-button-name": "give the input button a value or aria-label",
+  "select-name": "tie a label to the select",
+  "aria-allowed-attr": "use only the ARIA attributes this role allows",
+  "aria-required-attr": "add the ARIA attributes this role requires",
+  "aria-valid-attr-value": "give the ARIA attribute a valid value",
+  "aria-roles": "use a valid ARIA role, or none",
+  "nested-interactive": "do not put a control inside another control",
+  list: "put only <li> elements directly inside a list",
+  listitem: "put each <li> inside a <ul> or <ol>",
+  "duplicate-id": "make each id unique",
+};
+
+function accessibleCheck(input: VerifyInput, root: DesignNode, skip: (id: Check["id"], t: string, r: string) => Check, ok: (id: Check["id"], t: string, s: string, d?: string[]) => Check, fail: (id: Check["id"], t: string, s: string, d?: string[]) => Check): Check {
+  const title = "Accessible";
+  const render = input.render;
+  if (!render || render.status !== "ok") return skip("accessible", title, "nothing rendered to audit");
+  if (!render.a11y) return skip("accessible", title, "this renderer draws on a canvas: the WCAG audit needs the page's markup");
+  const names = new Map<string, string>();
+  walk(root, (n) => void names.set(n.id, n.name));
+  const own = new Set<string>();
+  const notes = new Set<string>();
+  for (const v of render.a11y) {
+    for (const n of v.nodes) {
+      const where = n.figmaId ? `${names.get(n.figmaId) ?? n.figmaId} (${n.figmaId})` : undefined;
+      // The design system's own markup (inside its shadow roots) is not the generated code's to fix.
+      if (n.inLibrary) notes.add(`– inside the design system's own markup: ${v.help} (${v.rule})`);
+      // Contrast comes from the design's colours: a designer's call, said, not failed.
+      else if (v.rule === "color-contrast") notes.add(`– ${where ? `${where}: ` : ""}${v.help}: the design's colours (WCAG AA asks 4.5:1 for text)`);
+      else own.add(`✗ ${where ? `${where}: ` : ""}${v.help} (${v.rule})${where ? "" : ` at ${n.target}`} — ${A11Y_FIX[v.rule] ?? `see ${v.helpUrl}`}`);
+    }
+  }
+  return own.size
+    ? fail("accessible", title, `${own.size} WCAG A/AA ${own.size === 1 ? "violation" : "violations"} in the component's markup`, [...own, ...notes])
+    : ok("accessible", title, "no WCAG A or AA violations in the component's markup", [...notes]);
+}
+
 function reusableCheck(input: VerifyInput, root: DesignNode, skip: (id: Check["id"], t: string, r: string) => Check, ok: (id: Check["id"], t: string, s: string, d?: string[]) => Check, fail: (id: Check["id"], t: string, s: string, d?: string[]) => Check): Check {
   const title = "Reusable";
   if (!input.sources?.length) return skip("reusable", title, "no source files to read");

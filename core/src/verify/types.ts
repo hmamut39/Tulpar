@@ -105,6 +105,15 @@ export interface StateFact {
   colors: string[];
 }
 
+/** One accessibility rule the render breaks, with where: the design element, and whether in the library's internals. */
+export interface A11yViolation {
+  rule: string;
+  impact?: string;
+  help: string;
+  helpUrl: string;
+  nodes: { target: string; html: string; inLibrary: boolean; figmaId?: string }[];
+}
+
 export type RenderResult =
   | {
       status: "ok";
@@ -113,6 +122,8 @@ export type RenderResult =
       elements: RenderedElement[];
       /** Interaction states of the interactive elements, when the renderer can produce them. */
       states?: StateFact[];
+      /** WCAG 2 A and AA violations in the render (axe-core), when the renderer can audit it (a DOM, not a canvas). */
+      a11y?: A11yViolation[];
       renderer: { name: string; version: string; os: string };
       /** Environment facts that affect trust in the render, e.g. fonts missing. */
       warnings: string[];

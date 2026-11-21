@@ -113,6 +113,7 @@ serve({
         "Export a standalone component class named {name}Component (standalone: true) with no required inputs.",
         `Import the design system's NgModules from their entry points, e.g. import { ButtonModule } from "${pkg}/button"; and list them in the component's imports.`,
         "Use inject() for any dependency; no constructor parameter injection.",
+        "Write it as current Angular does: changeDetection: ChangeDetectionStrategy.OnPush; inputs with input() (input.required() only where there is no design value to default to); outputs with output(); computed() for values derived from inputs; @if and @for (with track) in templates, not *ngIf or *ngFor.",
         "Put data-figma-id attributes directly on the design system's elements and on the native elements that carry its directives.",
         `Write every token with its value as the fallback, e.g. ${p ? `var(--${p}-…, <its value>)` : "var(--token-name, <its value>)"}: some design systems define tokens only inside their components, and without the fallback they render nothing.`,
         ...(styling === "css" ? [] : [`No ${sheet} variables for design values: use the tokens directly.`]),

@@ -1,0 +1,76 @@
+{
+  "at": "2026-11-21T20:36:37.342Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com), sent as the Figma plugin sends a frame",
+  "results": [
+    {
+      "id": "card-carbon-angular",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 12265,
+      "outputTokens": 3445,
+      "seconds": 76,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true,
+        "reusable": true
+      }
+    },
+    {
+      "id": "card-carbon-react",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 11862,
+      "outputTokens": 3136,
+      "seconds": 63,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true,
+        "reusable": true
+      }
+    },
+    {
+      "id": "card-element-plus",
+      "status": "unchecked-remain",
+      "attempts": 2,
+      "inputTokens": 7914,
+      "outputTokens": 4260,
+      "seconds": 81,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true,
+        "reusable": true
+      }
+    }
+  ]
+}
