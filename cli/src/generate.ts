@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { NAME_PLACEHOLDERS, OpenAiLlm, fillName, flatten, maskBoxes, placeholderBoxes, generate, generationCost, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
+import { NAME_PLACEHOLDERS, OpenAiLlm, fillName, flatten, maskBoxes, placeholderBoxes, generate, generationCost, stripFigmaIds, outputName, supportsOutput, type GeneratedFile, type GenerationEvent, type GenerationResult, type Llm, type LlmImage, type OutputChoice, type VerifyReport } from "@tulpar/core";
 import { codebaseExamples } from "./examples.ts";
 import { formatFiles } from "./format.ts";
 import { loadContext, loadScreenshotContext, rerankUnlinked, verifyEntry, type Context, type FrameInput } from "./pipeline.ts";
@@ -27,6 +27,8 @@ export interface GenerateCommandOptions {
   name: string;
   /** Where the library is read from (out/library.json), and results go by default. */
   out: string;
+  /** Write the files without the data-figma-id markers the checks used (--without-figma-ids). */
+  withoutFigmaIds?: boolean;
   /** Where to save the result; default out/<project>/generated/<name>. Tests use their own. */
   resultsDir?: string;
   cache: string;
@@ -187,7 +189,10 @@ export async function generateCommand(projectDir: string, options: GenerateComma
   const outDir = options.resultsDir ?? join(options.out, basename(project.root), "generated", options.name);
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
-  for (const f of result.files) {
+  // --without-figma-ids: the files as a team ships them, the markers the checks used removed (kept when its tests need them).
+  const cleaned = options.withoutFigmaIds ? stripFigmaIds(result.files) : undefined;
+  if (cleaned) log(cleaned.kept ? `Figma ids kept: ${cleaned.kept}.` : `${cleaned.removed} data-figma-id markers removed from the written files (verified with them).`);
+  for (const f of cleaned?.files ?? result.files) {
     await mkdir(dirname(join(outDir, f.path)), { recursive: true });
     await writeFile(join(outDir, f.path), f.content);
   }

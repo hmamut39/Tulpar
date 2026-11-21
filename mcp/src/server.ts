@@ -18,7 +18,7 @@ import { generateCommand } from "@tulpar/cli/generate";
 import { verifyCommand } from "@tulpar/cli/verify";
 import { checkCommand } from "@tulpar/cli/check";
 import { loadProject, withAdapter } from "@tulpar/cli/project";
-import { findingsOf, parseFigmaUrl, type ComponentIndex, type Llm, type TokenSet, type VerifyReport } from "@tulpar/core";
+import { findingsOf, parseFigmaUrl, stripFigmaIds, type ComponentIndex, type Llm, type TokenSet, type VerifyReport } from "@tulpar/core";
 
 export interface TulparMcpOptions {
   repoRoot: string;
@@ -104,6 +104,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
         styling: z.enum(["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"]).optional().describe("React: css (default), css-modules, scss, less, tailwind, styled-components or emotion. Vue: css (scoped, default), scss, less, css-modules or tailwind. Svelte: css (scoped, default) or tailwind. Angular: less (default), scss or css"),
         writeTo: z.string().optional().describe("Directory to write the files into, e.g. inside the user's workspace"),
         overwrite: z.boolean().optional().describe("Allow replacing existing files in writeTo (default false)"),
+        withoutFigmaIds: z.boolean().optional().describe("Return and write the files without the data-figma-id markers the checks used (default false: keep them so the component can be verified again later). Kept when its own tests need them."),
       }),
       outputSchema: z.object({
         status: z.enum(["verified", "unchecked-remain", "failed"]),
@@ -139,7 +140,10 @@ export function createServer(options: TulparMcpOptions): McpServer {
         ...(options.rerank === false && { noRerank: true }),
       });
       if (outcome.error || !outcome.result) return error(outcome.error ?? "Generation failed.");
-      const r = outcome.result;
+      const r0 = outcome.result;
+      // Without the data-figma-id markers once verified, when asked (and when its own tests do not need them).
+      const cleaned = args.withoutFigmaIds ? stripFigmaIds(r0.files) : undefined;
+      const r = cleaned ? { ...r0, files: cleaned.files } : r0;
       const written: string[] = [];
       if (args.writeTo) {
         for (const f of r.files) {
@@ -154,6 +158,7 @@ export function createServer(options: TulparMcpOptions): McpServer {
       const text = [
         `${args.name}: ${statusLine} (${r.attempts.length} attempt${r.attempts.length === 1 ? "" : "s"}, ${r.model})`,
         written.length ? `Written: ${written.join(", ")}` : `Files are in the result${outcome.outDir ? ` and in ${outcome.outDir}` : ""}.`,
+        ...(cleaned ? [cleaned.kept ? `Figma ids kept: ${cleaned.kept}.` : `${cleaned.removed} data-figma-id markers removed (verified with them).`] : []),
         "",
         r.report ? reportText(r.report) : "No verification report: no buildable component was produced.",
         "",

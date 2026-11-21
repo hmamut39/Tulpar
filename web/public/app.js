@@ -97,6 +97,9 @@ const PRODUCTS = {
 let projects = [];
 let current = null; // the job being shown
 let files = [];
+// The files as verified, and the job they belong to: "Without Figma ids" swaps in the server's clean copy.
+let verifiedFiles = [];
+let shownJob = "";
 let screenshot = null; // File
 
 const storage = {
@@ -374,10 +377,15 @@ function showResult(job) {
   $("render").src = job.hasRender ? `/api/jobs/${job.id}/render.png` : "";
   document.querySelector('[data-tab="render"]').hidden = !job.hasRender;
   files = r.files;
+  verifiedFiles = r.files;
+  shownJob = job.id;
   $("fileTabs").innerHTML = files.map((f, i) => `<button type="button" data-file="${i}" aria-selected="${i === 0}">${esc(f.path)}</button>`).join("");
   showFile(0);
+  $("clean").checked = false;
+  $("cleanNote").textContent = "";
   $("download").href = `/api/jobs/${job.id}/download.zip`;
   $("download").hidden = !files.length;
+  $("cleanToggle").hidden = !files.length;
   resetFeedback(job.id);
   resetChange(job);
   selectTab("report");
@@ -439,6 +447,28 @@ function selectTab(name) {
 
 document.querySelector(".tabs").addEventListener("click", (e) => { const t = e.target.closest("[data-tab]"); if (t) selectTab(t.dataset.tab); });
 $("fileTabs").addEventListener("click", (e) => { const t = e.target.closest("[data-file]"); if (t) showFile(Number(t.dataset.file)); });
+// The code as a team ships it: the data-figma-id markers the checks used, removed (the server refuses, saying why,
+// when the component's own tests find elements by them).
+$("clean").addEventListener("change", async () => {
+  const on = $("clean").checked;
+  $("cleanNote").textContent = "";
+  let next = verifiedFiles;
+  if (on) {
+    try {
+      const view = await (await fetch(`/api/jobs/${shownJob}?clean=1`)).json();
+      next = view.result?.files ?? verifiedFiles;
+      $("cleanNote").textContent = view.clean?.kept ? `Kept: ${view.clean.kept}.` : `${view.clean?.removed ?? 0} markers removed.`;
+    } catch {
+      $("cleanNote").textContent = "Could not get the clean copy.";
+      $("clean").checked = false;
+    }
+  }
+  files = next;
+  const open = Number($("fileTabs").querySelector('[aria-selected="true"]')?.dataset.file ?? 0);
+  showFile(open);
+  $("download").href = `/api/jobs/${shownJob}/download.zip${$("clean").checked ? "?clean=1" : ""}`;
+});
+
 $("copy").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("code").dataset.raw ?? $("code").textContent); $("copy").textContent = "Copied"; } catch { $("copy").textContent = "Copy failed"; }
   setTimeout(() => ($("copy").textContent = "Copy"), 1500);

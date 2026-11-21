@@ -210,6 +210,11 @@ select { appearance: none; padding-right: 40px; cursor: pointer; }
 
 .result-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
 .result-head h2 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+.result-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.clean-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; }
+.clean-toggle[hidden] { display: none; }
+.clean-note { margin: -8px 0 12px; }
+.clean-note:empty { display: none; }
 .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .timeline li { position: relative; display: flex; gap: 14px; padding: 10px 0 10px 2px; font-size: 14px; color: var(--muted); }
 .timeline li::before { content: ""; flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }

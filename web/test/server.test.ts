@@ -106,6 +106,12 @@ describe("web API", () => {
     const zip = unzipSync(new Uint8Array(await (await fetch(`${server.url}/api/jobs/${id}/download.zip`)).arrayBuffer()));
     expect(Object.keys(zip).sort()).toEqual(["ModalActions/ModalActions.css", "ModalActions/ModalActions.test.tsx", "ModalActions/ModalActions.tsx", "ModalActions/tulpar-report.json"]);
     expect(strFromU8(zip["ModalActions/ModalActions.tsx"]!)).toBe(tsx);
+    // "Without Figma ids": the code as a team ships it, its tests untouched (they find buttons by role).
+    const clean = await (await fetch(`${server.url}/api/jobs/${id}?clean=1`)).json();
+    expect(clean.clean).toEqual({ removed: 3 });
+    expect(clean.result.files.find((f: { path: string }) => f.path === "ModalActions.tsx").content).not.toContain("data-figma-id");
+    const cleanZip = unzipSync(new Uint8Array(await (await fetch(`${server.url}/api/jobs/${id}/download.zip?clean=1`)).arrayBuffer()));
+    expect(strFromU8(cleanZip["ModalActions/ModalActions.tsx"]!)).toBe(tsx.replace(/ data-figma-id="[^"]*"/g, ""));
     expect(job.result.report.checks.find((c: { id: string }) => c.id === "tests").summary).toMatch(/^1 of 1 generated tests pass/);
 
     // "Was this result useful?": once per result; the log notes the rating, never the comment's text.

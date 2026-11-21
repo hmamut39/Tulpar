@@ -26,7 +26,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { loadDotEnv } from "@tulpar/cli/env";
-import { DEFAULT_OPENAI_MODEL, OpenAiLlm, pageSections, parseFigmaUrl, supportsOutput, type AdapterManifest, type GeneratedFile, type Llm, type OutputChoice } from "@tulpar/core";
+import { DEFAULT_OPENAI_MODEL, OpenAiLlm, pageSections, parseFigmaUrl, stripFigmaIds, supportsOutput, type AdapterManifest, type GeneratedFile, type Llm, type OutputChoice } from "@tulpar/core";
 import { loadProject, withAdapter } from "@tulpar/cli/project";
 import { loadDesign } from "@tulpar/cli/pipeline";
 import { Accounts, type Account } from "./accounts.ts";
@@ -607,14 +607,19 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       if (req.method === "GET" && jobMatch) {
         const job = queue.get(jobMatch[1]!);
         if (!job) return json(res, 404, { error: "No such job (jobs are kept for an hour)." });
-        if (!jobMatch[2]) return json(res, 200, queue.view(job));
+        // ?clean=1: the files without the data-figma-id markers, as a team ships them (unless its tests need them).
+        const clean = url.searchParams.get("clean") === "1" && job.result ? stripFigmaIds(job.result.files) : undefined;
+        if (!jobMatch[2]) {
+          const view = queue.view(job);
+          return json(res, 200, clean && view.result ? { ...view, result: { ...view.result, files: clean.files }, clean: { removed: clean.removed, ...(clean.kept && { kept: clean.kept }) } } : view);
+        }
         if (jobMatch[2] === "/render.png") {
           if (!job.png) return json(res, 404, { error: "No render." });
           res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" });
           return res.end(Buffer.from(job.png, "base64"));
         }
         if (!job.result?.files.length) return json(res, 404, { error: "No files." });
-        const zip = zipFiles([...job.result.files.map((f) => ({ path: `${job.input.name}/${f.path}`, content: f.content })), ...(job.result.report ? [{ path: `${job.input.name}/tulpar-report.json`, content: JSON.stringify({ status: job.result.status, report: job.result.report }, null, 2) }] : [])]);
+        const zip = zipFiles([...(clean?.files ?? job.result.files).map((f) => ({ path: `${job.input.name}/${f.path}`, content: f.content })), ...(job.result.report ? [{ path: `${job.input.name}/tulpar-report.json`, content: JSON.stringify({ status: job.result.status, report: job.result.report }, null, 2) }] : [])]);
         res.writeHead(200, { "content-type": "application/zip", "content-disposition": `attachment; filename="${job.input.name}.zip"`, "cache-control": "no-store" });
         return res.end(zip);
       }
