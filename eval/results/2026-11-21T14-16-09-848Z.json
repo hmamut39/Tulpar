@@ -1,0 +1,51 @@
+{
+  "at": "2026-11-21T14:16:09.848Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com), sent as the Figma plugin sends a frame",
+  "results": [
+    {
+      "id": "card-element-plus",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 11572,
+      "outputTokens": 6163,
+      "seconds": 118,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    },
+    {
+      "id": "card-vaadin-aura",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 11976,
+      "outputTokens": 5965,
+      "seconds": 259,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true
+      }
+    }
+  ]
+}

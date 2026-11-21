@@ -63,7 +63,7 @@ describe("why an element is out of place", () => {
   it("explains the axis it is off along: 4px too far left is the padding, not the space above", () => {
     // Element Plus on the card: every text at x 20 (the design's 24); 4px higher too, within the text's ±6.
     const r = rendered({ card: box(0, 0, 395, 444), photo: box(0, 0, 395, 296), title: box(20, 316, 162, 26) });
-    expect(layoutCause(kids(card)[1]!, card, r, tokens, 3, "x")).toBe('it sits 20px from the left of "card", the design\'s 24px (the padding): set that to 24px');
+    expect(layoutCause(kids(card)[1]!, card, r, tokens, 3, "x")).toBe('it sits 20px from the left of "card", the design\'s 24px (the padding): set that to 24px; no spacing token is 24px (the nearest is var(--chakra-spacing-4), 16px): a limit of the design system, not a mistake');
   });
 
   it("says a shorter element before it ends earlier, without a minus sign", () => {
@@ -87,7 +87,8 @@ describe("why an element is out of place", () => {
     } as unknown as TokenSet;
     expect(typeTokens({ fontSize: 20, lineHeight: 28, fontWeight: 500 }, type)).toBe(" (var(--sl-font-size-large), var(--sl-line-height-dense), var(--sl-font-weight-semibold))");
     expect(typeTokens({ fontSize: 20, lineHeight: 26, fontWeight: 600 }, type)).toBe(" (var(--sl-font-size-large))");
-    expect(typeTokens({ fontSize: 13 }, type)).toBe("");
+    expect(typeTokens({ fontSize: 13 }, type)).toBe("; no font-size token is 13px (the nearest is var(--sl-font-size-medium), 16px): a limit of the design system, not a mistake");
+    expect(typeTokens({ fontSize: 13 }, undefined)).toBe("");
   });
 
   it("finds spacing tokens of a value, never another kind", () => {

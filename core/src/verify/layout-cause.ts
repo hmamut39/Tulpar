@@ -57,12 +57,36 @@ export function typeTokens(style: { fontSize?: number; lineHeight?: number; font
     line && first("line-height", (v) => (v.kind === "dimension" && Math.abs(v.points - line) < 0.5) || (!!size && v.kind === "number" && Math.abs(v.value * size - line) < 0.5)),
     weight && first("font-weight", (v) => v.kind === "number" && v.value === weight),
   ].filter((t): t is TokenSet["tokens"][number] => !!t);
-  return found.length ? ` (${found.map(name).join(", ")})` : "";
+  const sizeToken = size && found.some((t) => tokenKind(t.name, t.type) === "font-size");
+  const missing = size && !sizeToken ? noToken("font-size", size, tokens) : "";
+  return `${found.length ? ` (${found.map(name).join(", ")})` : ""}${missing ? `; ${missing}` : ""}`;
 }
+
+/** The token of a kind whose length is nearest `px`, with its value, for "no token is Npx". */
+function nearestOfKind(kind: string, px: number, tokens: TokenSet): { name: string; points: number } | undefined {
+  return tokens.tokens
+    .filter((t) => tokenKind(t.name, t.type) === kind)
+    .flatMap((t) => {
+      const v = t.values.default ?? Object.values(t.values)[0];
+      return v?.kind === "dimension" && v.points > 0 ? [{ name: `var(--${/var\(\s*--([\w-]+)/.exec(t.codeRef ?? "")?.[1] ?? t.name})`, points: v.points }] : [];
+    })
+    .sort((a, b) => Math.abs(a.points - px) - Math.abs(b.points - px))[0];
+}
+
+/**
+ * No token gives the design's value: the design system's limit, said as such, so the repair takes the nearest
+ * token instead of being told to reach a value it may not write, and a reader sees why it stays off.
+ */
+const noToken = (kind: string, px: number, tokens: TokenSet) => {
+  const near = nearestOfKind(kind, px, tokens);
+  return near ? `no ${kind} token is ${round(px)}px (the nearest is ${near.name}, ${round(near.points)}px): a limit of the design system, not a mistake` : "";
+};
 
 const tokenNote = (px: number, tokens: TokenSet | undefined) => {
   const names = spacingTokens(px, tokens);
-  return names.length ? ` (${names.join(" or ")})` : "";
+  if (names.length) return ` (${names.join(" or ")})`;
+  const none = tokens && px > 0 ? noToken("spacing", px, tokens) : "";
+  return none ? `; ${none}` : "";
 };
 
 /**

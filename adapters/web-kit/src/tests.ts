@@ -37,9 +37,11 @@ const ownRequire = createRequire(import.meta.url);
  */
 export const staleOptimizedDeps = (r: TestRunResult) => /does not exist at[^\n]*(?:[\\/]\.vite[\\/]|-cache[\\/])/.test(r.status === "ran" ? (r.fileError ?? "") : r.reason);
 
+const CUT_OFF = "Vitest's report was empty or cut off";
+
 export async function runVitestBrowser(o: VitestOptions): Promise<TestRunResult> {
   const first = await runOnce(o);
-  return staleOptimizedDeps(first) ? runOnce(o) : first;
+  return staleOptimizedDeps(first) || (first.status === "failed" && first.reason.startsWith(CUT_OFF)) ? runOnce(o) : first;
 }
 
 async function runOnce(o: VitestOptions): Promise<TestRunResult> {
@@ -101,7 +103,14 @@ export default defineConfig({
   try {
     const { code, output } = await run(process.execPath, [vitest, "run", "--config", configFile, "--reporter=json", `--outputFile=${reportFile}`], o.root, o.timeoutMs ?? 120_000);
     if (!existsSync(reportFile)) return { status: "failed", reason: `Vitest produced no report (exit ${code}). ${output.slice(-800)}` };
-    const report = JSON.parse(await readFile(reportFile, "utf8")) as JestLikeReport;
+    // A run stopped while writing (its time ran out, the machine was busy) leaves an empty or cut-off report:
+    // that says nothing about the tests, so it is said plainly and the run is made once more.
+    let report: JestLikeReport;
+    try {
+      report = JSON.parse(await readFile(reportFile, "utf8")) as JestLikeReport;
+    } catch {
+      return { status: "failed", reason: `${CUT_OFF} (exit ${code}). ${output.slice(-400)}` };
+    }
     const file = report.testResults[0];
     // No result for the file: Vitest failed before running it (the browser didn't start), which is not a pass.
     if (!file) return { status: "failed", reason: `Vitest ran no tests (exit ${code}). ${output.slice(-800)}` };
