@@ -19,6 +19,8 @@ kill_timeout = "300s"
   TULPAR_TRUST_PROXY = "1"
   TULPAR_RUNS_PER_HOUR = "10"
   TULPAR_RUNS_PER_DAY = "100"
+  # The weekly drift check (web/src/canary.ts): the model on our own card, three projects, about $3 a run.
+  TULPAR_CANARY_DAYS = "7"
 
 [http_service]
   internal_port = 8080

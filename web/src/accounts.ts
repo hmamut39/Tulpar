@@ -75,6 +75,18 @@ export interface DashboardStats {
    * the share of input read from the prompt cache, and which checks the results still fail most.
    */
   quality: { finished: number; firstTry: number; avgAttempts: number; cachedShare: number; failingChecks: { check: string; runs: number }[] };
+  /** The weekly drift check: its last runs, and the projects that passed before and fail now. */
+  canary: { history: { at: string; project: string; status: string; firstPass: boolean; attempts: number; failing: string[] }[]; drift: string[] };
+}
+
+export interface CanaryRecord {
+  at: string;
+  project: string;
+  status: string;
+  firstPass: boolean;
+  attempts: number;
+  failing: string[];
+  tokens: number;
 }
 
 export interface Limits {
@@ -133,6 +145,16 @@ export class Accounts {
         ms INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS generations_at ON generations (at);
+      CREATE TABLE IF NOT EXISTS canary_runs (
+        id INTEGER PRIMARY KEY,
+        at TEXT NOT NULL,
+        project TEXT NOT NULL,
+        status TEXT NOT NULL,
+        first_pass INTEGER NOT NULL,
+        attempts INTEGER NOT NULL,
+        failing TEXT,
+        tokens INTEGER NOT NULL DEFAULT 0
+      );
       CREATE TABLE IF NOT EXISTS api_tokens (
         id INTEGER PRIMARY KEY,
         account INTEGER NOT NULL REFERENCES accounts (id),
@@ -281,6 +303,33 @@ export class Accounts {
       .run(g.at, g.account ?? null, g.invite ?? null, g.project, g.source, g.state, g.status ?? null, g.attempts ?? null, g.inputTokens, g.outputTokens, g.cachedTokens ?? 0, g.firstPass == null ? null : g.firstPass ? 1 : 0, g.failing?.length ? g.failing.join(",") : null, g.ms);
   }
 
+  /** One project's result in a weekly drift check (web/src/canary.ts). */
+  recordCanary(c: CanaryRecord): void {
+    this.#db
+      .prepare("INSERT INTO canary_runs (at, project, status, first_pass, attempts, failing, tokens) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(c.at, c.project, c.status, c.firstPass ? 1 : 0, c.attempts, c.failing.length ? c.failing.join(",") : null, c.tokens);
+  }
+
+  /** When the last drift check ran, if ever. */
+  lastCanary(): string | undefined {
+    return (this.#db.prepare("SELECT MAX(at) AS at FROM canary_runs").get() as { at: string | null }).at ?? undefined;
+  }
+
+  /** The last drift checks, newest first, and the projects that passed the check before and fail the latest one. */
+  canary(runs = 6): DashboardStats["canary"] {
+    const ats = (this.#db.prepare("SELECT DISTINCT at FROM canary_runs ORDER BY at DESC LIMIT ?").all(runs) as { at: string }[]).map((r) => r.at);
+    const rows = ats.length
+      ? (this.#db.prepare(`SELECT at, project, status, first_pass AS firstPass, attempts, failing FROM canary_runs WHERE at >= ? ORDER BY at DESC, project`).all(ats.at(-1)!) as { at: string; project: string; status: string; firstPass: number; attempts: number; failing: string | null }[])
+      : [];
+    const history = rows.map((r) => ({ at: r.at, project: r.project, status: r.status, firstPass: !!r.firstPass, attempts: r.attempts, failing: r.failing ? r.failing.split(",") : [] }));
+    const ok = (s: string) => s === "verified" || s === "unchecked-remain";
+    const [latest, before] = ats;
+    const drift = latest && before
+      ? history.filter((h) => h.at === latest && !ok(h.status) && history.some((p) => p.at === before && p.project === h.project && ok(p.status))).map((h) => h.project)
+      : [];
+    return { history, drift };
+  }
+
   /** What the owner's dashboard shows, from this database (revenue comes from Stripe). */
   stats(days = 30, now = new Date()): DashboardStats {
     const since = new Date(now.getTime() - days * 86_400_000).toISOString();
@@ -323,6 +372,7 @@ export class Accounts {
           failingChecks: [...counts].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([check, runs]) => ({ check, runs })),
         };
       })(),
+      canary: this.canary(),
     };
   }
 

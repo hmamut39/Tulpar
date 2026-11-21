@@ -35,6 +35,7 @@ import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, revenue, verifyWebh
 import { addProject, type AddJob, type Framework } from "./custom-projects.ts";
 import { JobQueue, kitFileKey, type JobInput } from "./jobs.ts";
 import { hostedServer } from "./hosted-mcp.ts";
+import { startCanary } from "./canary.ts";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { zipFiles } from "./zip.ts";
 
@@ -69,6 +70,10 @@ export interface ServerOptions {
   proPriceLabel?: string;
   /** GitHub logins that may open the owner dashboard; default TULPAR_ADMINS (comma-separated). */
   admins?: string[];
+  /** Days between weekly drift checks (web/src/canary.ts); default TULPAR_CANARY_DAYS, off when unset. */
+  canaryDays?: number;
+  /** How often the drift check looks whether a run is due (tests). */
+  canaryPollMs?: number;
 }
 
 export interface ProjectInfo {
@@ -174,11 +179,14 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const inputPerM = Number(process.env.TULPAR_OPENAI_INPUT_PER_M || 0);
   const outputPerM = Number(process.env.TULPAR_OPENAI_OUTPUT_PER_M || 0);
   let revenueCache: { at: number; value: Revenue | { error: string } } | undefined;
+  const canaryJobs = new Set<string>();
   const queue = new JobQueue({
     repoRoot: options.repoRoot,
     llm,
     ...(options.rerank === false && { rerank: false }),
     onFinish: (job, ms) => {
+      // The drift check's own runs are recorded by it (canary_runs), not among the users' generations.
+      if (canaryJobs.has(job.id)) return;
       const r = job.result;
       log(JSON.stringify({
         event: "job",
@@ -624,11 +632,15 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   server.keepAliveTimeout = 65_000;
   server.headersTimeout = 66_000;
 
+  // The weekly drift check, when TULPAR_CANARY_DAYS is set (fly.toml) and there is a database to keep its history.
+  const canaryDays = options.canaryDays ?? Number(process.env.TULPAR_CANARY_DAYS || 0);
+  const stopCanary = canaryDays > 0 && accounts ? startCanary({ repoRoot: options.repoRoot, queue, accounts, everyDays: canaryDays, log, ours: canaryJobs, ...(options.canaryPollMs && { pollMs: options.canaryPollMs }), ...(auth?.origin.startsWith("https://") && { keepAliveUrl: auth.origin }) }) : undefined;
+
   return new Promise((resolveStart) => {
     server.listen(port, () => {
       const address = server.address();
       const actual = typeof address === "object" && address ? address.port : port;
-      resolveStart({ url: `http://localhost:${actual}`, close: () => new Promise((r) => server.close(() => r())), drain: () => queue.idle() });
+      resolveStart({ url: `http://localhost:${actual}`, close: () => new Promise((r) => { stopCanary?.(); server.close(() => r()); }), drain: () => queue.idle() });
     });
   });
 }

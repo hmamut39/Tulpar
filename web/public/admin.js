@@ -49,6 +49,15 @@ async function load(days) {
   $("projects").innerHTML = data.topProjects.length
     ? data.topProjects.map((p) => `<tr><td>${esc(p.project)}</td><td class="num">${num(p.generations)}</td></tr>`).join("")
     : `<tr><td colspan="2" class="hint">No generations yet.</td></tr>`;
+  // The weekly drift check: the model run on our own card each week; a project that passed and now fails is drift.
+  const c = data.canary;
+  $("drift").textContent = !c?.history.length ? "No run yet: it runs once a week when TULPAR_CANARY_DAYS is set." : c.drift.length ? `Drift: ${c.drift.join(", ")} passed last time and fails now.` : "No drift: nothing that passed last time fails now.";
+  $("drift").classList.toggle("bad", !!c?.drift.length);
+  $("canary").innerHTML = c?.history.length
+    ? c.history
+        .map((h) => `<tr><td>${esc(h.at.slice(0, 10))}</td><td>${esc(h.project)}</td><td>${h.status === "verified" || h.status === "unchecked-remain" ? "No failures" : `Failed${h.failing.length ? `: ${esc(h.failing.join(", "))}` : ""}`}${h.firstPass ? " · first try" : ""}</td><td class="num">${num(h.attempts)}</td></tr>`)
+        .join("")
+    : `<tr><td colspan="4" class="hint">No drift check yet.</td></tr>`;
   $("failing").innerHTML = q?.failingChecks.length
     ? q.failingChecks.map((f) => `<tr><td>${esc(f.check)}</td><td class="num">${num(f.runs)}</td></tr>`).join("")
     : `<tr><td colspan="2" class="hint">No failing check recorded yet.</td></tr>`;

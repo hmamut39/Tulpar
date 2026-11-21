@@ -19,6 +19,7 @@
     "./env": "./src/env.ts",
     "./verify": "./src/verify.ts",
     "./init": "./src/init.ts",
-    "./check": "./src/check.ts"
+    "./check": "./src/check.ts",
+    "./order-card": "./src/order-card.ts"
   }
 }
