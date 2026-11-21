@@ -52,6 +52,12 @@ export interface GenerationRecord {
   attempts?: number | null;
   inputTokens: number;
   outputTokens: number;
+  /** Input tokens the provider served from its prompt cache. */
+  cachedTokens?: number;
+  /** Whether the first attempt passed every check that ran (null: no result). */
+  firstPass?: boolean | null;
+  /** The checks the result still fails. */
+  failing?: string[];
   ms: number;
 }
 
@@ -64,6 +70,11 @@ export interface DashboardStats {
   /** People's ratings of results, and their latest comments. */
   feedback: { up: number; down: number; comments: { at: string; project: string; status: string | null; rating: string; comment: string }[] };
   recentAccounts: { login: string; plan: string; status: string | null; used: number; createdAt: string }[];
+  /**
+   * Is Tulpar getting better: of the finished runs, how many passed on the first attempt, the attempts a run takes,
+   * the share of input read from the prompt cache, and which checks the results still fail most.
+   */
+  quality: { finished: number; firstTry: number; avgAttempts: number; cachedShare: number; failingChecks: { check: string; runs: number }[] };
 }
 
 export interface Limits {
@@ -135,6 +146,11 @@ export class Accounts {
     // made before pages have the table without it.
     const columns = this.#db.prepare("PRAGMA table_info(open_runs)").all() as { name: string }[];
     if (!columns.some((c) => c.name === "charged")) this.#db.exec("ALTER TABLE open_runs ADD COLUMN charged INTEGER NOT NULL DEFAULT 1");
+    // The quality numbers (first-try passes, cached input, the checks that fail); databases made before them lack these.
+    const gen = (this.#db.prepare("PRAGMA table_info(generations)").all() as { name: string }[]).map((c) => c.name);
+    if (!gen.includes("cached_tokens")) this.#db.exec("ALTER TABLE generations ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0");
+    if (!gen.includes("first_pass")) this.#db.exec("ALTER TABLE generations ADD COLUMN first_pass INTEGER");
+    if (!gen.includes("failing")) this.#db.exec("ALTER TABLE generations ADD COLUMN failing TEXT");
   }
 
   /** The account for a GitHub user, created on first sign-in (on the trial). */
@@ -261,8 +277,8 @@ export class Accounts {
   /** Records a finished generation (what ran and what it cost; never the design, the code or a token). */
   recordGeneration(g: GenerationRecord): void {
     this.#db
-      .prepare("INSERT INTO generations (at, account, invite, project, source, state, status, attempts, input_tokens, output_tokens, ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(g.at, g.account ?? null, g.invite ?? null, g.project, g.source, g.state, g.status ?? null, g.attempts ?? null, g.inputTokens, g.outputTokens, g.ms);
+      .prepare("INSERT INTO generations (at, account, invite, project, source, state, status, attempts, input_tokens, output_tokens, cached_tokens, first_pass, failing, ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(g.at, g.account ?? null, g.invite ?? null, g.project, g.source, g.state, g.status ?? null, g.attempts ?? null, g.inputTokens, g.outputTokens, g.cachedTokens ?? 0, g.firstPass == null ? null : g.firstPass ? 1 : 0, g.failing?.length ? g.failing.join(",") : null, g.ms);
   }
 
   /** What the owner's dashboard shows, from this database (revenue comes from Stripe). */
@@ -293,6 +309,20 @@ export class Accounts {
         return { up: Number(f.up ?? 0), down: Number(f.down ?? 0), comments };
       })(),
       recentAccounts: all(`SELECT login, plan, subscription_status AS status, used, created_at AS createdAt FROM accounts ORDER BY created_at DESC LIMIT 15`).map((x) => ({ login: String(x.login), plan: String(x.plan), status: (x.status as string | null) ?? null, used: Number(x.used), createdAt: String(x.createdAt) })),
+      quality: (() => {
+        // Runs recorded before these numbers existed (first_pass is null) are left out of them.
+        const q = one(`SELECT COUNT(*) AS finished, SUM(first_pass) AS firstTry, AVG(attempts) AS attempts, SUM(cached_tokens) AS cached, SUM(input_tokens) AS input FROM generations WHERE at >= ? AND state = 'done' AND first_pass IS NOT NULL`, since);
+        const counts = new Map<string, number>();
+        for (const row of all(`SELECT failing FROM generations WHERE at >= ? AND failing IS NOT NULL`, since)) for (const id of String(row.failing).split(",")) counts.set(id, (counts.get(id) ?? 0) + 1);
+        const finished = Number(q.finished ?? 0);
+        return {
+          finished,
+          firstTry: finished ? Math.round((100 * Number(q.firstTry ?? 0)) / finished) : 0,
+          avgAttempts: Math.round(Number(q.attempts ?? 0) * 10) / 10,
+          cachedShare: Number(q.input ?? 0) ? Math.round((100 * Number(q.cached ?? 0)) / Number(q.input)) : 0,
+          failingChecks: [...counts].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([check, runs]) => ({ check, runs })),
+        };
+      })(),
     };
   }
 

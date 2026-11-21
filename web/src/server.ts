@@ -201,6 +201,10 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         attempts: r?.attempts.length ?? null,
         inputTokens: r?.usage.inputTokens ?? 0,
         outputTokens: r?.usage.outputTokens ?? 0,
+        cachedTokens: r?.usage.cachedInputTokens ?? 0,
+        // For the quality numbers: did the first attempt pass, and which checks the result still fails.
+        firstPass: r ? !r.attempts[0]?.rejected.length && !!r.attempts[0]?.report && !r.attempts[0].report.checks.some((c) => c.status === "fail") : null,
+        failing: r?.report?.checks.filter((c) => c.status === "fail").map((c) => c.id) ?? [],
         ms,
       });
       // Failed before the model ran (e.g. the Figma frame could not be read): the generation is given back.

@@ -20,6 +20,7 @@ export * from "./verify/types.ts";
 export { verify, visibleText, type Check, type CheckStatus, type VerifyInput, type VerifyReport } from "./verify/verify.ts";
 export { scanSafety, type SafetyResult, type SourceFile } from "./verify/safety.ts";
 export { findingsOf, type Finding } from "./verify/findings.ts";
+export { injectionNote, scanDesign, type DesignInjection } from "./verify/injection.ts";
 export { compareIndexes, signature, type DriftFinding, type DriftKind, type DriftOptions, type DriftReport, type DriftSeverity } from "./drift/drift.ts";
 export { LlmError, generationCost, tokenCost, type Llm, type LlmImage, type LlmRequest, type LlmResponse } from "./generate/llm.ts";
 export { DEFAULT_OPENAI_MODEL, OpenAiLlm, type OpenAiOptions } from "./generate/openai.ts";

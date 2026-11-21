@@ -76,6 +76,18 @@ describe("ratings of results", () => {
     a.recordFeedback({ job: "j2", project: "radix", source: "screenshot", status: "failed", rating: "down", comment: "wrong colours" });
     expect(a.stats().feedback).toMatchObject({ up: 1, down: 1, comments: [{ project: "radix", rating: "down", comment: "wrong colours" }] });
   });
+
+  it("counts the quality numbers: first-try passes, attempts, cached input, and the checks that fail most", () => {
+    const a = new Accounts(":memory:", { trial: 5, pro: 300 });
+    const at = new Date().toISOString();
+    const run = (firstPass: boolean | null, attempts: number, failing: string[], cachedTokens = 0) =>
+      a.recordGeneration({ at, project: "chakra", source: "figma", state: "done", status: failing.length ? "failed" : "verified", attempts, inputTokens: 1000, outputTokens: 100, cachedTokens, firstPass, failing, ms: 1 });
+    run(true, 1, [], 800);
+    run(false, 3, ["layout"], 400);
+    run(false, 2, ["layout", "type"]);
+    run(null, 0, []); // recorded before the numbers existed: left out
+    expect(a.stats().quality).toEqual({ finished: 3, firstTry: 33, avgAttempts: 2, cachedShare: 40, failingChecks: [{ check: "layout", runs: 2 }, { check: "type", runs: 1 }] });
+  });
 });
 
 describe("charging a whole page", () => {

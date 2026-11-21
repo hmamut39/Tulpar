@@ -62,6 +62,21 @@
       <li>To write the code, your design is sent to OpenAI's API with storage turned off. See the <a href="/privacy">Privacy Policy</a> for everyone who receives data.</li>
     </ul></section>
 
+  <section><h2>Against the OWASP Top 10 for LLM applications</h2>
+    <p>What Tulpar does about each risk in the <a href="https://genai.owasp.org/llm-top-10/">OWASP Top 10 for LLM applications (2025)</a>.</p>
+    <ul>
+      <li><strong>Prompt injection.</strong> The model is told that everything in a design is content, never instructions. Before a run, Tulpar scans the design's text and layer names for anything addressed to an AI and names it in the report. The code that comes back is scanned for what an injection would add (network calls, cookies, stored data, secrets, raw HTML), and the <a href="/benchmark">benchmark</a> includes a design that tries to give the AI orders.</li>
+      <li><strong>Sensitive information disclosure.</strong> The model receives the design, the design system's documentation and the project files it needs, and no secrets. Generated code runs where there are no secrets to read. OpenAI's storage is turned off.</li>
+      <li><strong>Supply chain.</strong> Dependencies are pinned in lockfiles and watched by Dependabot. A design system you add from the page is installed without running its install scripts, so no package code runs on the server.</li>
+      <li><strong>Data and model poisoning.</strong> Tulpar does not train or fine-tune models on your designs or code.</li>
+      <li><strong>Improper output handling.</strong> Generated code is never trusted: it is built and run only in a sandbox, checked against the design and the design system, and scanned by the safety check before you get it.</li>
+      <li><strong>Excessive agency.</strong> The model only writes files. It cannot run commands, browse, call servers or change anything; Tulpar builds and checks what it writes, and nothing is written into your codebase unless you choose to.</li>
+      <li><strong>System prompt leakage.</strong> Tulpar's instructions hold no secrets, keys or customer data, so leaking them exposes nothing.</li>
+      <li><strong>Vector and embedding weaknesses.</strong> Tulpar keeps no vector store: each run reads the design system it was given.</li>
+      <li><strong>Misinformation.</strong> Tulpar never calls a result right unless it has checked it: every result is built, rendered and checked, and what could not be checked is named.</li>
+      <li><strong>Unbounded consumption.</strong> Runs are limited per hour and per day, with a queue limit, a size limit on what you send, and a cap on the attempts per run.</li>
+    </ul></section>
+
   <section><h2>Your account</h2>
     <ul>
       <li>Tulpar has no passwords: you sign in with GitHub. Session cookies are signed, HttpOnly and SameSite=Lax, and all traffic uses HTTPS.</li>

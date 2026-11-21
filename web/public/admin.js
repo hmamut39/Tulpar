@@ -19,6 +19,7 @@ async function load(days) {
   }
   $("dashState").hidden = true;
   const g = data.generations;
+  const q = data.quality;
   const r = data.revenue;
   const rev = r && !r.error;
   const tiles = [
@@ -28,7 +29,13 @@ async function load(days) {
     ["Generations", num(g.total), `${pct(g.passed, g.total)} passed · ${num(g.failed)} failed · ${num(g.errors)} errors`],
     ["AI tokens", num(g.inputTokens + g.outputTokens), `${num(g.inputTokens)} in · ${num(g.outputTokens)} out`],
     ["Result ratings", `${num(data.feedback.up)} up · ${num(data.feedback.down)} down`, data.feedback.up + data.feedback.down ? `${pct(data.feedback.up, data.feedback.up + data.feedback.down)} found results useful` : "no ratings yet"],
-    ["OpenAI cost", data.cost === null ? "–" : money(data.cost), data.cost === null ? "set TULPAR_OPENAI_INPUT_PER_M and _OUTPUT_PER_M" : `about ${money(g.total ? data.cost / g.total : 0)} per generation`],
+    ["OpenAI cost", data.cost === null ? "–" : money(data.cost), data.cost === null ? "set TULPAR_OPENAI_INPUT_PER_M and _OUTPUT_PER_M" : `about ${money(g.total ? data.cost / g.total : 0)} per generation · ${g.passed ? money(data.cost / g.passed) : "–"} per passing result`],
+    ...(q
+      ? [
+          ["First-try passes", q.finished ? `${q.firstTry}%` : "–", q.finished ? `of ${num(q.finished)} runs · ${q.avgAttempts} attempts on average` : "no runs recorded with it yet"],
+          ["Prompt cache", q.finished ? `${q.cachedShare}%` : "–", "of input tokens read from the cache"],
+        ]
+      : []),
   ];
   $("tiles").innerHTML = tiles.map(([label, value, sub]) => `<div class="tile"><p class="tile-label">${esc(label)}</p><p class="tile-value">${esc(value)}</p><p class="tile-sub">${esc(sub)}</p></div>`).join("");
   $("tiles").hidden = false;
@@ -42,6 +49,9 @@ async function load(days) {
   $("projects").innerHTML = data.topProjects.length
     ? data.topProjects.map((p) => `<tr><td>${esc(p.project)}</td><td class="num">${num(p.generations)}</td></tr>`).join("")
     : `<tr><td colspan="2" class="hint">No generations yet.</td></tr>`;
+  $("failing").innerHTML = q?.failingChecks.length
+    ? q.failingChecks.map((f) => `<tr><td>${esc(f.check)}</td><td class="num">${num(f.runs)}</td></tr>`).join("")
+    : `<tr><td colspan="2" class="hint">No failing check recorded yet.</td></tr>`;
   $("accounts").innerHTML = data.recentAccounts.length
     ? data.recentAccounts
         .map((a) => `<tr><td>${esc(a.login)}</td><td>${a.plan === "pro" ? `Pro${a.status && a.status !== "active" ? ` (${esc(a.status)})` : ""}` : "Trial"}</td><td class="num">${num(a.used)}</td><td>${esc(a.createdAt.slice(0, 10))}</td></tr>`)

@@ -27,6 +27,7 @@ import { accentProp, familyOf, nearestColorToken } from "../generate/accent.ts";
 import { isPlaceholder } from "../generate/page.ts";
 import { designFit, fitNote } from "./fit.ts";
 import { layoutCause, typeTokens } from "./layout-cause.ts";
+import { injectionNote, scanDesign } from "./injection.ts";
 import { scanSafety, type SourceFile } from "./safety.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
@@ -360,6 +361,7 @@ export function verify(input: VerifyInput): VerifyReport {
       : undefined;
   const designNote = [fitText, themeFont].filter(Boolean).join(" ") || undefined;
 
+  const hijack = injectionNote(scanDesign(root));
   const ran = checks.filter((c) => c.status !== "not-checked");
   const verdict = checks.some((c) => c.status === "fail") ? "fail" : checks.some((c) => c.status === "not-checked") ? "incomplete" : "pass";
   return {
@@ -368,7 +370,8 @@ export function verify(input: VerifyInput): VerifyReport {
     headline: [root.name, ...ran.map((c) => `${c.status === "fail" ? "✗ " : ""}${c.summary}`)].join(" · "),
     checks,
     ...(render?.status === "ok" && { renderer: render.renderer }),
-    warnings,
+    // Text in the design addressed to an AI comes first: the person should see it before anything else.
+    warnings: [...(hijack ? [hijack] : []), ...warnings],
     ...(designNote && { designNote }),
   };
 }
