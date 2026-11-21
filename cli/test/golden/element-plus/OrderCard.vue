@@ -1,11 +1,16 @@
 <script setup lang="ts">
-const title = "Order summary";
+const { title = "Order summary", summary = "Two items, ready to ship." } = defineProps<{
+  /** The card's heading. */
+  title?: string;
+  /** One line about the order. */
+  summary?: string;
+}>();
 </script>
 
 <template>
   <section class="order-card" data-figma-id="900:1">
     <h2 class="title" data-figma-id="900:2">{{ title }}</h2>
-    <p class="body" data-figma-id="900:3">Two items, ready to ship.</p>
+    <p class="body" data-figma-id="900:3">{{ summary }}</p>
   </section>
 </template>
 

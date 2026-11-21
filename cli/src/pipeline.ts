@@ -3,9 +3,9 @@
 // and build + render + verify an implementation through the project's adapter.
 // Used by `tulpar verify`, `tulpar generate` and the web app.
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import {
   FigmaClient,
   flatten,
@@ -255,8 +255,9 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
   const analysis = caps.staticProvenance ? await host.call("analyze", { ...project.params, entry }).catch(() => undefined) : undefined;
   // The implementation's own tests, in the adapter's sandbox; only when it built.
   const tests = caps.tests && testFile && build?.ok ? await host.call("test", { ...project.params, entry: testFile }) : undefined;
-  // The code scanned for what a component never needs: the files given, or the entry and its test on disk.
-  const scanned = sources ?? (await Promise.all([entry, testFile].filter((f): f is string => !!f).map(async (path) => ({ path, content: await readFile(join(project.root, path), "utf8").catch(() => "") })))).filter((f) => f.content);
+  // The code the checks read (safety, reusable): the files given, or on disk the component's every file (its entry,
+  // test, and the files beside it with the same name, such as an Angular template and stylesheet).
+  const scanned = sources ?? (await Promise.all(componentFiles(project.root, entry, testFile).map(async (path) => ({ path, content: await readFile(join(project.root, path), "utf8").catch(() => "") })))).filter((f) => f.content);
   const report = verify({
     design: ctx.design,
     ...(scanned.length && { sources: scanned }),
@@ -274,4 +275,18 @@ export async function verifyEntry(host: AdapterHost, project: Project, ctx: Cont
   });
   report.warnings.push(...ctx.notes);
   return { report, ...(render?.status === "ok" && { png: render.png, elements: render.elements }) };
+}
+
+/** A component's files, relative to the project: its entry, its test, and the files beside the entry with its name. */
+export function componentFiles(root: string, entry: string, testFile?: string): string[] {
+  const stem = (p: string) => basename(p).split(".")[0]!;
+  const dir = dirname(entry);
+  const beside = (() => {
+    try {
+      return readdirSync(join(root, dir)).filter((f) => stem(f) === stem(entry) && /\.(tsx?|jsx?|vue|svelte|html|css|scss|less|dart|razor|cs|rs|kt|java)$/.test(f)).map((f) => (dir === "." ? f : `${dir}/${f}`));
+    } catch {
+      return [];
+    }
+  })();
+  return [...new Set([entry, ...(testFile ? [testFile] : []), ...beside].map((p) => p.replace(/\\/g, "/")))];
 }

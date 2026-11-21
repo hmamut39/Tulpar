@@ -8,5 +8,8 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OrderCardComponent {
+  /** The card's heading. */
   readonly title = input("Order summary");
+  /** One line about the order. */
+  readonly summary = input("Two items, ready to ship.");
 }

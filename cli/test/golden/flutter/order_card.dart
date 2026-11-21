@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:tulpar_flutter_material/spacing.dart';
 
 class OrderCard extends StatelessWidget {
-  const OrderCard({super.key});
+  const OrderCard({super.key, this.title = 'Order summary', this.summary = 'Two items, ready to ship.'});
+
+  /// The card's heading.
+  final String title;
+
+  /// One line about the order.
+  final String summary;
 
   @override
   Widget build(BuildContext context) {
@@ -21,12 +27,12 @@ class OrderCard extends StatelessWidget {
             children: [
               Semantics(
                 identifier: '900:2',
-                child: Text('Order summary', style: theme.textTheme.titleLarge?.copyWith(color: scheme.onSurface)),
+                child: Text(title, style: theme.textTheme.titleLarge?.copyWith(color: scheme.onSurface)),
               ),
               const SizedBox(height: Space.sm),
               Semantics(
                 identifier: '900:3',
-                child: Text('Two items, ready to ship.', style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                child: Text(summary, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
               ),
             ],
           ),

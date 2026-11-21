@@ -28,12 +28,13 @@ import { isPlaceholder } from "../generate/page.ts";
 import { designFit, fitNote } from "./fit.ts";
 import { layoutCause, typeTokens } from "./layout-cause.ts";
 import { injectionNote, scanDesign } from "./injection.ts";
+import { contentTexts, hardCodedContent } from "./reusable.ts";
 import { scanSafety, type SourceFile } from "./safety.ts";
 
 export type CheckStatus = "pass" | "fail" | "not-checked";
 
 export interface Check {
-  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "tests" | "visual" | "states" | "safety";
+  id: "build" | "render" | "components" | "colors" | "type" | "spacing" | "layout" | "text" | "typeface" | "tests" | "visual" | "states" | "safety" | "reusable";
   title: string;
   status: CheckStatus;
   /** One line, used in the headline when the check ran. */
@@ -346,6 +347,7 @@ export function verify(input: VerifyInput): VerifyReport {
   checks.push(visualCheck(input, elements, skip, ok, fail));
   checks.push(statesCheck(input, elements, skip, ok, fail));
   checks.push(safetyCheck(input, skip, ok, fail));
+  checks.push(reusableCheck(input, root, skip, ok, fail));
 
   const mappedNode = (n: DesignNode) => n.kind === "instance" && !!(input.mapping.get(n.id) ?? input.mapping.get(n.component.id) ?? (n.component.set && input.mapping.get(n.component.set.id)));
   // Only for a Figma frame: a screenshot's colours and sizes are estimates, too rough to call gaps.
@@ -699,6 +701,25 @@ function round(n: number): number {
 }
 
 /** Nothing a component made from a design never needs: network calls, code from strings, secrets, raw HTML. */
+function reusableCheck(input: VerifyInput, root: DesignNode, skip: (id: Check["id"], t: string, r: string) => Check, ok: (id: Check["id"], t: string, s: string, d?: string[]) => Check, fail: (id: Check["id"], t: string, s: string, d?: string[]) => Check): Check {
+  const title = "Reusable";
+  if (!input.sources?.length) return skip("reusable", title, "no source files to read");
+  // A Web Components result is a page of markup using the design system's elements: its content is the page's own.
+  // Not a gap, so not "not checked": it would keep every such result from being verified.
+  if (input.sources.every((s) => /\.html?$/.test(s.path) || /[._-](test|spec)\./.test(s.path))) return ok("reusable", title, "a page of markup using the design system's elements: its content is the page's own");
+  const content = contentTexts(root);
+  if (!content.length) return ok("reusable", title, "the design has no content of its own to take as inputs");
+  const written = hardCodedContent(root, input.sources);
+  return written.length
+    ? fail(
+        "reusable",
+        title,
+        `${written.length} of ${content.length} pieces of content written into the markup instead of taken as inputs`,
+        written.map((w) => `✗ ${w.name} (${w.id}): "${w.text}" is written in place at ${w.file}:${w.line} — make it a typed input of the component whose default is "${w.text}", and show the input there`),
+      )
+    : ok("reusable", title, `all ${content.length} pieces of content are inputs with the design's values as defaults`);
+}
+
 function safetyCheck(input: VerifyInput, skip: (id: Check["id"], t: string, r: string) => Check, ok: (id: Check["id"], t: string, s: string, d?: string[]) => Check, fail: (id: Check["id"], t: string, s: string, d?: string[]) => Check): Check {
   const title = "Safe to ship";
   if (!input.sources?.length) return skip("safety", title, "no source files to scan");

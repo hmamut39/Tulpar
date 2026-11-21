@@ -15,10 +15,13 @@ describe("OrderCardComponent", () => {
     expect(host.querySelector("p")?.textContent?.trim()).toBe("Two items, ready to ship.");
   });
 
-  it("takes another title through its signal input", () => {
+  it("shows the order it is given, through its signal inputs", () => {
     const fixture = TestBed.createComponent(OrderCardComponent);
     fixture.componentRef.setInput("title", "Your order");
+    fixture.componentRef.setInput("summary", "Three items, on their way.");
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).querySelector("h2")?.textContent?.trim()).toBe("Your order");
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.querySelector("h2")?.textContent?.trim()).toBe("Your order");
+    expect(host.querySelector("p")?.textContent?.trim()).toBe("Three items, on their way.");
   });
 });

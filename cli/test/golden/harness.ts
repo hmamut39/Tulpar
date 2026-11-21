@@ -45,7 +45,7 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     entry: "OrderCard.tsx",
     style: "OrderCard.css",
     test: "OrderCard.test.tsx",
-    script: "export default function OrderCard() {",
+    script: "}: OrderCardProps) {",
     scale: { font: "IBM Plex Sans", title: [20, 28], body: [14, 20], padding: 16, gap: 8 },
     needs: "node_modules/@carbon/react",
   },
@@ -86,7 +86,7 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     entry: "OrderCard.tsx",
     style: "OrderCard.css",
     test: "OrderCard.test.tsx",
-    script: "export default function OrderCard() {",
+    script: "}: OrderCardProps) {",
     scale: { font: "Roboto", title: [20, 32], body: [14, 20], padding: 16, gap: 8, weights: [500, 400], colors: [[0.13, 0.13, 0.13], [0.4, 0.4, 0.4]] },
     needs: "node_modules/@mui/material",
   },
@@ -96,7 +96,7 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     entry: "OrderCard.tsx",
     style: "OrderCard.css",
     test: "OrderCard.test.tsx",
-    script: "export default function OrderCard() {",
+    script: "}: OrderCardProps) {",
     scale: { font: "Inter", title: [20, 30], body: [14, 21], padding: 16, gap: 8, weights: [600, 400], colors: [[0.0353, 0.0353, 0.0431], [0.3216, 0.3216, 0.3569]] },
     needs: "node_modules/@chakra-ui/react",
   },
@@ -106,7 +106,7 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     entry: "OrderCard.tsx",
     style: "OrderCard.css",
     test: "OrderCard.test.tsx",
-    script: "export default function OrderCard() {",
+    script: "}: OrderCardProps) {",
     scale: { font: "Inter", title: [20, 28], body: [14, 20], padding: 16, gap: 8, weights: [500, 400], colors: [[0.125, 0.125, 0.125], [0.392, 0.392, 0.392]] },
     needs: "node_modules/@radix-ui/themes",
   },
@@ -150,7 +150,7 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     entry: "OrderCard.tsx",
     style: "OrderCard.tsx",
     test: "OrderCard.test.tsx",
-    script: "export default function OrderCard() {",
+    script: "}: OrderCardProps) {",
     scale: { font: "Geist", title: [20, 28], body: [14, 20], padding: 16, gap: 8, weights: [600, 400], colors: [[0.0394, 0.0394, 0.0394], [0.4515, 0.4515, 0.4515]] },
     needs: "node_modules/tailwindcss",
     mutate: {
@@ -211,6 +211,23 @@ const mutants: { name: string; mutate: (f: Files, c: Case) => Files; fails: Chec
     fails: "tests",
     detail: /./,
   },
+  {
+    // The summary written into the markup instead of shown through its input: a picture of one order.
+    name: "content written in place",
+    mutate: (f) =>
+      Object.fromEntries(
+        Object.entries(f).map(([path, s]) => [
+          path,
+          /[._-](test|spec)\./.test(path)
+            ? s
+            : s
+                .replace(/\{\{\s*summary\(?\)?\s*\}\}|\{summary\}/, "Two items, ready to ship.")
+                .replace("Text(summary,", "Text('Two items, ready to ship.',"),
+        ]),
+      ),
+    fails: "reusable",
+    detail: /"Two items, ready to ship\." is written in place/,
+  },
 ];
 
 const failing = (r: VerifyReport) => r.checks.filter((c) => c.status === "fail").map((c) => `${c.id}: ${c.summary}\n  ${c.details.filter((d) => d.startsWith("✗")).join("\n  ")}`);
@@ -249,6 +266,8 @@ export function goldenSuite(c: Case): void {
     });
 
     for (const m of mutants) {
+      // A page of markup (Web Components) has no inputs: its content is the page's own.
+      if (m.fails === "reusable" && c.entry.endsWith(".html")) continue;
       it(`catches: ${m.name}`, async () => {
         const files = c.mutate?.[m.name]?.(reference) ?? m.mutate(reference, c);
         expect(files).not.toEqual(reference);

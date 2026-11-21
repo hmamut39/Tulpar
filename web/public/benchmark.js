@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const FRAMEWORKS = { react: "React", vue: "Vue", angular: "Angular", svelte: "Svelte", flutter: "Flutter", blazor: "Blazor (C#)", leptos: "Leptos (Rust)", compose: "Jetpack Compose (Kotlin)", vaadin: "Vaadin (Java)", "web-components": "Web Components" };
 const STATUS = { verified: ["pass", "Verified"], "unchecked-remain": ["skip", "No failures"], failed: ["fail", "Failed"] };
-const CHECKS = { components: "Components", colors: "Colours", type: "Type", spacing: "Spacing", layout: "Layout", text: "Text", typeface: "Typeface", tests: "Tests", visual: "Pixels", states: "States", build: "Build", render: "Render", safety: "Safety" };
+const CHECKS = { components: "Components", colors: "Colours", type: "Type", spacing: "Spacing", layout: "Layout", text: "Text", typeface: "Typeface", tests: "Tests", visual: "Pixels", states: "States", build: "Build", render: "Render", safety: "Safety", reusable: "Reusable" };
 // Product names for known packages, as the generate page shows them.
 const PRODUCTS = { "@carbon/react": "Carbon (IBM)", "@carbon/web-components": "Carbon (IBM)", "carbon-components-angular": "Carbon (IBM)", "carbon-components-svelte": "Carbon (IBM)", "@mui/material": "Material UI (MUI)", "@chakra-ui/react": "Chakra UI", "@radix-ui/themes": "Radix Themes", "@shoelace-style/shoelace": "Shoelace", primeng: "PrimeNG", "element-plus": "Element Plus", thaw: "Thaw" };
 const product = (label) => {
