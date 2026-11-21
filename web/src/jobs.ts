@@ -62,6 +62,8 @@ export class JobQueue {
 
   readonly #onFinish: ((job: Job, ms: number) => void) | undefined;
   #idle: (() => void)[] = [];
+  /** Exclusive turns (see exclusive), taken before the next waiting job. */
+  readonly #turns: (() => Promise<void>)[] = [];
 
   readonly #rerank: boolean;
 
@@ -74,7 +76,7 @@ export class JobQueue {
 
   /** Jobs waiting or running. */
   get pending(): number {
-    return this.#waiting.length + (this.#running ? 1 : 0);
+    return this.#waiting.length + this.#turns.length + (this.#running ? 1 : 0);
   }
 
   /** Resolves when nothing is running or waiting (for a graceful shutdown). */
@@ -133,8 +135,35 @@ export class JobQueue {
     };
   }
 
+  /**
+   * Runs `fn` with the queue to itself: after the job running now, before the next one waiting. A verification
+   * an agent asked for (no model) builds in the same project folders a generation does, so never beside one.
+   */
+  exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((done, failed) => {
+      this.#turns.push(async () => {
+        try {
+          done(await fn());
+        } catch (e) {
+          failed(e);
+        } finally {
+          this.#running = false;
+          if (!this.#waiting.length && !this.#turns.length) for (const r of this.#idle.splice(0)) r();
+          void this.#next();
+        }
+      });
+      void this.#next();
+    });
+  }
+
   async #next(): Promise<void> {
     if (this.#running) return;
+    const turn = this.#turns.shift();
+    if (turn) {
+      this.#running = true;
+      void turn();
+      return;
+    }
     const job = this.#waiting.shift();
     if (!job) return;
     this.#running = true;
@@ -237,7 +266,7 @@ function summary(r: GenerationResult): string {
 }
 
 /** The Figma file of the project's built-in design-system kit (tulpar.json figma.fileKey), shared by everyone. */
-function kitFileKey(projectDir: string): string | undefined {
+export function kitFileKey(projectDir: string): string | undefined {
   try {
     return (JSON.parse(readFileSync(join(projectDir, "tulpar.json"), "utf8")) as { figma?: { fileKey?: string } }).figma?.fileKey;
   } catch {

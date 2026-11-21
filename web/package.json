@@ -4,10 +4,17 @@
   "private": true,
   "type": "module",
   "description": "The Tulpar web page: paste a Figma link, get verified component files.",
-  "scripts": { "start": "node src/server.ts" },
+  "scripts": {
+    "start": "node src/server.ts"
+  },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.1.0",
     "@tulpar/cli": "0.0.0",
     "@tulpar/core": "0.0.0",
-    "fflate": "0.8.3"
+    "fflate": "0.8.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.1.0"
   }
 }

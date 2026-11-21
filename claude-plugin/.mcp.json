@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "tulpar": {
+      "type": "http",
+      "url": "https://tulparsi.com/mcp",
+      "headers": { "Authorization": "Bearer ${TULPAR_KEY}" }
+    }
+  }
+}

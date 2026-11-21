@@ -33,7 +33,9 @@ import { Accounts, type Account } from "./accounts.ts";
 import { authFromEnv, clearSession, finishSignIn, sessionAccount, setSession, signInNext, startSignIn, type AuthConfig } from "./auth.ts";
 import { applyEvent, billingFromEnv, checkoutUrl, portalUrl, revenue, verifyWebhook, type BillingConfig, type Revenue } from "./billing.ts";
 import { addProject, type AddJob, type Framework } from "./custom-projects.ts";
-import { JobQueue, type JobInput } from "./jobs.ts";
+import { JobQueue, kitFileKey, type JobInput } from "./jobs.ts";
+import { hostedServer } from "./hosted-mcp.ts";
+import { createMcpHandler } from "@modelcontextprotocol/server";
 import { zipFiles } from "./zip.ts";
 
 export interface ServerOptions {
@@ -265,11 +267,51 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
     return account ? { account } : {};
   };
 
+  // Hosted MCP calls per account in the last hour: checks and verifications run no model, but use the machine.
+  const mcpCalls = new Map<number, number[]>();
+  const MCP_PER_HOUR = Number(process.env.TULPAR_MCP_PER_HOUR || 60);
+  const serveMcp = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST, DELETE", "access-control-allow-headers": "authorization, content-type, mcp-protocol-version, mcp-session-id", "access-control-max-age": "600" });
+      res.end();
+      return;
+    }
+    res.setHeader("access-control-allow-origin", "*");
+    // A key, never the site's cookie: a page on another site cannot spend someone's account through their browser.
+    const bearer = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization ?? ""))?.[1];
+    const account = bearer && accounts ? accounts.byToken(bearer) : undefined;
+    if (!account) {
+      res.writeHead(401, { "content-type": "application/json", "www-authenticate": 'Bearer realm="tulpar"' });
+      res.end(JSON.stringify({ error: "Send an account key as Authorization: Bearer <key>. Create one at https://tulparsi.com/connect." }));
+      return;
+    }
+    const body = req.method === "POST" ? await readRaw(req) : undefined;
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers.set(k, v);
+    const allow = () => {
+      const recent = (mcpCalls.get(account.id) ?? []).filter((t) => Date.now() - t < 3_600_000);
+      if (recent.length >= MCP_PER_HOUR) return false;
+      recent.push(Date.now());
+      mcpCalls.set(account.id, recent);
+      return true;
+    };
+    const handler = createMcpHandler(() => hostedServer({ repoRoot: options.repoRoot, projects, exclusive: (fn) => queue.exclusive(fn), allow, kitFileKey }));
+    try {
+      const response = await handler.fetch(new Request(`http://localhost${req.url ?? "/mcp"}`, { method: req.method ?? "GET", headers, ...(body !== undefined && { body }) }));
+      res.writeHead(response.status, Object.fromEntries(response.headers));
+      res.end(Buffer.from(await response.arrayBuffer()));
+    } finally {
+      await handler.close();
+    }
+  };
+
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? "/", "http://localhost");
       const path = url.pathname;
       securityHeaders(res);
+      // The hosted MCP server (web/src/hosted-mcp.ts): an agent's verifier, signed in with an account key only.
+      if (path === "/mcp") return await serveMcp(req, res);
       // Apps on other origins (the Figma plugin, whose page has none) call the API with their key
       // (Authorization: Bearer), never with the site's cookie: a cross-origin request carries no
       // credentials, so allowing any origin spends no one's allowance.

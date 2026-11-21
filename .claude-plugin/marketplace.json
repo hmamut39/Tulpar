@@ -1,0 +1,15 @@
+{
+  "name": "tulpar",
+  "owner": { "name": "Mamuti Aishan (Hasan)", "url": "https://tulparsi.com" },
+  "description": "Tulpar: checks the UI code an agent writes against your design system and the Figma design.",
+  "plugins": [
+    {
+      "name": "tulpar",
+      "source": "./claude-plugin",
+      "description": "Checks every UI component your agent writes against your design system (tokens, components, nothing unsafe) and verifies it against the Figma frame in a sandboxed browser, with the exact fix for each failure.",
+      "version": "0.1.0",
+      "category": "development",
+      "tags": ["design-system", "figma", "ui", "verification", "frontend"]
+    }
+  ]
+}

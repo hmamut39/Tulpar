@@ -62,6 +62,30 @@ npm run tulpar -- verify examples/carbon-react impl/modal-footer.tsx --frame 390
 npm run mcp                 # the MCP server, for AI coding assistants
 ```
 
+## For AI coding agents: the Claude Code plugin and the hosted MCP server
+
+Your agent writes the UI; Tulpar checks it. Nothing to install but the plugin:
+
+1. Create an account key at [tulparsi.com/connect](https://tulparsi.com/connect), and set it with your project's design system:
+   ```sh
+   export TULPAR_KEY=tlp_…            # your key
+   export TULPAR_PROJECT=carbon-react  # your design system (tulpar_projects lists them)
+   ```
+2. In Claude Code:
+   ```
+   /plugin marketplace add hmamut39/Tulpar
+   /plugin install tulpar@tulpar
+   ```
+
+You get:
+
+- **A check after every edit.** When the agent changes a UI file, Tulpar checks the component (hard-coded values that should be tokens, tokens that don't exist, unsafe code) and hands the findings straight back to the agent.
+- **`tulpar_verify`.** The agent sends its files and the Figma frame; Tulpar builds and renders them in a sandbox and checks them against the frame. Each failure comes back as data: the element, what is wrong, and the exact token that fixes it.
+- **A `design-verifier` agent** that verifies changed components, fixes what fails, and reports.
+- **The skill** that tells the agent when to use all of it.
+
+Any other MCP client (Cursor, VS Code, Windsurf) can use the hosted server directly: `https://tulparsi.com/mcp`, with the header `Authorization: Bearer <your key>`. Checks and verifications run no model and don't use your generations; your code is run only in the sandbox, and deleted when the call ends.
+
 ## Architecture
 
 - **Core.** Framework-free: the design model from Figma or a screenshot, the component index, matching, generation and verification.

@@ -1,0 +1,10 @@
+{
+  "name": "tulpar",
+  "displayName": "Tulpar",
+  "version": "0.1.0",
+  "description": "Checks every UI component your agent writes against your design system and verifies it against the Figma frame, with the exact fix for each failure.",
+  "author": { "name": "Mamuti Aishan (Hasan)", "url": "https://tulparsi.com" },
+  "homepage": "https://tulparsi.com",
+  "repository": "https://github.com/hmamut39/Tulpar",
+  "keywords": ["design-system", "figma", "ui", "verification", "tokens"]
+}
