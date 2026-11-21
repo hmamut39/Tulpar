@@ -331,7 +331,7 @@ describe("verify", () => {
     it("passes with none, and says when the renderer cannot be audited", () => {
       expect(audited([]).status).toBe("pass");
       expect(audited([v("color-contrast", "Elements must meet minimum color contrast ratio thresholds", { figmaId: "2:1" })]).status).toBe("pass");
-      expect(audited(undefined)).toMatchObject({ status: "not-checked", summary: expect.stringMatching(/draws on a canvas/) });
+      expect(audited(undefined)).toMatchObject({ status: "not-checked", summary: expect.stringMatching(/ran no WCAG audit: it draws on a canvas/) });
     });
   });
 

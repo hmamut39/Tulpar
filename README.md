@@ -81,6 +81,7 @@ You get:
 
 - **A check after every edit.** When the agent changes a UI file, Tulpar checks the component (hard-coded values that should be tokens, tokens that don't exist, unsafe code) and hands the findings straight back to the agent.
 - **`tulpar_verify`.** The agent sends its files and the Figma frame; Tulpar builds and renders them in a sandbox and checks them against the frame. Each failure comes back as data: the element, what is wrong, and the exact token that fixes it.
+- **`tulpar_generate` and `tulpar_result`.** Tulpar writes the component itself from a Figma frame or a screenshot, verified and repaired, in your design system; it uses one of your generations, like the web page. The first returns a job id at once, the second the progress and then the files and findings.
 - **A `design-verifier` agent** that verifies changed components, fixes what fails, and reports.
 - **The skill** that tells the agent when to use all of it.
 

@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
-import type { ScriptedLlm } from "@tulpar/core";
+import { ScriptedLlm } from "@tulpar/core";
 import { Accounts } from "../src/accounts.ts";
 import { safePath } from "../src/hosted-mcp.ts";
 import { startServer } from "../src/server.ts";
@@ -20,13 +20,15 @@ const installed = existsSync(join(repo, "examples/carbon-react/node_modules/@car
 describe("hosted MCP server", { timeout: 240_000 }, () => {
   let server: { url: string; close: () => Promise<void> };
   const accounts = new Accounts(":memory:", { trial: 1, pro: 5 });
-  const never = { name: "never", complete: () => new Promise<never>(() => {}) } as unknown as ScriptedLlm;
+  // The model answers with the golden reference: a real job runs through the queue, at no cost.
+  const golden = readdirSync(reference).map((f) => ({ path: f, content: readFileSync(join(reference, f), "utf8") }));
+  const model = new ScriptedLlm([{ files: golden, notes: "" }]);
   const auth = { clientId: "id", clientSecret: "secret", sessionSecret: "s3cret", origin: "http://localhost", secureCookies: false };
   let client: Client;
   let key = "";
 
   beforeAll(async () => {
-    server = await startServer({ repoRoot: repo, llm: () => never, auth, accounts, runsPerHour: 100, log: () => {} }, 0);
+    server = await startServer({ repoRoot: repo, llm: () => model, auth, accounts, runsPerHour: 100, log: () => {}, rerank: false }, 0);
     const me = accounts.signIn({ githubId: 7, login: "agent-owner" });
     key = accounts.createToken(me.id, "mcp");
     client = new Client({ name: "test-agent", version: "1.0.0" });
@@ -45,7 +47,7 @@ describe("hosted MCP server", { timeout: 240_000 }, () => {
 
   it("lists its tools and the design systems", async () => {
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(["tulpar_check", "tulpar_projects", "tulpar_verify"]);
+    expect(tools).toEqual(["tulpar_check", "tulpar_generate", "tulpar_projects", "tulpar_result", "tulpar_verify"]);
     const r = await client.callTool({ name: "tulpar_projects", arguments: {} });
     expect((r.structuredContent as { projects: { id: string }[] }).projects.map((p) => p.id)).toContain("carbon-react");
   });
@@ -87,6 +89,28 @@ describe("hosted MCP server", { timeout: 240_000 }, () => {
     expect(context.additionalContext).toMatch(/Card\.css:2 hard-coded/);
     const silent = await run({ TULPAR_KEY: "", TULPAR_PROJECT: "carbon-react", TULPAR_URL: server.url });
     expect(silent).toEqual({ code: 0, out: "" });
+  });
+
+  it.skipIf(!installed)("generates through the site's own jobs, charged to the account, and returns the verified files when done", async () => {
+    const figmaNode = orderCard({ font: "IBM Plex Sans", title: [20, 28], body: [14, 20], padding: 16, gap: 8 });
+    const started = await client.callTool({ name: "tulpar_generate", arguments: { project: "carbon-react", name: "OrderCard", figmaNode } });
+    const { jobId } = started.structuredContent as { jobId: string };
+    expect(jobId).toMatch(/^[a-f0-9-]{36}$/);
+    let r: { state: string; status?: string; files?: { path: string; content: string }[]; findings?: unknown[] } = { state: "queued" };
+    for (let i = 0; i < 90 && (r.state === "queued" || r.state === "running"); i++) {
+      if (i) await new Promise((done) => setTimeout(done, 2000));
+      r = (await client.callTool({ name: "tulpar_result", arguments: { jobId } })).structuredContent as typeof r;
+    }
+    expect(r.state).toBe("done");
+    expect(["verified", "unchecked-remain"]).toContain(r.status);
+    expect(r.findings).toEqual([]);
+    expect(r.files!.map((f) => f.path).sort()).toEqual(["OrderCard.css", "OrderCard.test.tsx", "OrderCard.tsx"]);
+    // The trial had one generation: it is spent, and the next one is refused as from the page.
+    const again = await client.callTool({ name: "tulpar_generate", arguments: { project: "carbon-react", name: "OrderCard", figmaNode } });
+    expect(again.isError).toBe(true);
+    // The clean copy, as a team ships it.
+    const clean = (await client.callTool({ name: "tulpar_result", arguments: { jobId, withoutFigmaIds: true } })).structuredContent as typeof r;
+    expect(clean.files!.find((f) => f.path === "OrderCard.tsx")!.content).not.toContain("data-figma-id");
   });
 
   it("refuses a path that leaves the component's folder", async () => {

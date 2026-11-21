@@ -724,7 +724,7 @@ function accessibleCheck(input: VerifyInput, root: DesignNode, skip: (id: Check[
   const title = "Accessible";
   const render = input.render;
   if (!render || render.status !== "ok") return skip("accessible", title, "nothing rendered to audit");
-  if (!render.a11y) return skip("accessible", title, "this renderer draws on a canvas: the WCAG audit needs the page's markup");
+  if (!render.a11y) return skip("accessible", title, "the renderer ran no WCAG audit: it draws on a canvas (Flutter, Compose), or its machine predates the audit");
   const names = new Map<string, string>();
   walk(root, (n) => void names.set(n.id, n.name));
   const own = new Set<string>();

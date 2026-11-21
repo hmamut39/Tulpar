@@ -303,7 +303,17 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
       mcpCalls.set(account.id, recent);
       return true;
     };
-    const handler = createMcpHandler(() => hostedServer({ repoRoot: options.repoRoot, projects, exclusive: (fn) => queue.exclusive(fn), allow, kitFileKey }));
+    // Generation goes through this server's own /api/jobs as the caller: their key, and their address as the
+    // proxy reported it (so the hourly limit stays theirs), charged and refunded exactly as from the page.
+    const address = server.address();
+    const self = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    const api = (path: string, init: { method?: string; body?: unknown } = {}) =>
+      fetch(`${self}${path}`, {
+        method: init.method ?? "GET",
+        headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json", "x-forwarded-for": clientId(req, trustProxy) },
+        ...(init.body !== undefined && { body: JSON.stringify(init.body) }),
+      });
+    const handler = createMcpHandler(() => hostedServer({ repoRoot: options.repoRoot, projects, exclusive: (fn) => queue.exclusive(fn), allow, kitFileKey, api }));
     try {
       const response = await handler.fetch(new Request(`http://localhost${req.url ?? "/mcp"}`, { method: req.method ?? "GET", headers, ...(body !== undefined && { body }) }));
       res.writeHead(response.status, Object.fromEntries(response.headers));

@@ -36,6 +36,11 @@ export interface HostedOptions {
   allow: () => boolean;
   /** The Figma file of a project's own kit, which stays cached for everyone. */
   kitFileKey: (projectDir: string) => string | undefined;
+  /**
+   * Calls this server's own API as the caller (their key, their address): generation goes through /api/jobs, so it
+   * is charged, limited, queued and refunded exactly as from the web page.
+   */
+  api: (path: string, init?: { method?: string; body?: unknown }) => Promise<Response>;
 }
 
 const MAX_FILES = 20;
@@ -184,6 +189,66 @@ export function hostedServer(o: HostedOptions): McpServer {
         const key = ref?.fileKey;
         if (args.figmaToken && key && key !== o.kitFileKey(p.dir) && /^[\w-]+$/.test(key)) rmSync(resolve(o.repoRoot, ".cache/figma", key), { recursive: true, force: true });
       }
+    },
+  );
+
+  server.registerTool(
+    "tulpar_generate",
+    {
+      title: "Generate a verified component from a Figma frame or a screenshot",
+      description:
+        "Starts writing a component in the project's design system from a Figma frame (figmaUrl with node-id and figmaToken, or figmaNode) or a screenshot (image), then building, rendering, checking and repairing it. Uses one of the account's generations. Takes one to three minutes: returns a jobId at once; call tulpar_result with it every 15 seconds until it is done.",
+      inputSchema: z.object({
+        project: z.string().describe("Project id from tulpar_projects"),
+        name: z.string().describe("PascalCase component name, e.g. CheckoutCard"),
+        figmaUrl: z.string().optional().describe("A Figma frame link (right-click the frame → Copy link to selection)"),
+        figmaToken: z.string().optional().describe("A Figma personal access token to read the frame (used for this job only, never stored)"),
+        figmaNode: z.record(z.string(), z.unknown()).optional().describe("The frame as Figma's REST JSON ({ document, components, componentSets, styles }), instead of a link and token"),
+        image: z.string().optional().describe("A screenshot of the design as a data URL (data:image/png;base64,…), alone or with the frame"),
+        language: z.enum(["typescript", "javascript"]).optional().describe("React, Vue and Svelte: TypeScript (default) or JavaScript"),
+        styling: z.enum(["css", "css-modules", "scss", "less", "tailwind", "styled-components", "emotion"]).optional().describe("The stylesheet language, as the project allows"),
+      }),
+      outputSchema: z.object({ jobId: z.string(), state: z.string() }),
+    },
+    async (args) => {
+      const res = await o.api("/api/jobs", { method: "POST", body: { ...args } });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !data.id) return refuse(data.error ?? `Tulpar could not start the job (${res.status}).`);
+      return { ...text(`Started: jobId ${data.id}. Call tulpar_result with it every 15 seconds until it is done.`), structuredContent: { jobId: data.id, state: "queued" } };
+    },
+  );
+
+  server.registerTool(
+    "tulpar_result",
+    {
+      title: "The state or result of a generation",
+      description:
+        "The progress of a tulpar_generate job, or, once done, its files, each check, and `findings` (each failure's element, problem and fix). Jobs are kept for an hour. withoutFigmaIds returns the files without the data-figma-id markers the checks used.",
+      inputSchema: z.object({ jobId: z.string().describe("The jobId tulpar_generate returned"), withoutFigmaIds: z.boolean().optional() }),
+      outputSchema: z.object({
+        state: z.string(),
+        progress: z.array(z.string()),
+        status: z.string().optional(),
+        files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
+        checks: checksShape.optional(),
+        findings: findingsShape.optional(),
+        notes: z.array(z.string()).optional(),
+        error: z.string().optional(),
+      }),
+    },
+    async (args) => {
+      if (!/^[a-f0-9-]{36}$/.test(args.jobId)) return refuse("That is not a jobId from tulpar_generate.");
+      const res = await o.api(`/api/jobs/${args.jobId}${args.withoutFigmaIds ? "?clean=1" : ""}`);
+      if (res.status === 404) return refuse("No such job: jobs are kept for an hour.");
+      type View = { state: string; events: { text: string }[]; error?: string; result?: { status: string; files: { path: string; content: string }[]; report?: VerifyReport } };
+      const job = (await res.json()) as View;
+      const progress = job.events.slice(-5).map((e) => e.text);
+      if (job.state === "queued" || job.state === "running") return { ...text(`Still ${job.state}: ${progress.at(-1) ?? ""} Call again in 15 seconds.`), structuredContent: { state: job.state, progress } };
+      if (!job.result) return refuse(`The job ended without a result: ${job.error ?? job.state}`);
+      const r = job.result;
+      const structured = { state: job.state, progress, status: r.status, files: r.files, ...(r.report && { checks: r.report.checks.map(({ id, status, summary }) => ({ id, status, summary })), findings: findingsOf(r.report), notes: r.report.warnings }) };
+      const lines = [`${r.status}.`, ...(r.report ? [reportText(r.report)] : []), "", ...r.files.map((f) => `--- ${f.path}\n${f.content}`)];
+      return { ...text(lines.join("\n")), structuredContent: structured };
     },
   );
 
