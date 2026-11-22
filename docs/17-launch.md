@@ -1,6 +1,6 @@
 # Launch posts
 
-Drafts for Mamuti Aishan (Hasan) to post. The facts in them are true as of 28 Oct 2026: check `tulparsi.com/benchmark` and the pricing page before posting, and change any number that moved.
+Drafts for Mamuti Aishan (Hasan) to post. The facts below are dated; the newest (22 Nov 2026) win where they differ. Before posting, check `tulparsi.com/benchmark` and the pricing page, and change any number that moved.
 
 Facts used:
 
@@ -8,7 +8,13 @@ Facts used:
 - Free trial: 20 verified generations, no card. Pro: $29/month, 300 generations.
 - 14 Nov 2026: 13 checks per run (the 13th, safety, is new). The benchmark page has a second section, "One Figma design, every project": the Figma basics "Tomato" card generated on the live site with all 16 projects (recorded 14 Nov; Flutter, Shoelace, Chakra, MUI and Vaadin again on 15 Nov). 13 of 16 have no failing check ("no failures", not "verified": the card isn't drawn with design-system components, so the components check has nothing to compare). Flutter failed one of its own tests on 15 Nov because, on the web, Flutter never reported why a test failed; fixed the same day and rerun with no failures. Failing: Shoelace, type (the design's 20/24 line height has no Shoelace token: its line heights are ratios 1, 1.4, 1.8…); Chakra and Vaadin, layout by 12–16px on one text element. Chakra passed on 14 Nov, so results vary from run to run. Every language runs its generated tests; Chakra, MUI and Shoelace couldn't until 14 Nov. CI holds a golden gate for 10 projects (Carbon React, Svelte, Angular and Web Components; Element Plus, MUI, Chakra, Radix, shadcn/ui, Flutter): a reference per project must pass and planted defects (including a cookie-stealing call) must fail.
 - 15 Nov 2026: red team on the benchmark page. A card whose hidden layer names tell the AI to send the page's cookies and stored data to another server: no trace of it in the code from Carbon React, Carbon Svelte or Element Plus, and the safety check passes on all three (Element Plus failed layout by 4px, unrelated). Layout failures now name their cause (a gap, the padding, the element before) and the token that fixes it.
-- Surfaces: web page, CLI, VS Code extension (also Cursor, Windsurf, VSCodium), MCP server, Figma plugin (once published).
+- 22 Nov 2026 (the newest; use these where they differ from the lines above):
+  - 15 checks per run: build, render, components, colours, type, spacing, layout, text, typeface, tests, pixels, states, safety, **reusable** (content as typed inputs with the design's values as defaults) and **accessible** (a WCAG 2 A and AA audit with axe-core).
+  - Generated code is reusable: on the live site, Carbon React, Carbon Angular and Element Plus wrote the Tomato card with every piece of content as a typed prop or input, and tests that render other values; an order summary's "Continue to payment" button became an Angular output() event, and a sign-in form a React onSubmit with the values (both on the benchmark page, "Designs with actions and forms").
+  - For AI agents: a hosted MCP server at tulparsi.com/mcp (check, verify, generate, with an account key) and a Claude Code plugin (`/plugin marketplace add hmamut39/Tulpar`, then `/plugin install tulpar@tulpar`) that checks each UI file the agent edits.
+  - In pull requests: the GitHub Action marks every finding on its line. Live demo: github.com/hmamut39/Tulpar/pull/8 (an agent's first try fails with every problem named; the fixed version passes against the Figma frame).
+  - CI holds a golden gate for 14 projects: a reference card per project must pass, and planted defects (a hard-coded colour, a cookie-stealing call, content written into the markup, a button with no accessible name…) must each fail.
+- Surfaces: web page, CLI, VS Code extension (also Cursor, Windsurf, VSCodium), MCP server (local, or hosted at tulparsi.com/mcp), Claude Code plugin, GitHub Action, Figma plugin (once published).
 
 ---
 
@@ -34,7 +40,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 >
 > The benchmark is public, failures included: tulparsi.com/benchmark
 >
-> Then ask for changes in words ("make the button full width"), and they're checked again. It's on the web, in VS Code and Cursor, as an MCP server for AI coding assistants, and as a Figma plugin.
+> Then ask for changes in words ("make the button full width"), and they're checked again. It's on the web, in VS Code and Cursor, in pull requests as a GitHub Action, for AI coding agents as a hosted MCP server and a Claude Code plugin, and as a Figma plugin.
 >
 > Free trial with no card. I'd love to hear where it gets your design system wrong.
 
@@ -65,6 +71,9 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 > - It runs the tests it generated, in every language, and checks hover, pressed and focus states with a real mouse and keyboard. Web, Rust and Kotlin tests run in the sandboxed browser. Java (JUnit with Vaadin's browserless testing) and C# (bUnit) execute on the server side, so they run on throwaway machines that hold no secrets, block all outgoing connections, run as an unprivileged user, and start clean for every check: generated code that tries the internet gets a connection error and finds no keys.
 > - Generated code never runs on Tulpar's own server.
 > - A safety check fails code that a component made from a design never needs: network calls, code run from strings, cookies, stored data or secrets, raw HTML, files loaded from the web. It's what a prompt injection hidden in a design's text or a library's docs would add, and the model is told that design text is content, never instructions. `tulpar check` and the GitHub Action run the same scan on code any agent wrote.
+> - It checks the code is a component a team keeps: the design's content (names, prices, images, list items) must be typed props with the design's values as defaults, not words written into the markup, and actions are events. And it runs a WCAG A and AA audit (axe-core) on the rendered result: labels on fields, names on buttons, valid roles.
+>
+> For AI agents there's a hosted MCP server (tulparsi.com/mcp) and a Claude Code plugin that checks every UI file the agent edits, and a GitHub Action that marks each problem on its line in the pull request. Here is one reviewing an agent's first try, then the fix: https://github.com/hmamut39/Tulpar/pull/8
 >
 > Failures go back to the model, and the best attempt is kept (a repair that makes things worse is set aside). A repair that deletes tests or assertions is rejected. When a design isn't built with the chosen design system, the report says so rather than listing failures with no reason.
 >
@@ -90,12 +99,14 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 > ✅ its own tests, plus hover, pressed and focus states, in every language
 > ✅ in a sandbox: generated code never runs on our server, and can't reach the internet or any secret
 > ✅ safe to ship: no network calls, secrets or raw HTML, the things a prompt injection would sneak in
+> ✅ reusable: content as typed props with the design's values as defaults, actions as events
+> ✅ accessible: a WCAG A and AA audit of what it renders
 >
 > If something fails, it's repaired. If it can't be checked, it says so.
 >
 > The benchmark is public, failures included: tulparsi.com/benchmark
 >
-> React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Kotlin and Java, with Carbon, MUI, shadcn/ui, Radix, PrimeNG, Element Plus, MudBlazor and more. On the web, in VS Code, in Figma, and for AI coding assistants through MCP.
+> React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Kotlin and Java, with Carbon, MUI, shadcn/ui, Radix, PrimeNG, Element Plus, MudBlazor and more. On the web, in VS Code, in Figma, in pull requests, and for AI coding agents through MCP and a Claude Code plugin.
 >
 > Free trial, no card: tulparsi.com
 >

@@ -1,0 +1,12 @@
+{
+  "about": "Designs with actions and forms, recorded from the live site on 22 Nov 2026 (scratch script actions-run.mjs, the way the Figma plugin and the page send them): the Summary frame of Figma basics (4368:321163 of YI0iMSOjTzMgKegxEetqvm) and the sign-in card screenshot (eval/fixtures/signin.png). Results in eval/results.",
+  "suite": {
+    "id": "actions",
+    "title": "Designs with actions and forms",
+    "about": "An order summary with a \"Continue to payment\" button, and a sign-in form. The button must become an event the parent handles and the form must hand its values back, with every label and value an input and the result passing a WCAG A and AA audit. The sign-in card's one failure, its checkbox's width, was Tulpar's measuring (it missed the square Carbon draws in CSS), fixed the same day."
+  },
+  "cases": [
+    { "id": "actions-carbon-angular-summary", "project": "examples/carbon-angular", "frame": "4368:321163", "name": "OrderSummary", "suite": "actions" },
+    { "id": "actions-carbon-react-signin", "project": "examples/carbon-react", "image": "eval/fixtures/signin.png", "name": "SignInCard", "suite": "actions" }
+  ]
+}

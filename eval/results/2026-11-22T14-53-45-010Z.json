@@ -1,0 +1,55 @@
+{
+  "at": "2026-11-22T14:53:45.010Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com): a Figma frame as the plugin sends it, and a screenshot as the page sends it",
+  "results": [
+    {
+      "id": "actions-carbon-angular-summary",
+      "status": "unchecked-remain",
+      "attempts": 1,
+      "inputTokens": 5466,
+      "outputTokens": 3184,
+      "seconds": 84,
+      "checks": {
+        "build": true,
+        "render": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "states": true,
+        "safety": true,
+        "reusable": true,
+        "accessible": true
+      }
+    },
+    {
+      "id": "actions-carbon-react-signin",
+      "status": "failed",
+      "attempts": 3,
+      "inputTokens": 24277,
+      "outputTokens": 10462,
+      "seconds": 361,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": false,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true,
+        "reusable": true,
+        "accessible": true
+      }
+    }
+  ]
+}

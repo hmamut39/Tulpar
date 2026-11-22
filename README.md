@@ -45,7 +45,10 @@ Verdict: VERIFIED
 - **Typeface:** the class of typeface drawn, as designed.
 - **Pixels:** the render compared with the screenshot or Figma's image, with the differing regions named.
 - **States:** each interactive element hovered, pressed and keyboard-focused for real: focus must be visible (WCAG 2.4.7), the layout must not shift, state colours must be tokens.
-- **Tests:** the generated tests run in a real browser (Vitest browser mode), and are written to test what a user sees and does.
+- **Tests:** the generated tests run, in every language (in a real browser, or for Java and C# on throwaway runner machines), and are written to test behaviour: what a user sees and does, and what the component does with other inputs.
+- **Reusable:** the design's content (titles, names, prices, images, list items) is the component's typed inputs, with the design's values as defaults, not words written into the markup; actions are events or callbacks.
+- **Accessible:** a WCAG 2 A and AA audit (axe-core) of the rendered component: labels tied to fields, names on buttons and images, valid roles. The design's own contrast is a note, not a failure of the code.
+- **Safe to ship:** no network calls, code run from strings, cookies, stored data, secrets or raw HTML, which a prompt injection in a design's text would add. Text in a design addressed to an AI is named in the report.
 
 ## Run it yourself
 
