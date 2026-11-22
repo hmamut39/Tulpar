@@ -15,6 +15,8 @@ import { orderCard, type Scale } from "../../src/order-card.ts";
 
 export { orderCard };
 import { flutterBin } from "../../../adapters/flutter/src/sdk.ts";
+import { dotnetBin } from "../../../adapters/blazor/src/sdk.ts";
+import { cargoFound } from "../../../adapters/leptos/src/sdk.ts";
 
 const repo = resolve(import.meta.dirname, "../../..");
 const golden = import.meta.dirname;
@@ -26,7 +28,12 @@ export interface Case {
   entry: string;
   /** The file holding the styles (the entry itself for a single-file component). */
   style: string;
-  test: string;
+  /** Its test file; none where the tests run on a remote machine (Blazor's bUnit). */
+  test?: string;
+  /** The checks that must have passed on the reference (default: the core checks, tests included). */
+  ran?: Check["id"][];
+  /** Planted defects that do not apply to this project (by name). */
+  skipMutants?: string[];
   /** A line of the entry's script after which a planted call goes. */
   script: string;
   scale: Scale;
@@ -145,6 +152,41 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     needs: "node_modules/@shoelace-style/shoelace",
   },
   {
+    // Blazor (C#) with MudBlazor: MudText's Typo (h6 500 20/32, body2 14/20), MudStack's spacing, the pa-4 class,
+    // [Parameter] properties. Its bUnit tests run on a remote runner, so there are none here.
+    project: "examples/blazor-mud",
+    reference: "blazor",
+    entry: "OrderCard.razor",
+    style: "OrderCard.razor.css",
+    script: "@code {",
+    scale: { font: "Roboto", title: [20, 32], body: [14, 20], padding: 16, gap: 8, weights: [500, 400], colors: [[0.2588, 0.2588, 0.2588], [0.2588, 0.2588, 0.2588]] },
+    needs: "obj/project.assets.json",
+    available: () => !!dotnetBin(),
+    ran: ["build", "render", "colors", "type", "spacing", "layout", "text", "safety", "reusable", "accessible"],
+    skipMutants: ["a test that fails"],
+    mutate: {
+      "no padding: everything inside sits in the corner": (f) => edit(f, "OrderCard.razor", (s) => s.replace("order-card pa-4", "order-card")),
+      "planted call that sends cookies to another server": (f) => edit(f, "OrderCard.razor", (s) => s.replace("@code {", "@code {\n    private readonly System.Net.Http.HttpClient leak = new();")),
+      "content written in place": (f) => edit(f, "OrderCard.razor", (s) => s.replace(">@Summary<", ">Two items, ready to ship.<")),
+      "a button with no accessible name": (f) => edit(f, "OrderCard.razor", (s) => s.replace('<MudText Typo="Typo.h6"', '<button type="button"></button><MudText Typo="Typo.h6"')),
+    },
+  },
+  {
+    // Leptos (Rust) with Thaw: Fluent's tokens (20/28 600, 14/20), #[prop] defaults, wasm tests in the browser.
+    project: "examples/leptos-thaw",
+    reference: "leptos",
+    entry: "order_card.rs",
+    style: "order_card.css",
+    test: "order_card_test.rs",
+    script: ") -> impl IntoView {",
+    scale: { font: "Segoe UI", title: [20, 28], body: [14, 20], padding: 16, gap: 12, weights: [600, 400], colors: [[0.1412, 0.1412, 0.1412], [0.2588, 0.2588, 0.2588]] },
+    needs: "Cargo.lock",
+    available: () => cargoFound(),
+    mutate: {
+      "content written in place": (f) => edit(f, "order_card.rs", (s) => s.replace("{summary}", '"Two items, ready to ship."')),
+    },
+  },
+  {
     // Tailwind: the design system is the theme's classes, so the mutants edit classes, not a stylesheet.
     project: "examples/shadcn",
     reference: "shadcn",
@@ -208,7 +250,7 @@ const mutants: { name: string; mutate: (f: Files, c: Case) => Files; fails: Chec
   },
   {
     name: "a test that fails",
-    mutate: (f, c) => edit(f, c.test, (s) => s.replace("Two items, ready to ship.", "Three items")),
+    mutate: (f, c) => edit(f, c.test!, (s) => s.replace("Two items, ready to ship.", "Three items")),
     fails: "tests",
     detail: /./,
   },
@@ -260,7 +302,7 @@ export function goldenSuite(c: Case): void {
       const project = await loadProject(root);
       return withAdapter(project, async (host) => {
         const ctx = await loadContext(host, project, { frame: "900:1", node: design }, join(repo, "out"), join(repo, ".cache/figma"));
-        return (await verifyEntry(host, project, ctx, rel(c.entry), undefined, rel(c.test))).report;
+        return (await verifyEntry(host, project, ctx, rel(c.entry), undefined, c.test ? rel(c.test) : undefined)).report;
       });
     }
 
@@ -273,7 +315,7 @@ export function goldenSuite(c: Case): void {
     it("passes the reference: no check fails, and the core checks ran", () => {
       expect(failing(baseline)).toEqual([]);
       const ran = baseline.checks.filter((x) => x.status === "pass").map((x) => x.id);
-      for (const id of ["build", "render", "colors", "type", "spacing", "layout", "text", "tests", "safety"] as const) expect(ran, `${id} did not pass`).toContain(id);
+      for (const id of c.ran ?? (["build", "render", "colors", "type", "spacing", "layout", "text", "tests", "safety"] as const)) expect(ran, `${id} did not pass`).toContain(id);
     });
 
     for (const m of mutants) {
@@ -281,6 +323,7 @@ export function goldenSuite(c: Case): void {
       if (m.fails === "reusable" && c.entry.endsWith(".html")) continue;
       // Flutter draws on a canvas: the WCAG audit needs a page's markup.
       if (m.fails === "accessible" && c.entry.endsWith(".dart")) continue;
+      if (c.skipMutants?.includes(m.name)) continue;
       it(`catches: ${m.name}`, async () => {
         const files = c.mutate?.[m.name]?.(reference) ?? m.mutate(reference, c);
         expect(files).not.toEqual(reference);

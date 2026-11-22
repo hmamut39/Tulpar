@@ -1,0 +1,26 @@
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacingVerticalM, 12px);
+  margin: 0;
+  padding: var(--spacingHorizontalL, 16px);
+  background-color: var(--colorNeutralBackground1, #ffffff);
+}
+
+.order-card__title {
+  margin: 0;
+  color: var(--colorNeutralForeground1, #242424);
+  font-family: var(--fontFamilyBase, sans-serif);
+  font-size: var(--fontSizeBase500, 20px);
+  font-weight: var(--fontWeightSemibold, 600);
+  line-height: var(--lineHeightBase500, 28px);
+}
+
+.order-card__body {
+  margin: 0;
+  color: var(--colorNeutralForeground2, #424242);
+  font-family: var(--fontFamilyBase, sans-serif);
+  font-size: var(--fontSizeBase300, 14px);
+  font-weight: var(--fontWeightRegular, 400);
+  line-height: var(--lineHeightBase300, 20px);
+}

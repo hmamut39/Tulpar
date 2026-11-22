@@ -77,6 +77,9 @@ export async function build(params: BuildParams, config: HarnessConfig): Promise
     <InvariantGlobalization>true</InvariantGlobalization>
     <WasmFingerprintAssets>false</WasmFingerprintAssets>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Builds publish into out/<name> inside this folder: without this, each build takes the earlier ones'
+         output in as its own content, nesting deeper every time (out/Probe/out/Card/out/…) until a path breaks. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);out/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
 ${packages.map((p) => `    <PackageReference Include="${p.name}" Version="${p.version}" />`).join("\n")}

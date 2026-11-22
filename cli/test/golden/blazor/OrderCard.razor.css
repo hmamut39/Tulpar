@@ -1,0 +1,5 @@
+.order-card {
+    margin: 0;
+    color: var(--mud-palette-text-primary, #424242);
+    background-color: var(--mud-palette-surface, #ffffff);
+}
