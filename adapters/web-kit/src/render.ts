@@ -144,6 +144,28 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
             const paints = !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || ["Top", "Right", "Bottom", "Left"].some((s) => parseFloat(cs[`border${s}Width` as "borderTopWidth"]) > 0 && cs[`border${s}Style` as "borderTopStyle"] !== "none") || /^(img|svg|canvas|video|input|textarea|select)$/.test(n.localName);
             if (paints) add(n.getBoundingClientRect());
           }
+          // What CSS draws in ::before and ::after (a checkbox's square, a radio's dot, an icon) has no element of
+          // its own: measured from its computed position and size, or a checkbox would count as its label alone.
+          if (!contents) {
+            const r = n.getBoundingClientRect();
+            const cs = getComputedStyle(n);
+            for (const which of ["::before", "::after"]) {
+              const p = getComputedStyle(n, which);
+              if (p.content === "none" || p.content === "normal" || p.display === "none" || p.visibility === "hidden" || p.opacity === "0") continue;
+              const border = (s: string) => (p[`border${s}Style` as "borderTopStyle"] !== "none" ? parseFloat(p[`border${s}Width` as "borderTopWidth"]) || 0 : 0);
+              const paintsP = !/rgba\(0, 0, 0, 0\)|transparent/.test(p.backgroundColor) || p.backgroundImage !== "none" || ["Top", "Right", "Bottom", "Left"].some((s) => border(s) > 0);
+              if (!paintsP) continue;
+              // Computed width and height are the content box unless border-box.
+              const extra = (a: string, b: string) => (p.boxSizing === "border-box" ? 0 : (parseFloat(p[`padding${a}` as "paddingTop"]) || 0) + (parseFloat(p[`padding${b}` as "paddingTop"]) || 0) + border(a) + border(b));
+              const w = (parseFloat(p.width) || 0) + extra("Left", "Right");
+              const h = (parseFloat(p.height) || 0) + extra("Top", "Bottom");
+              if (!(w > 0 && h > 0)) continue;
+              const placed = p.position === "absolute" || p.position === "fixed";
+              const x = r.left + (placed ? (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(p.left) || 0) : (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0));
+              const y = r.top + (placed ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(p.top) || 0) : (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.paddingTop) || 0));
+              add(new DOMRect(x, y, w, h));
+            }
+          }
           if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
             // A checkbox's or radio's value ("on") is form data, never drawn.
             if (n instanceof HTMLInputElement && /^(checkbox|radio|hidden|range|color|file)$/.test(n.type)) return;
