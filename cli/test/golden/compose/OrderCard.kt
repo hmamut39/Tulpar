@@ -25,13 +25,13 @@ fun OrderCard(
     ) {
         Text(
             text = title,
-            modifier = Modifier.testTag("900:2"),
+            modifier = Modifier.fillMaxWidth().testTag("900:2"),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = summary,
-            modifier = Modifier.testTag("900:3"),
+            modifier = Modifier.fillMaxWidth().testTag("900:3"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

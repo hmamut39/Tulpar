@@ -17,8 +17,8 @@ public class OrderCard extends Div {
                 .set("display", "flex")
                 .set("flex-direction", "column")
                 .set("box-sizing", "border-box")
-                .set("gap", "var(--vaadin-gap-xs)")
-                .set("padding", "var(--vaadin-padding-block-container)");
+                .set("gap", "var(--vaadin-gap-s)")
+                .set("padding", "var(--vaadin-padding-l)");
 
         H2 heading = new H2(title);
         heading.getElement().setAttribute("data-figma-id", "900:2");

@@ -34,12 +34,13 @@ export const SELF_CHECKS: SelfCheckCase[] = [
     colour: (f) => ({ ...f, "OrderCard.kt": f["OrderCard.kt"]!.replace("import androidx.compose.ui.Modifier", "import androidx.compose.ui.Modifier\nimport androidx.compose.ui.graphics.Color").replace("color = MaterialTheme.colorScheme.onSurface,", "color = Color(0xFF1D1B20),") }),
   },
   {
-    // Vaadin with Aura: the values are read from the runner; the scale is tuned to them from this check's own log.
+    // Vaadin with Aura (values from the runner, logged by this check): font-size xl 18 / line-height xl 26 at 600, m 14/20,
+    // padding-l 16, gap-s 8.
     reference: "vaadin",
     project: "vaadin-aura",
     entry: "OrderCard.java",
     test: "OrderCardTest.java",
-    scale: { font: "Inter", title: [20, 26], body: [14, 20], padding: 16, gap: 8, weights: [600, 400], colors: [[0.0941, 0.0941, 0.1059], [0.0941, 0.0941, 0.1059]] },
+    scale: { font: "Inter", title: [18, 26], body: [14, 20], padding: 16, gap: 8, weights: [600, 400], colors: [[0.0941, 0.0941, 0.1059], [0.0941, 0.0941, 0.1059]] },
     colour: (f) => ({ ...f, "OrderCard.java": f["OrderCard.java"]!.replace('.set("margin", "0")\n                .set("font-size", "var(--aura-font-size-xl)")', '.set("margin", "0")\n                .set("color", "#18181b")\n                .set("font-size", "var(--aura-font-size-xl)")') }),
   },
 ];
