@@ -1,0 +1,34 @@
+.product-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.product-card__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 395 / 296;
+  object-fit: cover;
+}
+
+.product-card__details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 24px;
+}
+
+.product-card__name,
+.product-card__price {
+  margin: 0;
+  font-size: 20px;
+  line-height: 26px;
+  color: #161616;
+}
+
+.product-card__origin {
+  margin: 12px 0 0;
+  font-size: 16px;
+  line-height: 24px;
+  color: #525252;
+}
