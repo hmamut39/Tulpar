@@ -55,7 +55,9 @@ runs:
           [ -n "$files" ] || files="-"
         fi
         echo "files=$files" >> "$GITHUB_OUTPUT"
+    # Both steps run and report before the result: a team sees every problem in one review, not the next batch after fixing.
     - name: Check
+      id: check
       shell: bash
       env:
         PROJECT: ${{ inputs.project }}
@@ -63,12 +65,13 @@ runs:
       run: |
         if [ "$FILES" = "-" ]; then echo "No changed files."; exit 0; fi
         # shellcheck disable=SC2086
-        node "$GITHUB_ACTION_PATH/cli/src/main.ts" check "$PROJECT" $FILES --format github
+        node "$GITHUB_ACTION_PATH/cli/src/main.ts" check "$PROJECT" $FILES --format github || echo "failed=true" >> "$GITHUB_OUTPUT"
     - name: Browser for verify
       if: inputs.verify == 'true'
       shell: bash
       run: cd "$GITHUB_ACTION_PATH" && npx playwright install --with-deps --only-shell chromium
     - name: Verify against Figma
+      id: verify
       if: inputs.verify == 'true'
       shell: bash
       env:
@@ -79,4 +82,10 @@ runs:
         if [ "$FILES" = "-" ]; then echo "No changed files."; exit 0; fi
         if [ -z "$FIGMA_TOKEN" ]; then echo "::error title=Tulpar verify::verify needs figma-token (a read-only Figma token in your repository's secrets)."; exit 1; fi
         # shellcheck disable=SC2086
-        node "$GITHUB_ACTION_PATH/cli/src/main.ts" verify-changed "$PROJECT" $FILES --format github
+        node "$GITHUB_ACTION_PATH/cli/src/main.ts" verify-changed "$PROJECT" $FILES --format github || echo "failed=true" >> "$GITHUB_OUTPUT"
+    - name: Result
+      if: steps.check.outputs.failed == 'true' || steps.verify.outputs.failed == 'true'
+      shell: bash
+      run: |
+        echo "::error title=Tulpar::The component does not pass: see the findings marked on its lines."
+        exit 1
