@@ -36,3 +36,19 @@ describe.skipIf(!existsSync(join(radix, "node_modules/@radix-ui/themes")))("tulp
     expect((await checkCommand(radix, [join(dir, "Clean.tsx")], { quiet: true })).code).toBe(0);
   });
 });
+
+// Carbon's layout tokens are named spacing-02 but written var(--cds-spacing-02): the check knows them by both.
+const carbon = resolve(import.meta.dirname, "../../examples/carbon-react");
+const carbonDir = join(carbon, "check-fixture");
+
+describe.skipIf(!existsSync(join(carbon, "node_modules/@carbon/react")))("tulpar check on Carbon", { timeout: 120_000 }, () => {
+  mkdirSync(carbonDir, { recursive: true });
+  writeFileSync(join(carbonDir, "Tile.tsx"), 'import "./Tile.css";\nexport default function Tile() {\n  return <div className="tile" />;\n}\n');
+  writeFileSync(join(carbonDir, "Tile.css"), ".tile {\n  gap: var(--cds-spacing-05, 16px);\n  padding: var(--cds-spacing-06, 24px);\n  margin: var(--cds-spacing-55, 4px);\n}\n");
+  afterAll(() => rmSync(carbonDir, { recursive: true, force: true }));
+
+  it("accepts real tokens written as code writes them, and still finds an invented one", async () => {
+    const { findings } = await checkCommand(carbon, [join(carbonDir, "Tile.css")], { quiet: true });
+    expect(findings.map((f) => `${f.kind} ${f.file.split("/").pop()}:${f.line}`)).toEqual(["invented-token Tile.css:4"]);
+  });
+});
