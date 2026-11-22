@@ -21,6 +21,8 @@ kill_timeout = "300s"
   TULPAR_RUNS_PER_DAY = "100"
   # The weekly drift check (web/src/canary.ts): the model on our own card, three projects, about $3 a run.
   TULPAR_CANARY_DAYS = "7"
+  # The self-check after each start (web/src/selfcheck.ts): Compose and Vaadin references on their private machines; no model.
+  TULPAR_SELFCHECK = "1"
 
 [http_service]
   internal_port = 8080

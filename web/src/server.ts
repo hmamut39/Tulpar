@@ -36,6 +36,7 @@ import { addProject, type AddJob, type Framework } from "./custom-projects.ts";
 import { JobQueue, kitFileKey, type JobInput } from "./jobs.ts";
 import { hostedServer } from "./hosted-mcp.ts";
 import { startCanary } from "./canary.ts";
+import { startSelfCheck } from "./selfcheck.ts";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { zipFiles } from "./zip.ts";
 
@@ -650,12 +651,14 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   // The weekly drift check, when TULPAR_CANARY_DAYS is set (fly.toml) and there is a database to keep its history.
   const canaryDays = options.canaryDays ?? Number(process.env.TULPAR_CANARY_DAYS || 0);
   const stopCanary = canaryDays > 0 && accounts ? startCanary({ repoRoot: options.repoRoot, queue, accounts, everyDays: canaryDays, log, ours: canaryJobs, ...(options.canaryPollMs && { pollMs: options.canaryPollMs }), ...(auth?.origin.startsWith("https://") && { keepAliveUrl: auth.origin }) }) : undefined;
+  // The self-check after a deploy, for the projects that build on private machines (TULPAR_SELFCHECK in fly.toml).
+  const stopSelfCheck = process.env.TULPAR_SELFCHECK ? startSelfCheck({ repoRoot: options.repoRoot, exclusive: (fn) => queue.exclusive(fn), log, ...(auth?.origin.startsWith("https://") && { keepAliveUrl: auth.origin }) }) : undefined;
 
   return new Promise((resolveStart) => {
     server.listen(port, () => {
       const address = server.address();
       const actual = typeof address === "object" && address ? address.port : port;
-      resolveStart({ url: `http://localhost:${actual}`, close: () => new Promise((r) => { stopCanary?.(); server.close(() => r()); }), drain: () => queue.idle() });
+      resolveStart({ url: `http://localhost:${actual}`, close: () => new Promise((r) => { stopCanary?.(); stopSelfCheck?.(); server.close(() => r()); }), drain: () => queue.idle() });
     });
   });
 }
