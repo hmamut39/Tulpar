@@ -17,6 +17,7 @@ export { orderCard };
 import { flutterBin } from "../../../adapters/flutter/src/sdk.ts";
 import { dotnetBin } from "../../../adapters/blazor/src/sdk.ts";
 import { cargoFound } from "../../../adapters/leptos/src/sdk.ts";
+import { crateSource } from "../../../adapters/leptos/src/components.ts";
 
 const repo = resolve(import.meta.dirname, "../../..");
 const golden = import.meta.dirname;
@@ -181,7 +182,8 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     script: ") -> impl IntoView {",
     scale: { font: "Segoe UI", title: [20, 28], body: [14, 20], padding: 16, gap: 12, weights: [600, 400], colors: [[0.1412, 0.1412, 0.1412], [0.2588, 0.2588, 0.2588]] },
     needs: "Cargo.lock",
-    available: () => cargoFound(),
+    // GitHub's runners have Rust but not the project's crates: only where Thaw's source has been fetched.
+    available: () => cargoFound() && !!crateSource(join(repo, "examples/leptos-thaw"), "thaw"),
     mutate: {
       "content written in place": (f) => edit(f, "order_card.rs", (s) => s.replace("{summary}", '"Two items, ready to ship."')),
     },
