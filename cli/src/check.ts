@@ -49,7 +49,9 @@ export async function checkCommand(projectDir: string, files: string[], options:
   await withAdapter(project, async (host) => {
     const caps = host.manifest!.capabilities;
     const tokens = caps.tokens ? await host.call("tokens", project.params) : undefined;
-    const known = new Set((tokens?.tokens ?? []).map((t) => t.name));
+    // A token by its name and as code writes it: Carbon's layout tokens are named spacing-02 but written
+    // var(--cds-spacing-02), and the name alone made every real spacing token look invented.
+    const known = new Set((tokens?.tokens ?? []).flatMap((t) => [t.name, ...(/var\(\s*--([\w-]+)/.exec(t.codeRef ?? "")?.[1] ? [/var\(\s*--([\w-]+)/.exec(t.codeRef!)![1]!] : [])]));
     const prefix = (project.params.config as { tokens?: { css?: { prefix?: string }; prefix?: string } }).tokens?.css?.prefix ?? (project.params.config as { tokens?: { prefix?: string } }).tokens?.prefix;
     for (const entry of entries) {
       const rel = relative(root, entry).replace(/\\/g, "/");
