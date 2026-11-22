@@ -8,6 +8,8 @@ import { loadProject, withAdapter } from "./project.ts";
 
 export interface VerifyOptions {
   frame: string;
+  /** The Figma file the frame is in; default the project's figma.fileKey. */
+  fileKey?: string;
   theme?: string;
   /** The implementation's test file, to run in the adapter's sandbox. */
   test?: string;
@@ -22,7 +24,7 @@ export async function verifyCommand(projectDir: string, entry: string, options: 
   let result: { report: VerifyReport; png?: string };
   try {
     result = await withAdapter(project, async (host) => {
-      const ctx = await loadContext(host, project, { frame: options.frame, ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }) }, options.out, options.cache);
+      const ctx = await loadContext(host, project, { frame: options.frame, ...(options.fileKey && { fileKey: options.fileKey }), ...(process.env.FIGMA_TOKEN && { figmaToken: process.env.FIGMA_TOKEN }) }, options.out, options.cache);
       return verifyEntry(host, project, ctx, entry, options.theme, options.test);
     });
   } catch (err) {

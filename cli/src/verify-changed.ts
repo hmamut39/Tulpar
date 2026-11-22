@@ -71,7 +71,9 @@ export async function verifyChangedCommand(projectDir: string, changed: string[]
       if (format === "github") console.log(`::error file=${file},title=Tulpar verify::No Figma frame for ${t.entry}: give it a figma link with node-id.`);
       continue;
     }
-    const { report } = await verifyCommand(project.root, t.entry, { frame, out: options.out, cache: options.cache, quiet: format !== "text", ...(t.test && { test: t.test }) });
+    // The frame's own file, from its link: a component may implement a frame outside the project's kit.
+    const fileKey = t.figma ? parseFigmaUrl(t.figma)?.fileKey : undefined;
+    const { report } = await verifyCommand(project.root, t.entry, { frame, ...(fileKey && { fileKey }), out: options.out, cache: options.cache, quiet: format !== "text", ...(t.test && { test: t.test }) });
     const failing = (report?.checks ?? []).filter((c) => c.status === "fail").map((c) => `${c.title}: ${c.summary}`);
     const verdict = report?.verdict ?? "error";
     if (verdict === "fail" || verdict === "error") failed++;

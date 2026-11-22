@@ -103,5 +103,12 @@
       "6172:291044"
     ],
     "note": "Figma components whose labels were looked at while building the matcher: round 1 (2026-09-27), round 2 (2026-10-10, the 25 Figma pages read by then; their errors led to the part-word head fix). Evaluations report the other labels separately as held-out; pages not yet read are the clean test."
-  }
+  },
+  "verify": [
+    {
+      "entry": "demo/ProductCard.tsx",
+      "figma": "https://www.figma.com/design/YI0iMSOjTzMgKegxEetqvm/Figma-basics?node-id=4368-321208",
+      "test": "demo/ProductCard.test.tsx"
+    }
+  ]
 }

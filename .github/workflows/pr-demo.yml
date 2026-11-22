@@ -1,0 +1,28 @@
+# The pull-request demo: Tulpar's GitHub Action reviewing a component an AI agent wrote. When a pull request
+# changes examples/carbon-react/demo/, the Action checks the changed files against Carbon (hard-coded values,
+# invented tokens, unsafe code) and, since tulpar.json lists demo/ProductCard.tsx under "verify", builds and draws
+# it and compares it with its Figma frame (the "Tomato" card in Figma basics), marking each failure on the PR.
+# FIGMA_TOKEN is a read-only Figma token (file_content:read) kept in the repository's secrets.
+name: Tulpar PR check (demo)
+
+on:
+  pull_request:
+    paths: ["examples/carbon-react/demo/**"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  tulpar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: The project's design system
+        run: cd examples/carbon-react && npm ci --no-workspaces --ignore-scripts --no-audit --no-fund
+      - uses: ./
+        with:
+          project: examples/carbon-react
+          verify: true
+          figma-token: ${{ secrets.FIGMA_TOKEN }}
