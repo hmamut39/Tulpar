@@ -1,0 +1,32 @@
+{
+  "at": "2026-11-26T15:49:31.825Z",
+  "model": "openai:gpt-6-astra",
+  "source": "live site (tulparsi.com): the sign-in card screenshot as the page sends it",
+  "results": [
+    {
+      "id": "actions-element-plus-signin",
+      "status": "verified",
+      "attempts": 3,
+      "inputTokens": 19907,
+      "outputTokens": 11513,
+      "seconds": 304,
+      "checks": {
+        "build": true,
+        "render": true,
+        "components": true,
+        "colors": true,
+        "type": true,
+        "spacing": true,
+        "layout": true,
+        "text": true,
+        "typeface": true,
+        "tests": true,
+        "visual": true,
+        "states": true,
+        "safety": true,
+        "reusable": true,
+        "accessible": true
+      }
+    }
+  ]
+}

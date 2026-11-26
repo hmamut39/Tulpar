@@ -1,5 +1,5 @@
 {
-  "about": "Designs with actions and forms, recorded from the live site on 22 Nov 2026 (scratch script actions-run.mjs, the way the Figma plugin and the page send them): the Summary frame of Figma basics (4368:321163 of YI0iMSOjTzMgKegxEetqvm) and the sign-in card screenshot (eval/fixtures/signin.png). Results in eval/results.",
+  "about": "Designs with actions and forms, recorded from the live site on 22 Nov 2026 (scratch script actions-run.mjs, the way the Figma plugin and the page send them): the Summary frame of Figma basics (4368:321163 of YI0iMSOjTzMgKegxEetqvm) and the sign-in card screenshot (eval/fixtures/signin.png). The sign-in card on Element Plus followed on 26 Nov (verified, all 15 checks, third attempt). Results in eval/results.",
   "suite": {
     "id": "actions",
     "title": "Designs with actions and forms",
@@ -7,6 +7,7 @@
   },
   "cases": [
     { "id": "actions-carbon-angular-summary", "project": "examples/carbon-angular", "frame": "4368:321163", "name": "OrderSummary", "suite": "actions" },
-    { "id": "actions-carbon-react-signin", "project": "examples/carbon-react", "image": "eval/fixtures/signin.png", "name": "SignInCard", "suite": "actions" }
+    { "id": "actions-carbon-react-signin", "project": "examples/carbon-react", "image": "eval/fixtures/signin.png", "name": "SignInCard", "suite": "actions" },
+    { "id": "actions-element-plus-signin", "project": "examples/element-plus", "image": "eval/fixtures/signin.png", "name": "SignInCard", "suite": "actions" }
   ]
 }
