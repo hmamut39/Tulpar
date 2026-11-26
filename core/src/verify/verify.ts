@@ -5,7 +5,7 @@
 // was left unchecked (docs/00-research-and-plan.md §3).
 
 import { fontClass, type FontClass } from "./fonts.ts";
-import { tokenKind, wrongKind, wrongRole, type TokenKind } from "./token-kind.ts";
+import { componentWord, otherComponent, tokenComponent, tokenKind, tokenPrefix, wrongKind, wrongRole, type TokenKind } from "./token-kind.ts";
 import type { ComponentIndex, DesignToken, TokenSet } from "../code-model.ts";
 import type { AdapterManifest } from "../adapter/protocol.ts";
 import type { Box, DesignNode, DesignTree } from "../model.ts";
@@ -158,6 +158,12 @@ export function verify(input: VerifyInput): VerifyReport {
   const tokenType = new Map((input.tokens?.tokens ?? []).map((t) => [t.name, t.type]));
   const tokenNames = (input.tokens?.tokens ?? []).map((t) => t.name);
   const kinds = new Set((input.tokens?.tokens ?? []).map((t) => tokenKind(t.name, t.type)).filter((k): k is TokenKind => !!k));
+  // Another component's own token (a menu's padding on a card): which components each value was read on.
+  const prefix = tokenPrefix(tokenNames);
+  const componentWords = new Set(input.index.components.map((c) => componentWord(c.name, prefix)));
+  const globalKinds = new Set((input.tokens?.tokens ?? []).filter((t) => !tokenComponent(t.name, componentWords, prefix)).map((t) => tokenKind(t.name, t.type)).filter((k): k is TokenKind => !!k));
+  const usedOn = new Map<string, string[]>();
+  for (const e of elements ?? []) for (const s of e.styles) usedOn.set(`${s.property}|${s.written}`, [...(usedOn.get(`${s.property}|${s.written}`) ?? []), e.component]);
   const hardCoded = (id: Check["id"], title: string, props: DesignProperty[], noun: string) => {
     if (!provenance) return skip(id, title, "the adapter cannot tell tokens from literals");
     if (!elements && !input.analysis) return skip(id, title, "nothing was rendered or analysed");
@@ -172,7 +178,7 @@ export function verify(input: VerifyInput): VerifyReport {
     const known = knownNames && { has: (name: string, f?: StyleFact) => knownNames.has(name) || (!!f && knownNames.has(varOf(f) ?? "")) };
     const hasFallback = (f: StyleFact) => /var\(\s*--[a-zA-Z0-9-]+\s*,/.test(f.written);
     const undefinedTokens = tokens.filter((f) => f.defined === false && !(known?.has(f.token ?? "", f) && hasFallback(f)));
-    const misused = input.tokens ? tokens.filter((f) => f.defined !== false || known?.has(f.token ?? "", f)).map((f) => ({ f, why: f.token ? (wrongKind(f.property, f.token, tokenType.get(f.token), kinds) ?? wrongRole(f.property, f.token, tokenNames)) : undefined })).filter((m) => m.why) : [];
+    const misused = input.tokens ? tokens.filter((f) => f.defined !== false || known?.has(f.token ?? "", f)).map((f) => ({ f, why: f.token ? (wrongKind(f.property, f.token, tokenType.get(f.token), kinds) ?? wrongRole(f.property, f.token, tokenNames) ?? otherComponent(f.property, f.token, tokenType.get(f.token), usedOn.get(`${f.property}|${f.written}`) ?? [], componentWords, globalKinds, prefix)) : undefined })).filter((m) => m.why) : [];
     const summary = `${literal.length} hard-coded ${noun}${undefinedTokens.length ? `, ${undefinedTokens.length} undefined token${undefinedTokens.length === 1 ? "" : "s"}` : ""}${misused.length ? `, ${misused.length} token${misused.length === 1 ? "" : "s"} of the wrong kind` : ""}`;
     const details = [
       ...literal.map((f) => `✗ ${f.property}: ${f.written}${f.at ? ` at ${f.at}` : ""}`),

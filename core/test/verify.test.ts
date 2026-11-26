@@ -184,6 +184,29 @@ describe("verify", () => {
     expect(status(verify(input(els, { tokens: noSpacing })), "spacing")).toBe("pass");
   });
 
+  it("fails another component's own spacing token (a menu's padding on a card), but not on that component", () => {
+    const token = (name: string) => ({ name, path: [name], type: "dimension", values: {}, provenance: { source: "t", confidence: "high" as const } });
+    const tokens = { adapter: "t", modes: [], gaps: [], tokens: [token("x-spacing-05"), token("x-button-padding"), token("x-footer-button-gap"), token("x-tag-radius")] };
+    const fact = (property: "padding" | "gap" | "fill", name: string) => ({ property, written: `var(--${name}, 16px)`, source: "token" as const, token: name, defined: true });
+    const els = good();
+    els[0] = { ...els[0]!, styles: [fact("padding", "x-button-padding")] };
+    const r = verify(input(els, { tokens })).checks.find((c) => c.id === "spacing")!;
+    expect(r).toMatchObject({ status: "fail", summary: "0 hard-coded spacing or size values, 1 token of the wrong kind" });
+    expect(r.details.join()).toContain("the button component's own value used for padding here; use a global spacing token");
+    // No global spacing token (Element Plus has only its components' paddings): borrowing one is the best there is.
+    const componentOnly = { ...tokens, tokens: tokens.tokens.filter((t) => t.name !== "x-spacing-05") };
+    expect(status(verify(input(els, { tokens: componentOnly })), "spacing")).toBe("pass");
+    // On its own component, or a variant of it, a component's token is its own; a global token anywhere.
+    els[0] = { ...els[0]!, styles: [fact("padding", "x-spacing-05")] };
+    els[1] = { ...els[1]!, styles: [fact("padding", "x-button-padding")] };
+    els[2] = { ...els[2]!, styles: [fact("gap", "x-footer-button-gap")] };
+    expect(status(verify(input(els, { tokens })), "spacing")).toBe("pass");
+    // The longest component name wins: footer-button's gap on a plain button is another component's.
+    els[1] = { ...els[1]!, styles: [fact("gap", "x-footer-button-gap")] };
+    els[2] = { ...els[2]!, styles: [] };
+    expect(status(verify(input(els, { tokens })), "spacing")).toBe("fail");
+  });
+
   it("fails a border or background colour used for text, when the system has text colours", () => {
     const token = (name: string) => ({ name, path: [name], type: "color", values: {}, provenance: { source: "t", confidence: "high" as const } });
     const tokens = { adapter: "t", modes: [], gaps: [], tokens: [token("border-strong-01"), token("text-secondary"), token("layer-01")] };

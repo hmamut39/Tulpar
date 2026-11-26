@@ -108,3 +108,57 @@ export function wrongRole(property: DesignProperty, token: string, names: string
   if (!example) return undefined;
   return `a ${role} colour token used for ${property === "textColor" ? "text" : "a fill"}; use a ${want} colour token, e.g. ${example}`;
 }
+
+/**
+ * Words a design system uses both as a component and for its global scales (Chakra's Text and Container, Element
+ * Plus's Space, Carbon's Layer and Heading): a token that starts with one is not taken to be that component's.
+ */
+const GENERIC = new Set(["text", "link", "icon", "space", "spacer", "layout", "container", "grid", "stack", "box", "flex", "row", "col", "column", "divider", "heading", "layer", "theme", "border", "shadow", "typography", "font", "color", "size", "sizes", "radius", "spacing", "z-index", "transition", "base"]);
+
+/** "ElMenuItem" → "el-menu-item". */
+const kebab = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/[_\s.]+/g, "-").toLowerCase();
+
+/** The leading word most token names share (el, cds, sl), so el-menu-… reads as the menu's. */
+export function tokenPrefix(names: string[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const n of names) {
+    const first = /^-*([a-z0-9]+)-/.exec(n.toLowerCase())?.[1];
+    if (first) counts.set(first, (counts.get(first) ?? 0) + 1);
+  }
+  const [word, count] = [...counts].sort((a, b) => b[1] - a[1])[0] ?? [];
+  return word && count! > names.length / 2 ? word : undefined;
+}
+
+/** A component's name as a token would spell it, without the design system's prefix: ElMenu → "menu". */
+export function componentWord(name: string, prefix?: string): string {
+  const k = kebab(name.replace(/^<|>$/g, ""));
+  return prefix && k.startsWith(`${prefix}-`) ? k.slice(prefix.length + 1) : k;
+}
+
+/** The design-system component a token belongs to, when its name says so: el-menu-base-level-padding → "menu". */
+export function tokenComponent(token: string, words: Set<string>, prefix?: string): string | undefined {
+  let rest = token.toLowerCase().replace(/^-+/, "");
+  if (prefix && rest.startsWith(`${prefix}-`)) rest = rest.slice(prefix.length + 1);
+  let best: string | undefined;
+  for (const w of words) if (!GENERIC.has(w) && (rest === w || rest.startsWith(`${w}-`)) && w.length > (best?.length ?? 0)) best = w;
+  return best;
+}
+
+/** Properties a component's own token is judged on: its spacing and sizes. Colours have roles (wrongRole). */
+const SCOPED: DesignProperty[] = ["padding", "margin", "gap", "offset", "size", "radius"];
+
+/**
+ * Why a token does not suit where it is used: another component's own value (a menu's padding on a card). The value
+ * matches today; tune the menu and the card moves with it. `usedOn` is the components of the elements it was read
+ * on; only judged when every one of them is another component (a button's token inside a button is its own).
+ *  is the kinds the design system has tokens of that belong to no component: Element Plus has no spacing
+ * scale, only its components' paddings, so borrowing one there is the best it allows and is not judged.
+ */
+export function otherComponent(property: DesignProperty, token: string, type: string | undefined, usedOn: string[], words: Set<string>, global: Set<TokenKind>, prefix?: string): string | undefined {
+  if (!SCOPED.includes(property) || !usedOn.length) return undefined;
+  const owner = tokenComponent(token, words, prefix);
+  const kind = tokenKind(token, type);
+  if (!owner || !kind || !global.has(kind)) return undefined;
+  if (usedOn.some((c) => { const w = componentWord(c, prefix); return w === owner || w.startsWith(`${owner}-`); })) return undefined;
+  return `the ${owner} component's own value used for ${property} here; use a global ${kind} token`;
+}
