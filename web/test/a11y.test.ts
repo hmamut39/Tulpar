@@ -54,12 +54,13 @@ describe("accessibility of the web pages", { timeout: 120_000 }, () => {
     await expect(toggle.getAttribute("aria-checked")).resolves.toBe("false");
     await toggle.click(); // one tap: dark
     await expect(toggle.getAttribute("aria-checked")).resolves.toBe("true");
-    expect(await bg()).not.toBe(lightBg);
+    // The page takes the new theme as its sweep starts (a view transition), a moment after the tap.
+    await expect.poll(bg).not.toBe(lightBg);
     await page.goto(server.url + "/pricing", { waitUntil: "networkidle" });
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
     await page.getByRole("switch", { name: "Dark mode" }).click(); // one tap: light
-    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe("light");
-    expect(await bg()).toBe(lightBg);
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("light");
+    await expect.poll(bg).toBe(lightBg);
     // A dark device starts dark, with the switch on.
     const dark = await (await browser.newContext({ colorScheme: "dark" })).newPage();
     await dark.goto(server.url + "/", { waitUntil: "networkidle" });
