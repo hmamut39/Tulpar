@@ -101,7 +101,7 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
       const visible = (el: Element) => el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
       // What is drawn inside an element: its text, and descendants that paint a background, a border,
       // an image or a form control. A block-level host can be wider than what it draws (a checkbox and its label).
-      const drawn = (host: Element) => {
+      const drawn = (host: Element, self: Element = host) => {
         const text: string[] = [];
         // Text present in the DOM but not drawn (screen-reader-only, fully transparent): innerText still has it.
         const hidden: string[] = [];
@@ -173,24 +173,38 @@ export async function render(params: RenderParams, config: RenderConfig, prefix:
             if (value && own) text.push(value);
             return;
           }
-          const tagged = n !== host && n instanceof HTMLElement && !!n.dataset.figmaId;
+          const tagged = n !== host && n !== self && n instanceof HTMLElement && !!n.dataset.figmaId;
           for (const c of childrenOf(n)) visit(c, own && !tagged);
         };
         visit(host);
         return { text: text.join(" ").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim(), box, hidden };
       };
-      return [...document.querySelectorAll<HTMLElement>("[data-figma-id]")].map((el) => {
+      // A form field's component can hand the id to its input (Carbon's TextInput and Checkbox pass extra props to the
+      // <input>, not the field): the design's field is the label and the input together, so it is measured from the
+      // nearest element holding both and no other tagged element. A checkbox's input is often hidden; its label draws.
+      const fieldOf = (el: HTMLElement): HTMLElement => {
+        if (!/^(input|textarea|select)$/.test(el.localName)) return el;
+        const labels = [...((el as HTMLInputElement).labels ?? [])];
+        if (!labels.length) return el;
+        for (let a = el.parentElement; a && a.id !== frameId && !a.dataset.figmaId; a = a.parentElement) {
+          if (a.querySelectorAll("[data-figma-id]").length > 1) return el;
+          if (labels.every((l) => a!.contains(l))) return a;
+        }
+        return el;
+      };
+      return [...document.querySelectorAll<HTMLElement>("[data-figma-id]")].map((tag) => {
+        const el = fieldOf(tag);
         const r = el.getBoundingClientRect();
         // Light-DOM text first; a component that draws its text in its shadow root (a label or
         // placeholder set by attribute) is read through it.
-        const d = drawn(el);
+        const d = drawn(el, tag);
         // A container of tagged elements: innerText would hold their text too, so only its own drawn text counts.
-        const nested = !!el.querySelector("[data-figma-id]");
+        const nested = [...el.querySelectorAll("[data-figma-id]")].some((x) => x !== tag);
         let inner = nested ? "" : (el.innerText || el.textContent || "").replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
         for (const h of d.hidden) inner = inner.replace(h, " ").replace(/\s+/g, " ").trim();
         return {
-          figmaId: el.dataset.figmaId!,
-          tag: el.localName,
+          figmaId: tag.dataset.figmaId!,
+          tag: tag.localName,
           box: { x: r.x - frame.x, y: r.y - frame.y, width: r.width, height: r.height },
           ...(d.box && { drawnBox: { x: d.box.l - frame.x, y: d.box.t - frame.y, width: d.box.r - d.box.l, height: d.box.b - d.box.t } }),
           // The composed text includes slotted light-DOM text, so it is used when it is the fuller reading.
