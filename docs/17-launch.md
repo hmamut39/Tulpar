@@ -13,7 +13,7 @@ Facts used:
   - Generated code is reusable: on the live site, Carbon React, Carbon Angular and Element Plus wrote the Tomato card with every piece of content as a typed prop or input, and tests that render other values; an order summary's "Continue to payment" button became an Angular output() event, and a sign-in form a React onSubmit with the values (both on the benchmark page, "Designs with actions and forms").
   - For AI agents: a hosted MCP server at tulparsi.com/mcp (check, verify, generate, with an account key) and a Claude Code plugin (`/plugin marketplace add hmamut39/Tulpar`, then `/plugin install tulpar@tulpar`) that checks each UI file the agent edits.
   - In pull requests: the GitHub Action marks every finding on its line. Live demo: github.com/hmamut39/Tulpar/pull/8 (an agent's first try fails with every problem named; the fixed version passes against the Figma frame).
-  - CI holds a golden gate for 14 projects: a reference card per project must pass, and planted defects (a hard-coded colour, a cookie-stealing call, content written into the markup, a button with no accessible name…) must each fail.
+  - CI holds a golden gate for 15 projects: a reference card per project must pass, and planted defects (a hard-coded colour, a cookie-stealing call, content written into the markup, a button with no accessible name…) must each fail.
 - Surfaces: web page, CLI, VS Code extension (also Cursor, Windsurf, VSCodium), MCP server (local, or hosted at tulparsi.com/mcp), Claude Code plugin, GitHub Action, Figma plugin (once published).
 
 ---
@@ -79,7 +79,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 >
 > The benchmark is public, failures included: https://tulparsi.com/benchmark
 >
-> Adapters: React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Jetpack Compose (Kotlin), Vaadin (Java). Built-in examples: Carbon, MUI, Chakra, Radix, shadcn/ui, PrimeNG, Element Plus, Shoelace, Material 3, MudBlazor, Thaw and Vaadin,  or any design system on npm.
+> Adapters: React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Jetpack Compose (Kotlin), Vaadin (Java). Built-in examples: Carbon, MUI, Chakra, Radix, shadcn/ui, PrimeNG, Element Plus, Shoelace, Material 3, MudBlazor, Fluent UI Blazor, Thaw and Vaadin, or any design system on npm.
 >
 > Free trial with no card: https://tulparsi.com. I'm the only developer. I'd especially like to hear about design systems it handles badly.
 
@@ -106,7 +106,7 @@ Paste a Figma frame or a screenshot. Tulpar writes the component with your team'
 >
 > The benchmark is public, failures included: tulparsi.com/benchmark
 >
-> React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Kotlin and Java, with Carbon, MUI, shadcn/ui, Radix, PrimeNG, Element Plus, MudBlazor and more. On the web, in VS Code, in Figma, in pull requests, and for AI coding agents through MCP and a Claude Code plugin.
+> React, Vue, Angular, Svelte, Web Components, Flutter, Blazor (C#), Leptos (Rust), Kotlin and Java, with Carbon, MUI, shadcn/ui, Radix, PrimeNG, Element Plus, MudBlazor, Fluent UI and more. On the web, in VS Code, in Figma, in pull requests, and for AI coding agents through MCP and a Claude Code plugin.
 >
 > Free trial, no card: tulparsi.com
 >

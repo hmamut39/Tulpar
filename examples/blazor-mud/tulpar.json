@@ -32,9 +32,15 @@
       "baseFont": "Roboto, sans-serif"
     },
     "rules": [
+      "A generic component must be told its type: <MudTextField T=\"string\">.",
+      "Colours and type come through the components' own parameters: Color=\"Color.<value>\", Typo=\"Typo.h6\".",
+      "Type is the Typo you choose: never font-weight, font-size, line-height or letter-spacing in a Style attribute or in {name}.razor.css, not even unitless (font-weight: 600 is hard-coded too). When no Typo matches the design exactly, take the nearest one by size and weight.",
+      "The instance list gives each component's props by value: Color \"Info\" is written Color=\"Color.Info\". Set the colour it gives, not Primary out of habit: Primary is only this theme's own default, which may not be the design's colour, and the pixel check compares the colours drawn.",
+      "Enums are written Enum.Value: Variant=\"Variant.Filled\".",
       "Spacing and layout come from MudBlazor: MudStack (Spacing), MudGrid and its utility classes (pa-4, mt-2, gap-4, d-flex, justify-space-between, align-center), which step by 4 px. Use them in Class=\"…\" rather than padding or margin in the stylesheet.",
       "MudBlazor draws buttons and some labels in capitals by default (MudButton is text-transform: uppercase). The design's text must show exactly as designed: when it is not capitals, keep the case with Style=\"text-transform: none\" on that component.",
       "MudCheckBox and the other selection controls fill the width of their parent unless told otherwise: put one in a MudStack Row=\"true\" or give it Class=\"d-inline-flex\" when the design's control is only as wide as its label."
-    ]
+    ],
+    "example": "<MudButton Variant=\"Variant.Filled\">Save</MudButton>"
   }
 }

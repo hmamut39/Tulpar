@@ -9,6 +9,8 @@ out
 **/build
 examples/blazor-mud/bin
 examples/blazor-mud/obj
+examples/blazor-fluent/bin
+examples/blazor-fluent/obj
 adapters/blazor/tool/bin
 adapters/blazor/tool/obj
 examples/leptos-thaw/target

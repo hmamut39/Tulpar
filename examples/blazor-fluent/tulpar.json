@@ -1,0 +1,35 @@
+{
+  "adapter": "blazor",
+  "blazor": {
+    "packages": [
+      "Microsoft.FluentUI.AspNetCore.Components"
+    ],
+    "tokens": {
+      "runtime": {
+        "prefix": ""
+      }
+    },
+    "harness": {
+      "usings": [
+        "Microsoft.FluentUI.AspNetCore.Components"
+      ],
+      "services": [
+        "builder.Services.AddFluentUIComponents();"
+      ],
+      "host": "<FluentProviders />",
+      "head": [
+        "<link href=\"_content/Microsoft.FluentUI.AspNetCore.Components/Microsoft.FluentUI.AspNetCore.Components.bundle.scp.css\" rel=\"stylesheet\">"
+      ]
+    },
+    "render": {
+      "baseFont": "'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif"
+    },
+    "rules": [
+      "Text is FluentText, its type set by Size and Weight: TextSize.Size100 10/14, Size200 12/16, Size300 14/20, Size400 16/22, Size500 20/28, Size600 24/32, Size700 28/36, Size800 32/40; TextWeight.Regular 400, Medium 500, Semibold 600, Bold 700. Give a heading its tag with As=\"TextTag.H2\" (paragraphs As=\"TextTag.Paragraph\"). When no size matches the design exactly, take the nearest.",
+      "Spacing goes in {name}.razor.css with Fluent's tokens: var(--spacingVerticalS, 8px), var(--spacingHorizontalL, 16px) (XXS 2, XS 4, SNudge 6, S 8, MNudge 10, M 12, L 16, XL 20, XXL 24, XXXL 28). Lay out with display: flex and gap on plain elements; FluentStack's gap parameters take literal sizes, which are hard-coded.",
+      "Colours are Fluent's tokens: var(--colorNeutralForeground1, #242424) for text, var(--colorNeutralForeground2, #424242) for secondary text, var(--colorNeutralBackground1, #ffffff) for surfaces, var(--colorNeutralStroke1, #d1d1d1) for borders, var(--colorBrandBackground, #0f6cbd) for the brand.",
+      "Form fields carry their own label: <FluentTextInput Label=\"Email\" TextInputType=\"TextInputType.Email\" @bind-Value=\"email\" />, <FluentCheckbox Label=\"Remember me\" @bind-Value=\"remember\" />. Buttons: <FluentButton Appearance=\"ButtonAppearance.Primary\" Type=\"ButtonType.Submit\">."
+    ],
+    "example": "<FluentButton Appearance=\"ButtonAppearance.Primary\">Save</FluentButton>"
+  }
+}

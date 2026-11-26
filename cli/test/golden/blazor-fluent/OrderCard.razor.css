@@ -1,0 +1,9 @@
+.order-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacingVerticalS, 8px);
+    margin: 0;
+    padding: var(--spacingVerticalL, 16px) var(--spacingHorizontalL, 16px);
+    color: var(--colorNeutralForeground1, #242424);
+    background-color: var(--colorNeutralBackground1, #ffffff);
+}

@@ -12,6 +12,7 @@ import type { VerifyReport } from "@tulpar/core";
 const repo = resolve(import.meta.dirname, "..");
 const cases: { reference: string; project: string; entry: string; style: string; test?: string; scale: Scale }[] = [
   { reference: "blazor", project: "examples/blazor-mud", entry: "OrderCard.razor", style: "OrderCard.razor.css", scale: { font: "Roboto", title: [20, 32], body: [14, 20], padding: 16, gap: 8, weights: [500, 400], colors: [[0.2588, 0.2588, 0.2588], [0.2588, 0.2588, 0.2588]] } },
+  { reference: "blazor-fluent", project: "examples/blazor-fluent", entry: "OrderCard.razor", style: "OrderCard.razor.css", scale: { font: "Segoe UI", title: [20, 28], body: [14, 20], padding: 16, gap: 8, weights: [600, 400], colors: [[0.1412, 0.1412, 0.1412], [0.1412, 0.1412, 0.1412]] } },
   { reference: "leptos", project: "examples/leptos-thaw", entry: "order_card.rs", style: "order_card.css", test: "order_card_test.rs", scale: { font: "Segoe UI", title: [20, 28], body: [14, 20], padding: 16, gap: 12, weights: [600, 400], colors: [[0.1412, 0.1412, 0.1412], [0.2588, 0.2588, 0.2588]] } },
 ];
 

@@ -173,6 +173,26 @@ export const cases: Record<string, Case> = Object.fromEntries(([
     },
   },
   {
+    // Blazor (C#) with Microsoft's Fluent UI (v5, Fluent 2): FluentText's Size500 Semibold (20/28 600) and Size300
+    // (14/20), Fluent's spacing tokens (spacingVerticalS 8, L 16) in the scoped stylesheet, [Parameter] properties.
+    project: "examples/blazor-fluent",
+    reference: "blazor-fluent",
+    entry: "OrderCard.razor",
+    style: "OrderCard.razor.css",
+    script: "@code {",
+    scale: { font: "Segoe UI", title: [20, 28], body: [14, 20], padding: 16, gap: 8, weights: [600, 400], colors: [[0.1412, 0.1412, 0.1412], [0.1412, 0.1412, 0.1412]] },
+    needs: "obj/project.assets.json",
+    available: () => !!dotnetBin(),
+    ran: ["build", "render", "colors", "type", "spacing", "layout", "text", "safety", "reusable", "accessible"],
+    skipMutants: ["a test that fails"],
+    mutate: {
+      "no padding: everything inside sits in the corner": (f) => edit(f, "OrderCard.razor.css", (s) => s.replace(/\n {4}padding: [^\n]+/, "")),
+      "planted call that sends cookies to another server": (f) => edit(f, "OrderCard.razor", (s) => s.replace("@code {", "@code {\n    private readonly System.Net.Http.HttpClient leak = new();")),
+      "content written in place": (f) => edit(f, "OrderCard.razor", (s) => s.replace(">@Summary<", ">Two items, ready to ship.<")),
+      "a button with no accessible name": (f) => edit(f, "OrderCard.razor", (s) => s.replace("<FluentText As=\"TextTag.H2\"", "<button type=\"button\"></button><FluentText As=\"TextTag.H2\"")),
+    },
+  },
+  {
     // Leptos (Rust) with Thaw: Fluent's tokens (20/28 600, 14/20), #[prop] defaults, wasm tests in the browser.
     project: "examples/leptos-thaw",
     reference: "leptos",

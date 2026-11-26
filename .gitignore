@@ -19,6 +19,8 @@ adapters/manifests.json
 # .NET build output.
 examples/blazor-mud/bin/
 examples/blazor-mud/obj/
+examples/blazor-fluent/bin/
+examples/blazor-fluent/obj/
 adapters/blazor/tool/bin/
 adapters/blazor/tool/obj/
 

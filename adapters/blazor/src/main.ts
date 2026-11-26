@@ -21,6 +21,8 @@ interface Config {
   roots?: string[];
   /** Extra rules for the model, in the design system's own terms. */
   rules?: string[];
+  /** One line of the design system's markup, shown to the model, e.g. <MudButton Variant="Variant.Filled">Save</MudButton>. */
+  example?: string;
 }
 
 const config = (p: ProjectParams) => p.config as Config;
@@ -97,21 +99,19 @@ serve({
       files: [
         { path: "{name}.razor", role: "component", description: "The component, with no required parameters; it renders the whole design. Any logic goes in an @code block in this file." },
         { path: "{name}.razor.css", role: "styles", description: "Scoped styles for the component's own layout (design-system components style themselves)." },
-        ...(process.env.TULPAR_DOTNET_RUNNER ? [{ path: "{name}Test.cs", role: "test" as const, description: "Its tests (bUnit with xUnit): public class {name}Test : BunitContext, whose constructor sets up the design system's services (Services.AddMudServices(); JSInterop.Mode = JSRuntimeMode.Loose;); each [Fact] renders it with Render<{name}>(), finds elements with cut.Find(\"[data-figma-id='…']\"), clicks with .Click(), and asserts with Assert.Equal on TextContent.Trim()." }] : []),
+        ...(process.env.TULPAR_DOTNET_RUNNER ? [{ path: "{name}Test.cs", role: "test" as const, description: `Its tests (bUnit with xUnit): public class {name}Test : BunitContext, whose constructor sets up the design system's services (${[...(c.harness?.services ?? []).map((s) => s.replace(/^builder\./, "")), "JSInterop.Mode = JSRuntimeMode.Loose;"].join(" ")}); each [Fact] renders it with Render<{name}>(), finds elements with cut.Find("[data-figma-id='…']"), clicks with .Click(), and asserts with Assert.Equal on TextContent.Trim().` }] : []),
       ],
       entry: "{name}.razor",
       rules: [
-        `Use ${pkg}'s components by their Razor tags; the namespaces are already imported, so write no @using for them. A generic component must be told its type (<MudTextField T="string">), as its markup shows.`,
+        `Use ${pkg}'s components by their Razor tags; the namespaces are already imported, so write no @using for them. A generic component must be told its type (T="string"), as its markup shows.`,
         `Put data-figma-id="<id>" on the root element and on every element or component that renders a Figma instance or text layer: ${pkg}'s components pass it through to their root element.`,
-        `Colours and type come from the theme, through the components' own parameters (Color="Color.<value>", Typo="Typo.h6") or a stylesheet token written with its value as the fallback: ${token}. No hex, rgb or px literals in {name}.razor.css or in style attributes.`,
-        `Type is the Typo you choose: never font-weight, font-size, line-height or letter-spacing in a Style attribute or in {name}.razor.css, not even unitless (font-weight: 600 is hard-coded too). When no Typo matches the design exactly, take the nearest one by size and weight.`,
+        `Colours, type and spacing come from the theme, through the components' own parameters or a stylesheet token written with its value as the fallback: ${token}. No hex, rgb or px literals in {name}.razor.css or in style attributes.`,
         `{name}.razor.css is scoped to this file's plain HTML elements: to reach inside a design-system component's markup, use ::deep from a plain parent element. Never override a design-system component's look with it; set its parameters.`,
         `Bind inputs with @bind-Value (and @bind-Checked or the parameter the component's API lists) to fields in @code, so the component stays interactive.`,
-        `The instance list gives each component's props by value: Color "Info" is written Color="Color.Info". Set the colour it gives, not Primary out of habit: Primary is only this theme's own default, which may not be the design's colour, and the pixel check compares the colours drawn.`,
-        `A Razor attribute value that is C# is written with @ where the API takes an expression (@bind-Value="email"); enums are written Enum.Value (Variant="Variant.Filled").`,
+        `A Razor attribute value that is C# is written with @ where the API takes an expression (@bind-Value="email"); enums are written Enum.Value, as the component's API names them.`,
         ...(c.rules ?? []),
       ],
-      importExample: `<MudButton Variant="Variant.Filled">Save</MudButton>`,
+      importExample: c.example ?? `<${pkg.split(".").at(-1)}Button>Save</${pkg.split(".").at(-1)}Button>`,
     };
   },
 

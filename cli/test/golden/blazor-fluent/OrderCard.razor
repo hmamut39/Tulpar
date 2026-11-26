@@ -1,0 +1,12 @@
+<section class="order-card" data-figma-id="900:1">
+    <FluentText As="TextTag.H2" Size="TextSize.Size500" Weight="TextWeight.Semibold" data-figma-id="900:2">@Title</FluentText>
+    <FluentText As="TextTag.Paragraph" Size="TextSize.Size300" data-figma-id="900:3">@Summary</FluentText>
+</section>
+
+@code {
+    /// <summary>The card's heading.</summary>
+    [Parameter] public string Title { get; set; } = "Order summary";
+
+    /// <summary>One line about the order.</summary>
+    [Parameter] public string Summary { get; set; } = "Two items, ready to ship.";
+}
