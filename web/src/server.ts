@@ -165,6 +165,8 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
   const runs = new Map<string, number[]>();
   // When each job was counted against its visitor's limits: a job that fails before the model runs is not counted.
   const jobStamps = new Map<string, { visitor: string; at: number }>();
+  // A repeated request (same design, project, options and person) → the job that answers it; see /api/jobs.
+  const repeats = new Map<string, string>();
   const today: number[] = [];
   const invites = new Map<string, string>(); // job id → which invite (a hash, never the code)
   const auth = options.auth === undefined ? authFromEnv() : (options.auth ?? undefined);
@@ -526,6 +528,18 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
           }
         }
 
+        // The same design (the plugin's frame or the screenshot's bytes), project, name, options and scale, from the
+        // same person, within the hour: their earlier job, waiting, running or passed, with no generation used (a
+        // double-click in the plugin, a run started again). Never across people; a Figma link is fetched afresh.
+        const repeat = (node || image) && !ref && !page ? createHash("sha256").update(JSON.stringify([ownerOf(code, account) ?? visitor, project.id, name, output ?? null, scale ?? null, body.figmaNode ?? null, image?.base64 ?? null])).digest("hex") : undefined;
+        const earlier = repeat ? repeats.get(repeat) : undefined;
+        const same = earlier ? queue.reusable(earlier) : undefined;
+        if (same) {
+          same.events.push({ at: Date.now(), text: "Asked for again with the same design: this result, with no generation used." });
+          log(JSON.stringify({ event: "job-reused", at: new Date().toISOString(), project: project.id, state: same.state }));
+          return json(res, 202, { id: same.id, reused: true });
+        }
+
         const at = Date.now();
         recent.push(at);
         runs.set(visitor, recent);
@@ -549,6 +563,11 @@ export function startServer(options: ServerOptions, port: number): Promise<{ url
         }
         const id = queue.add(input, { priority: !!code || (account && accounts!.allowance(accounts!.get(account.id)!).plan === "pro"), owner: ownerOf(code, account) });
         jobStamps.set(id, { visitor, at });
+        if (repeat) {
+          repeats.set(repeat, id);
+          // Forget keys whose job is gone (an hour later), so the map stays the size of the jobs kept.
+          for (const [k, j] of repeats) if (!queue.get(j)) repeats.delete(k);
+        }
         if (code) invites.set(id, createHash("sha256").update(code).digest("hex").slice(0, 8));
         if (account) {
           jobAccounts.set(id, { id: account.id, login: account.login, charged: charge });

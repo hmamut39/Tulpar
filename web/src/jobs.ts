@@ -105,6 +105,19 @@ export class JobQueue {
     return this.#jobs.get(id);
   }
 
+  /**
+   * The job to answer a repeated request with: the same one, while it is still waiting or running, or once it
+   * passed (no check failed). A failed one is never reused: another attempt can do better. It lives as long as the
+   * job, an hour, as the design it was made from does.
+   */
+  reusable(id: string): Job | undefined {
+    this.#sweep();
+    const job = this.#jobs.get(id);
+    if (!job) return undefined;
+    if (job.state === "queued" || job.state === "running") return job;
+    return job.state === "done" && (job.result?.status === "verified" || job.result?.status === "unchecked-remain") ? job : undefined;
+  }
+
   /** What the page sees. The Figma token and the image are never sent back. */
   view(job: Job) {
     return {
